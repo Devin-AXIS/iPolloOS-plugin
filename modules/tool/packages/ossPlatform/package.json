@@ -1,0 +1,19 @@
+{
+  "name": "ipolloos-tools-aliyun-oss",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "bun ../../../../scripts/build.ts"
+  },
+  "devDependencies": {
+    "@types/ali-oss": "^6.16.13",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "ali-oss": "^6.23.0",
+    "zod": "^4"
+  }
+}

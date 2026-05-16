@@ -1,0 +1,22 @@
+{
+  "name": "ipolloos-tools-alicloud-platform",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "echo build via plugins/iPolloOS-plugin: bun --cwd modules/tool build alicloudPlatform"
+  },
+  "dependencies": {
+    "@alicloud/ecs20140526": "7.7.5",
+    "@alicloud/openapi-core": "^1.0.7",
+    "@alicloud/rds20140815": "15.9.0",
+    "@alicloud/swas-open20200601": "4.0.0",
+    "@alicloud/vpc20160428": "7.2.1",
+    "zod": "^4"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

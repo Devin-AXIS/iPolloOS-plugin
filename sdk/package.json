@@ -1,0 +1,24 @@
+{
+  "name": "@ipolloos-sdk/plugin",
+  "version": "0.6.1",
+  "description": "iPolloOS-plugin sdk",
+  "main": "dist/client.js",
+  "types": "dist/client.d.ts",
+  "scripts": {
+    "build": "tsdown"
+  },
+  "keywords": [
+    "ipolloos",
+    "ipolloos-tools",
+    "sdk"
+  ],
+  "dependencies": {
+    "@fortaine/fetch-event-source": "^3.0.6",
+    "zod": "^4"
+  },
+  "author": "ipolloos",
+  "license": "MIT",
+  "devDependencies": {
+    "tsdown": "^0.20.1"
+  }
+}

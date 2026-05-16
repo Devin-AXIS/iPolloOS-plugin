@@ -1,0 +1,17 @@
+{
+  "name": "ipolloos-tools-supabase-platform",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "gen": "bun run scripts/generate-children.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "zod": "^4"
+  }
+}

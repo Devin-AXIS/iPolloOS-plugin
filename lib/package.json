@@ -1,0 +1,29 @@
+{
+  "name": "@ipolloos-plugin/packages",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "iPolloOS Plugins",
+  "dependencies": {
+    "@fastgpt-sdk/storage": "^0.6.15",
+    "@fastgpt-sdk/logger": "^0.1.1",
+    "@hono/node-server": "^1.19.9",
+    "@scalar/express-api-reference": "^0.8.7",
+    "@scalar/hono-api-reference": "^0.9.35",
+    "@t3-oss/env-core": "^0.13.10",
+    "fs-extra": "^11.3.2",
+    "hono": "^4.11.5",
+    "http-proxy-agent": "^7.0.2",
+    "https-proxy-agent": "^7.0.6",
+    "ioredis": "^5.7.0",
+    "jszip": "^3.10.1",
+    "minio": "^8.0.6",
+    "mongoose": "^8.19.2",
+    "undici": "^7.13.0",
+    "zod": "^4",
+    "zod-openapi": "^5.4.3"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "openapi3-ts": "^4.5.0"
+  }
+}
