@@ -46,11 +46,10 @@ const normalizeColor = (v: unknown) => {
 };
 const stripScriptTags = (html: string) => html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
 const publicAssetBase = () =>
-  (process.env.STORAGE_PUBLIC_BASE_URL || 'http://ipollo.metaio.cc').replace(/\/+$/, '');
+  (process.env.STORAGE_PUBLIC_BASE_URL || 'https://iPollo.metaio.cc').replace(/\/+$/, '');
 const rewritePublicAssetUrls = (html: string) => {
   const base = publicAssetBase();
   return html
-    .replace(/https?:\/\/ipollo-plugin-pages-prod\.localhost:9000/gi, base)
     .replace(/https?:\/\/(?:127\.0\.0\.1|localhost):9000\/ipolloos-public/gi, base)
     .replace(/https?:\/\/(?:127\.0\.0\.1|localhost):9000/gi, base);
 };
