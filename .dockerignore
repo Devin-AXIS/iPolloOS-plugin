@@ -1,0 +1,17 @@
+.git
+.github
+.codex
+.husky
+.vscode
+
+node_modules
+**/node_modules
+dist
+**/dist
+*.tsbuildinfo
+
+.DS_Store
+*.log
+runtime/.env.local
+.env.local
+.env.*.local
