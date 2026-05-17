@@ -7,12 +7,12 @@ import {
 
 export default defineTool({
   name: {
-    'zh-CN': '幻灯片 · 导出网页',
-    en: 'Deck · finalize HTML'
+    'zh-CN': '高级 · 幻灯片导出网页',
+    en: 'Advanced · finalize deck HTML'
   },
   description: {
     'zh-CN':
-      '在**插件进程内**把当前 `deck_state` **一次性合并**为完整单文件 HTML（含样式与翻页逻辑），直接作为工具出参返回；无需再在本地或虚拟机里执行任何合并脚本。**默认自动上传**到平台公共对象存储（与 HTML 一键整页一致），对话中可带出 `page_url`。',
+      '高级收尾工具：把当前 `deck_state` 合并为完整单文件 HTML。普通生成请优先使用「幻灯片 · 生成整套」。',
     en: 'Merges deck_state into one HTML file inside the plugin runtime. By default auto-publishes to the platform object store (same contract as html-kit) and fills page_url.'
   },
   toolDescription:

@@ -9,9 +9,9 @@ export default defineToolSet({
   },
   description: {
     'zh-CN':
-      '五套固定主题色组（花叔刊物 + 归藏四套），内置主题图标与图表配色。两个子工具：逐页添加 → 导出。智能体只选主题与内容。',
-    en: 'Five fixed theme packs with auto-themed icons and charts. Add slides, then export.'
+      '选择主题与内容提纲后，一次生成完整 HTML 幻灯片。五套固定主题内置字体、色系、图标、图表配色与排版规则；逐页添加/导出保留为高级精修能力。',
+    en: 'Generate a complete HTML deck from a theme and outline. Advanced add/finalize tools remain available for refinement.'
   },
   toolDescription:
-    '两个子工具即可：①添加一页（首次选 theme_id 五套之一，之后只填版式与内容；图标/图表颜色自动跟主题）②导出网页。勿用外部图标插件或自定义颜色。'
+    '优先使用「幻灯片 · 生成整套」：只选 theme_id 和内容提纲，插件自动拆页、套版式、统一图标/图表颜色并导出网页。仅在需要精修单页时使用高级工具「添加一页」「导出网页」。勿用外部图标插件或自定义颜色。'
 });

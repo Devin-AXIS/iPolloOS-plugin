@@ -429,21 +429,29 @@ export function buildSingleFileHtml(state: DeckState, opts: { embedMermaid: bool
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 <script>
 (function(){
+  function activeSlide(){
+    return document.querySelector('deck-stage > section.active');
+  }
   function renderCharts(){
     if (!window.echarts) return;
-    document.querySelectorAll('.hs-inline-chart').forEach(function(el){
-      if (el.__hsChart) return;
+    var root = activeSlide();
+    if (!root) return;
+    root.querySelectorAll('.hs-inline-chart').forEach(function(el){
       var raw = el.getAttribute('data-chart-option');
       if (!raw) return;
       try {
-        var option = JSON.parse(raw);
-        var chart = echarts.init(el, null, { renderer: 'svg' });
-        chart.setOption(option);
-        el.__hsChart = chart;
+        if (!el.__hsChart) {
+          var option = JSON.parse(raw);
+          var chart = echarts.init(el, null, { renderer: 'svg' });
+          chart.setOption(option);
+          el.__hsChart = chart;
+        }
+        el.__hsChart.resize();
       } catch (e) {}
     });
   }
   document.addEventListener('DOMContentLoaded', renderCharts);
+  window.addEventListener('deck-stage-change', function(){ requestAnimationFrame(renderCharts); });
   window.addEventListener('resize', function(){
     document.querySelectorAll('.hs-inline-chart').forEach(function(el){
       if (el.__hsChart) el.__hsChart.resize();
