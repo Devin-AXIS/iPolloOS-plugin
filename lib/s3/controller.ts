@@ -358,7 +358,10 @@ export class S3Service {
 
       // Check if source object exists
       try {
-        await this.client.checkObjectExists({ key: normalizedSrcName });
+        const { exists } = await this.client.checkObjectExists({ key: normalizedSrcName });
+        if (!exists) {
+          return Promise.reject(new Error(`Source object not found: ${normalizedSrcName}`));
+        }
       } catch {
         return Promise.reject(new Error(`Source object not found: ${normalizedSrcName}`));
       }

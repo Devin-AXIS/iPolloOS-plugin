@@ -19,7 +19,7 @@ export const mongoSessionRun = async <T = unknown>(fn: (session: ClientSession) 
 
     return result as T;
   } catch (error) {
-    if (!session.inTransaction()) {
+    if (session.inTransaction()) {
       await session.abortTransaction();
     } else {
       logger.warn('Uncaught mongo session error', { error });

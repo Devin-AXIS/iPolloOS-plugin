@@ -113,38 +113,40 @@ tools.openapi(confirmUploadRoute, async (c) => {
     .map((item) => item.split('/').at(-1)?.split('.').at(0))
     .filter((item): item is string => !!item);
 
-  if (!pendingToolIds.some((item) => toolIds.includes(item))) {
-    return c.json(R.error(400, 'Some toolIds are invalid'), 400);
+  const missingToolIds = toolIds.filter((toolId) => !pendingToolIds.includes(toolId));
+  if (missingToolIds.length > 0) {
+    logger.warn('[confirmUpload] Missing uploaded tool files', { missingToolIds, pendingToolIds });
+    return c.json(R.error(400, `Missing uploaded tool files: ${missingToolIds.join(', ')}`), 400);
+  }
+
+  for (const toolId of toolIds) {
+    if (!toolId) continue;
+    await publicS3Server.moveFiles(
+      `${UploadToolsS3Path}/temp/${toolId}`,
+      `${UploadToolsS3Path}/${toolId}`
+    );
+    await privateS3Server.moveFile(
+      `${UploadToolsS3Path}/temp/${toolId}.js`,
+      `${UploadToolsS3Path}/${toolId}.js`
+    );
   }
 
   await mongoSessionRun(async (session) => {
     const allToolsInstalled = (
       await MongoSystemPlugin.find({ type: pluginTypeEnum.enum.tool }).lean()
     ).map((tool) => tool.toolId);
-    await MongoSystemPlugin.create(
-      toolIds
-        .filter((toolId) => !allToolsInstalled.includes(toolId))
-        .map((toolId) => ({
-          toolId,
-          type: pluginTypeEnum.enum.tool
-        })),
-      {
+    const newTools = toolIds
+      .filter((toolId) => !allToolsInstalled.includes(toolId))
+      .map((toolId) => ({
+        toolId,
+        type: pluginTypeEnum.enum.tool
+      }));
+
+    if (newTools.length > 0) {
+      await MongoSystemPlugin.create(newTools, {
         session,
         ordered: true
-      }
-    );
-
-    for await (const toolId of toolIds) {
-      if (toolId) {
-        await publicS3Server.moveFiles(
-          `${UploadToolsS3Path}/temp/${toolId}`,
-          `${UploadToolsS3Path}/${toolId}`
-        );
-        await privateS3Server.moveFile(
-          `${UploadToolsS3Path}/temp/${toolId}.js`,
-          `${UploadToolsS3Path}/${toolId}.js`
-        );
-      }
+      });
     }
   });
 
