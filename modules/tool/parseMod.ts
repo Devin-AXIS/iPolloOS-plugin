@@ -4,8 +4,20 @@ import type { ToolSetType, ToolType } from './type';
 import { generateToolVersion, generateToolSetVersion } from './utils/tool';
 import { publicS3Server } from '@/s3';
 
-export const getIconPath = (name: string) =>
-  publicS3Server.generateExternalUrl(`${UploadToolsS3Path}/${name}`);
+const getPublicBaseUrl = () =>
+  (process.env.STORAGE_PUBLIC_BASE_URL || process.env.STORAGE_EXTERNAL_ENDPOINT || '').replace(
+    /\/+$/,
+    ''
+  );
+
+export const getIconPath = (name: string) => {
+  const objectName = `${UploadToolsS3Path}/${name}`;
+  const publicBaseUrl = getPublicBaseUrl();
+
+  return publicBaseUrl
+    ? `${publicBaseUrl}/${objectName}`
+    : publicS3Server.generateExternalUrl(objectName);
+};
 
 export const parseMod = async ({
   rootMod,
