@@ -10,7 +10,9 @@ const LogLevelSchema = z.enum(['trace', 'debug', 'info', 'warning', 'error', 'fa
 
 const runtimeEnv = {
   ...process.env,
-  IPOLLOOS_BASE_URL: process.env.IPOLLOOS_BASE_URL ?? process.env.IPOLLOOS_BASE_URL
+  IPOLLOOS_BASE_URL: process.env.IPOLLOOS_BASE_URL ?? process.env.IPOLLOOS_BASE_URL,
+  STORAGE_EXTERNAL_ENDPOINT:
+    process.env.STORAGE_EXTERNAL_ENDPOINT ?? process.env.STORAGE_PUBLIC_BASE_URL
 };
 
 export const env = createEnv({
