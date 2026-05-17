@@ -29,9 +29,12 @@ export const parseMod = async ({
 
     for (const child of children) {
       const childToolId = child.toolId;
+      const childIconPath = childToolId.startsWith(`${toolsetId}/`)
+        ? childToolId
+        : `${toolsetId}/${childToolId}`;
 
       const childIcon =
-        child.icon || rootMod.icon || getIconPath(`${temp ? 'temp/' : ''}${childToolId}/logo`);
+        child.icon || rootMod.icon || getIconPath(`${temp ? 'temp/' : ''}${childIconPath}/logo`);
 
       // Generate version for child tool
       const childVersion = generateToolVersion(child.versionList);
