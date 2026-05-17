@@ -315,10 +315,7 @@ export class S3Service {
         const relativePath = sourceObjectName.replace(normalizedSrcPath, '');
         const destinationObjectName = `${normalizedDistPath}${relativePath}`;
 
-        await this.client.copyObjectInSelfBucket({
-          sourceKey: sourceObjectName,
-          targetKey: destinationObjectName
-        });
+        await this.copyObjectWithFallback(sourceObjectName, destinationObjectName);
 
         logger.debug(`Copied: ${sourceObjectName} -> ${destinationObjectName}`);
         return { sourceObjectName, destinationObjectName };
@@ -367,10 +364,7 @@ export class S3Service {
       }
 
       // Copy object to destination
-      await this.client.copyObjectInSelfBucket({
-        targetKey: normalizedDistName,
-        sourceKey: normalizedSrcName
-      });
+      await this.copyObjectWithFallback(normalizedSrcName, normalizedDistName);
 
       logger.debug(`Copied: ${normalizedSrcName} -> ${normalizedDistName}`);
 
@@ -382,6 +376,29 @@ export class S3Service {
       const errorMsg = getErrText(error);
       logger.error(`Failed to move file from ${srcObjectName} to ${distObjectName}: ${errorMsg}`);
       return Promise.reject(error);
+    }
+  }
+
+  private async copyObjectWithFallback(sourceKey: string, targetKey: string): Promise<void> {
+    try {
+      await this.client.copyObjectInSelfBucket({
+        sourceKey,
+        targetKey
+      });
+    } catch (error) {
+      const { exists } = await this.client.checkObjectExists({ key: sourceKey });
+      if (!exists) {
+        throw error;
+      }
+
+      logger.warn(
+        `Native copy failed for ${sourceKey}; retrying with download/upload fallback: ${getErrText(error)}`
+      );
+      const { body } = await this.client.downloadObject({ key: sourceKey });
+      await this.client.uploadObject({
+        key: targetKey,
+        body
+      });
     }
   }
 }
