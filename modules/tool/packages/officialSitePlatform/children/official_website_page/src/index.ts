@@ -46,7 +46,7 @@ const normalizeColor = (v: unknown) => {
 };
 const stripScriptTags = (html: string) => html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
 const publicAssetBase = () =>
-  (process.env.STORAGE_PUBLIC_BASE_URL || 'http://ipollo.metaio.cc').replace(/\/+$/, '');
+  (process.env.STORAGE_PUBLIC_BASE_URL || 'https://ipollo.metaio.cc').replace(/\/+$/, '');
 const rewritePublicAssetUrls = (html: string) => {
   const base = publicAssetBase();
   return html

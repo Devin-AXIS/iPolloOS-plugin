@@ -30,7 +30,10 @@ export const parsePkg = async (filepath: string, temp: boolean = true) => {
     logger.error(`Can not parse toolId, filename: ${filename}`);
     return [];
   }
-  const mod = (await import(join(tempDir, 'index.js'))).default as ToolSetType | ToolType;
+  const entryPath = join(tempDir, 'index.js');
+  const entryStat = await stat(entryPath);
+  const mod = (await import(`${entryPath}?v=${entryStat.size}-${entryStat.mtimeMs}-${Date.now()}`))
+    .default as ToolSetType | ToolType;
 
   // upload unpkged files (except index.js) to s3
   // 1. get all files recursively

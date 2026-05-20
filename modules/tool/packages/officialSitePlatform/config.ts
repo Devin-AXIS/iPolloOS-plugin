@@ -13,5 +13,5 @@ export default defineToolSet({
     en: 'Dedicated official website builder for brand, product, store and project sites: mobile-first header, logo area, desktop nav, mobile drawer, language switch, CTA, footer and website templates.'
   },
   toolDescription:
-    '官网类需求优先使用 official_website_page，不要使用通用 HTML 工具。默认优先生成单页官网，保持快速交付；只有用户明确要求复杂官网、多页面、子页面、产品/案例详情页、路由或跳转时，才启用子页面模式。适合公司官网、品牌官网、产品官网、门店官网、作品集官网、活动官网。'
+    '官网类需求优先使用 official_website_page，不要使用通用 HTML 工具。只向用户收集品牌/公司信息、语言、导航和官网主题；主题内置颜色组、背景效果和风格描述，首屏、CTA、正文分区、按钮和页脚等长尾内容由工具自动补齐。默认优先生成单页官网；只有用户明确要求复杂官网、多页面、子页面、产品/案例详情页、路由或跳转时，才启用兼容的子页面模式。适合公司官网、品牌官网、产品官网、门店官网、作品集官网、活动官网。'
 });

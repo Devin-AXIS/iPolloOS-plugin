@@ -37,6 +37,21 @@ import {
 
 const tools = createOpenAPIHono().basePath('/tools');
 
+const rebuildSystemToolCache = async (logger = getLogger(mod.tool)) => {
+  await refreshVersionKey(SystemCacheKeyEnum.systemTool);
+
+  const rebuild = getCachedData(SystemCacheKeyEnum.systemTool).catch((error) => {
+    logger.warn('[tools] Rebuild system tool cache failed after mutation', { error: `${error}` });
+  });
+
+  await Promise.race([
+    rebuild,
+    new Promise((resolve) => {
+      setTimeout(resolve, 5000);
+    })
+  ]);
+};
+
 /**
  * List tools
  */
@@ -150,7 +165,7 @@ tools.openapi(confirmUploadRoute, async (c) => {
     }
   });
 
-  await refreshVersionKey(SystemCacheKeyEnum.systemTool);
+  await rebuildSystemToolCache(logger);
 
   logger.debug(`Confirmed uploaded tools: ${toolIds}`);
 
@@ -231,7 +246,7 @@ tools.openapi(installToolRoute, async (c) => {
     }
   );
 
-  await refreshVersionKey(SystemCacheKeyEnum.systemTool);
+  await rebuildSystemToolCache(logger);
   logger.info(`Success installed tools: ${toolIds}`);
 
   return c.json(R.success({ message: 'ok' }), 200);

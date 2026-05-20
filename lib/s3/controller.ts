@@ -315,6 +315,7 @@ export class S3Service {
         const relativePath = sourceObjectName.replace(normalizedSrcPath, '');
         const destinationObjectName = `${normalizedDistPath}${relativePath}`;
 
+        await this.client.deleteObject({ key: destinationObjectName }).catch(() => undefined);
         await this.copyObjectWithFallback(sourceObjectName, destinationObjectName);
 
         logger.debug(`Copied: ${sourceObjectName} -> ${destinationObjectName}`);
@@ -364,6 +365,7 @@ export class S3Service {
       }
 
       // Copy object to destination
+      await this.client.deleteObject({ key: normalizedDistName }).catch(() => undefined);
       await this.copyObjectWithFallback(normalizedSrcName, normalizedDistName);
 
       logger.debug(`Copied: ${normalizedSrcName} -> ${normalizedDistName}`);

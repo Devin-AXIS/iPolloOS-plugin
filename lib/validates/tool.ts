@@ -103,9 +103,27 @@ export const InputSchema = z.object({
     .array(
       z.object({
         label: z.string(),
-        value: z.string()
+        value: z.string(),
+        icon: z.string().optional(),
+        description: z.string().optional(),
+        alias: z.string().optional(),
+        category: z.string().optional(),
+        scenario: z.string().optional(),
+        tags: z.array(z.string()).optional()
       })
     )
+    .optional(),
+  selectorConfig: z
+    .object({
+      variant: z.enum(['gallery']).optional(),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      searchPlaceholder: z.string().optional(),
+      groupBy: z.enum(['category', 'scenario']).optional(),
+      allowAuto: z.boolean().optional(),
+      autoValue: z.string().optional(),
+      autoLabel: z.string().optional()
+    })
     .optional(),
   markList: z
     .array(

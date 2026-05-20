@@ -33,6 +33,7 @@ export type OfficialWebsiteInput = {
   footer_note?: string;
   footer_note_en?: string;
   template_style: 'clean_saas' | 'brand_editorial' | 'local_service' | 'creative_studio';
+  background_style: 'soft_blur' | 'mesh_gradient' | 'linear_gradient' | 'plain';
   color_primary: string;
   color_surface: string;
   color_text: string;
@@ -129,7 +130,23 @@ function logoMarkup(inp: OfficialWebsiteInput, brand: string): string {
   return `<span class="site-logo-mark">${escapeHtml(logoText)}</span>`;
 }
 
-function styleVars(style: OfficialWebsiteInput['template_style']) {
+function styleVars(
+  style: OfficialWebsiteInput['template_style'],
+  background: OfficialWebsiteInput['background_style']
+) {
+  const backgroundLayer = (() => {
+    switch (background) {
+      case 'plain':
+        return 'var(--surface)';
+      case 'linear_gradient':
+        return 'linear-gradient(140deg,color-mix(in srgb,var(--primary) 14%,var(--surface)),var(--surface) 42%,color-mix(in srgb,var(--text) 5%,var(--surface)))';
+      case 'mesh_gradient':
+        return 'radial-gradient(circle at 14% 16%,color-mix(in srgb,var(--primary) 30%,transparent),transparent 30%),radial-gradient(circle at 86% 10%,color-mix(in srgb,#22d3ee 24%,transparent),transparent 28%),radial-gradient(circle at 70% 82%,color-mix(in srgb,#f472b6 18%,transparent),transparent 32%),linear-gradient(140deg,color-mix(in srgb,var(--primary) 8%,var(--surface)),var(--surface) 38%,color-mix(in srgb,var(--text) 4%,var(--surface)))';
+      default:
+        return 'radial-gradient(circle at 18% 12%,color-mix(in srgb,var(--primary) 18%,transparent),transparent 28%),linear-gradient(140deg,color-mix(in srgb,var(--primary) 8%,var(--surface)),var(--surface) 34%,color-mix(in srgb,var(--text) 4%,var(--surface)))';
+    }
+  })();
+
   switch (style) {
     case 'brand_editorial':
       return {
@@ -139,7 +156,8 @@ function styleVars(style: OfficialWebsiteInput['template_style']) {
         hero: 'linear-gradient(135deg,rgba(255,255,255,.94),rgba(255,255,255,.72))',
         texture:
           'linear-gradient(120deg,rgba(255,255,255,.62),transparent 42%),radial-gradient(circle at 86% 20%,rgba(255,255,255,.48),transparent 24%)',
-        cardBg: 'rgba(255,255,255,.68)'
+        cardBg: 'rgba(255,255,255,.68)',
+        backgroundLayer
       };
     case 'local_service':
       return {
@@ -149,7 +167,8 @@ function styleVars(style: OfficialWebsiteInput['template_style']) {
         hero: 'linear-gradient(135deg,rgba(255,255,255,.96),rgba(255,255,255,.84))',
         texture:
           'linear-gradient(120deg,rgba(255,255,255,.58),transparent 36%),linear-gradient(0deg,rgba(255,255,255,.32),transparent 48%)',
-        cardBg: 'rgba(255,255,255,.78)'
+        cardBg: 'rgba(255,255,255,.78)',
+        backgroundLayer
       };
     case 'creative_studio':
       return {
@@ -159,7 +178,8 @@ function styleVars(style: OfficialWebsiteInput['template_style']) {
         hero: 'linear-gradient(135deg,rgba(255,255,255,.92),rgba(255,255,255,.7))',
         texture:
           'linear-gradient(145deg,rgba(255,255,255,.58),transparent 38%),linear-gradient(20deg,transparent,rgba(255,255,255,.46))',
-        cardBg: 'rgba(255,255,255,.64)'
+        cardBg: 'rgba(255,255,255,.64)',
+        backgroundLayer
       };
     default:
       return {
@@ -169,7 +189,8 @@ function styleVars(style: OfficialWebsiteInput['template_style']) {
         hero: 'linear-gradient(135deg,rgba(255,255,255,.96),rgba(255,255,255,.78))',
         texture:
           'linear-gradient(135deg,rgba(255,255,255,.7),transparent 38%),linear-gradient(0deg,rgba(255,255,255,.36),transparent 52%)',
-        cardBg: 'rgba(255,255,255,.72)'
+        cardBg: 'rgba(255,255,255,.72)',
+        backgroundLayer
       };
   }
 }
@@ -212,9 +233,10 @@ export function buildOfficialWebsiteHtml(inp: OfficialWebsiteInput): string {
         'About',
         'Contact'
       ]);
-  const vars = styleVars(inp.template_style);
+  const vars = styleVars(inp.template_style, inp.background_style);
   const iconLink = buildIconLink(inp);
   const heroMedia = inp.hero_media_html?.trim();
+  const defaultLang = hasEnglish && inp.lang === 'en' ? 'en' : 'zh';
 
   const navLinks = (items: NavItem[], lang: 'zh' | 'en') =>
     items
@@ -253,7 +275,7 @@ ${iconLink}
 }
 *{box-sizing:border-box;}
 html{scroll-behavior:smooth;}
-html,body{min-height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:linear-gradient(140deg,color-mix(in srgb,var(--primary) 8%,var(--surface)),var(--surface) 34%,color-mix(in srgb,var(--text) 4%,var(--surface)));color:var(--text);}
+html,body{min-height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:${vars.backgroundLayer};color:var(--text);}
 body{overflow-x:hidden;}
 img,svg,video,canvas,iframe{max-width:100%;height:auto;}
 button,input,select,textarea{font:inherit;}
@@ -404,8 +426,8 @@ p,li,h1,h2,h3{overflow-wrap:anywhere;}
     </nav>
     <div class="header-actions">
       <div class="lang-switch" aria-label="Language switch">
-        <button type="button" data-lang-btn="zh" aria-pressed="true">中文</button>
-        <button type="button" data-lang-btn="en" aria-pressed="false">EN</button>
+        <button type="button" data-lang-btn="zh" aria-pressed="${defaultLang === 'zh' ? 'true' : 'false'}">中文</button>
+        <button type="button" data-lang-btn="en" aria-pressed="${defaultLang === 'en' ? 'true' : 'false'}">EN</button>
       </div>
       ${optionalAnchor(inp.top_cta_label, inp.top_cta_href, 'site-cta', hasEnglish ? 'data-lang-inline="zh"' : '')}
       ${hasEnglish ? optionalAnchor(inp.top_cta_label_en, inp.top_cta_href, 'site-cta', 'data-lang-inline="en" hidden') : ''}
@@ -545,6 +567,7 @@ p,li,h1,h2,h3{overflow-wrap:anywhere;}
   if (mobileMenu) mobileMenu.addEventListener('click', function(event){ if (event.target && event.target.tagName === 'A') setMenu(false); });
   langButtons.forEach(function(btn){ btn.addEventListener('click', function(){ setLang(btn.getAttribute('data-lang-btn') || 'zh'); }); });
   window.addEventListener('hashchange', function(){ setRoute(currentRoute()); });
+  setLang('${defaultLang}');
   setRoute(currentRoute());
 })();
 </script>

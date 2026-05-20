@@ -5,7 +5,8 @@ import { getLogger, mod } from '@/logger';
 const logger = getLogger(mod.tool);
 import { join } from 'path';
 import { parseMod } from './parseMod';
-import { stat } from 'fs/promises';
+import { readFile } from 'fs/promises';
+import { createHash } from 'node:crypto';
 
 // Load tool or toolset and its children
 export const LoadToolsByFilename = async (filename: string): Promise<ToolType[]> => {
@@ -13,10 +14,11 @@ export const LoadToolsByFilename = async (filename: string): Promise<ToolType[]>
 
   const filePath = join(toolsDir, filename);
 
-  // Calculate file content hash for cache key
-  const fileSize = await stat(filePath).then((res) => res.size);
-  // This ensures same content reuses the same cached module
-  const modulePath = `${filePath}?v=${fileSize}`;
+  const fileBuffer = await readFile(filePath);
+  const fileHash = createHash('sha256').update(fileBuffer).digest('hex').slice(0, 16);
+  // The uploaded tool file path is stable across updates, so the ESM import query must be based
+  // on content rather than size. Same-size updates otherwise keep using Node's cached module.
+  const modulePath = `${filePath}?v=${fileHash}`;
 
   const rootMod = (await import(modulePath)).default as ToolType | ToolSetType;
 
