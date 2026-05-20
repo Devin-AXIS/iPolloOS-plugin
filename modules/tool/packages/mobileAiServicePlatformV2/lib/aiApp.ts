@@ -1,7 +1,11 @@
 import { z } from 'zod';
 
 const DEFAULT_APP_KEY = 'fastgpt-zcsl6cVKscTHsUnPw6BdRAKlkFaXe6vRkmzA9exQwymd9eSP37JVoNwGO8NSvt9V';
-const DEFAULT_APP_URL = 'http://ai.wemoai.com/api';
+const DEFAULT_APP_URL =
+  process.env.MOBILE_AI_SERVICE_AI_APP_URL ||
+  process.env.FASTGPT_BASE_URL ||
+  process.env.IPOLLOOS_BASE_URL ||
+  'http://ai.wemoai.com/api';
 
 const emptyToDefault = (value: unknown, defaultValue: string) => {
   const text = typeof value === 'string' ? value.trim() : '';
