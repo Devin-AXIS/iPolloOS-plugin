@@ -46,6 +46,7 @@ export async function initTools() {
     return systemCache.systemTool.data;
   }
   global.isIniting = true;
+  const previousToolMap = global.systemCache?.systemTool?.data;
 
   try {
     const start = Date.now();
@@ -63,7 +64,7 @@ export async function initTools() {
 
     // 2 download it to temp dir, and parse it
     await batch(
-      50,
+      8,
       toolsInMongo.map((tool) => async () => {
         try {
           const objectName = `${UploadToolsS3Path}/${tool.toolId}.js`;
@@ -121,6 +122,11 @@ export async function initTools() {
       } catch (e) {
         logger.warn(`[initTools] 未加载本地 dev 工具目录（可忽略）: ${dir}`, { err: `${e}` });
       }
+    }
+
+    if (toolMap.size === 0 && previousToolMap?.size > 0) {
+      logger.warn(`[initTools] 本次未成功加载任何工具，保留上一版缓存: ${previousToolMap.size}`);
+      return previousToolMap;
     }
 
     logger.info(`Load tools finish: ${toolMap.size}, time: ${Date.now() - start}ms`);

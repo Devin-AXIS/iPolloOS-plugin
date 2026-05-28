@@ -7,8 +7,7 @@ describe('tool fallback behavior', () => {
   });
 
   it('returns fallback html when the AI app returns empty content', async () => {
-    vi.stubGlobal(
-      'fetch',
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
       vi.fn(async () => {
         return new Response(
           JSON.stringify({
@@ -17,7 +16,7 @@ describe('tool fallback behavior', () => {
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } }
         );
-      })
+      }) as unknown as typeof fetch
     );
 
     const result = await tool({

@@ -104,6 +104,16 @@ export default defineTool({
         { valueType: WorkflowIOValueTypeEnum.string, key: 'theme_label', label: '主题名' },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'summary', label: '摘要' },
         {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'image_requests_json',
+          label: '待生成配图请求'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.number,
+          key: 'pending_image_count',
+          label: '待生成配图数'
+        },
+        {
           type: FlowNodeOutputTypeEnum.error,
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'system_error',

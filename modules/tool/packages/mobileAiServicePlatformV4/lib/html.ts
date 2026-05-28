@@ -1,4 +1,20 @@
 const HTML_FENCE_RE = /```(?:html)?\s*([\s\S]*?)```/i;
+const UPSTREAM_ERROR_PAGE_RE =
+  /\b(?:40[0-9]|50[0-9])\b[\s\S]{0,120}\b(?:gateway|time-?out|not found|forbidden|unauthorized|service unavailable|internal server error|bad gateway)\b|\b(?:gateway time-?out|bad gateway|service unavailable|internal server error)\b|<center>\s*(?:alb|nginx|openresty)\s*<\/center>/i;
+
+function isUpstreamErrorHtmlDocument(value: string): boolean {
+  const text = value.trim();
+  const title = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(text)?.[1] ?? '';
+  const h1 = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(text)?.[1] ?? '';
+  const body = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(text)?.[1] ?? text;
+  const plain = [title, h1, body]
+    .join(' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return UPSTREAM_ERROR_PAGE_RE.test(plain) || UPSTREAM_ERROR_PAGE_RE.test(text);
+}
 
 export function extractHtml(raw: string): string {
   const fenced = raw.match(HTML_FENCE_RE)?.[1]?.trim();
@@ -10,6 +26,9 @@ export function extractHtml(raw: string): string {
 
   if (!/<html[\s>]/i.test(finalHtml) || !/<\/html>/i.test(finalHtml)) {
     throw new Error('AI app output is not a complete HTML document');
+  }
+  if (isUpstreamErrorHtmlDocument(finalHtml)) {
+    throw new Error('AI app output is an upstream error page, not generated HTML');
   }
   if (!/<meta\s+name=["']viewport["']/i.test(finalHtml)) {
     throw new Error('AI app output missing mobile viewport meta');

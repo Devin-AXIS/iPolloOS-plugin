@@ -96,10 +96,83 @@ const publicAssetBase = () =>
 const rewritePublicAssetUrls = (html: string) => {
   const base = publicAssetBase();
   return html
+    .replace(/https?:\/\/ipollo-plugin-pages-prod\.oss-cn-beijing\.aliyuncs\.com/gi, base)
     .replace(/https?:\/\/(?:127\.0\.0\.1|localhost):9000\/ipolloos-public/gi, base)
     .replace(/https?:\/\/(?:127\.0\.0\.1|localhost):9000/gi, base);
 };
 const cleanHtml = (html: string) => rewritePublicAssetUrls(stripScriptTags(html));
+
+type VisualAsset = {
+  label: string;
+  url: string;
+};
+
+const IMAGE_URL_RE =
+  /https?:\/\/[^\s<>"'，。；;、)）]+?\.(?:png|jpe?g|webp|gif|avif)(?:\?[^\s<>"'，。；;、)）]*)?/gi;
+
+const cleanAssetLabel = (raw: string, fallback: string) => {
+  const label = raw
+    .replace(/^[\s|:：,，;；、。-]+|[\s|:：,，;；、。-]+$/g, '')
+    .replace(/^(?:可用视觉素材|视觉素材|图片素材|素材|配图|图片)\s*[:：]?\s*/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return label.slice(0, 40) || fallback;
+};
+
+const extractVisualAssets = (sources: Array<string | undefined>): VisualAsset[] => {
+  const seen = new Set<string>();
+  const assets: VisualAsset[] = [];
+
+  for (const source of sources) {
+    const text = rewritePublicAssetUrls(source || '');
+    for (const match of text.matchAll(IMAGE_URL_RE)) {
+      const url = sanitizeHttpUrl(match[0]);
+      if (!url || seen.has(url)) continue;
+
+      const before = text.slice(Math.max(0, match.index - 36), match.index);
+      const labelMatch = before.match(/([A-Za-z0-9\u4e00-\u9fa5 _|:-]{1,40})\s*$/);
+      seen.add(url);
+      assets.push({
+        url,
+        label: cleanAssetLabel(
+          labelMatch?.[1] || '',
+          assets.length === 0 ? '主视觉' : `视觉 ${assets.length + 1}`
+        )
+      });
+    }
+  }
+
+  return assets.slice(0, 8);
+};
+
+const stripVisualAssetReferences = (value?: string) => {
+  if (!value) return value;
+  return rewritePublicAssetUrls(value)
+    .replace(/可用视觉素材[:：][\s\S]*?(?=(?:\n|主题补充[:：]|$))/g, '')
+    .replace(IMAGE_URL_RE, '')
+    .replace(
+      /[ \t]*(?:首屏汽车图|SUV车型图|智能座舱图|首屏图|首页图|主视觉图|车型图|座舱图|配图|图片)\s*[：:]*\s*[；;，,、]*/g,
+      ' '
+    )
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
+
+const buildHeroMediaHtml = (asset: VisualAsset, brandName: string) =>
+  `<img src="${escapeHtml(asset.url)}" alt="${escapeHtml(asset.label || brandName)}"/>`;
+
+const buildVisualAssetSection = (assets: VisualAsset[], lang: 'zh' | 'en') => {
+  if (assets.length < 2) return '';
+  const cards = assets
+    .slice(1, 5)
+    .map(
+      (asset) =>
+        `<figure class="image-tile"><img src="${escapeHtml(asset.url)}" alt="${escapeHtml(asset.label)}"/></figure>`
+    )
+    .join('');
+  return `<section id="visuals" class="section"><div class="section-head"><p class="eyebrow">${lang === 'en' ? 'Visuals' : '视觉素材'}</p><h2>${lang === 'en' ? 'Brand visuals in context' : '品牌视觉素材'}</h2></div><div class="media-grid">${cards}</div></section>`;
+};
 const themePresets: Record<
   z.infer<typeof ThemeSchema>,
   {
@@ -282,6 +355,7 @@ export const InputType = z.object({
   hero_secondary_label_en: looseString(40),
   hero_secondary_href: looseString(300),
   hero_media_html: looseString(180_000),
+  visual_assets: looseString(50_000),
   main_sections_html: looseString(900_000),
   main_sections_html_en: looseString(900_000),
   sub_pages_json: looseString(900_000),
@@ -325,7 +399,18 @@ export async function tool(props: In): Promise<Out> {
     const inp = InputType.parse(props);
     const subPages = parseSubPagesJSON(inp.sub_pages_json);
     const theme = themePresets[inp.theme_id];
-    const themeProfile = [inp.company_profile, inp.theme_note ? `主题补充：${inp.theme_note}` : '']
+    const visualAssets = extractVisualAssets([
+      inp.visual_assets,
+      inp.company_profile,
+      inp.theme_note,
+      inp.hero_subtitle,
+      inp.hero_subtitle_en,
+      inp.main_sections_html,
+      inp.main_sections_html_en
+    ]);
+    const cleanCompanyProfile = stripVisualAssetReferences(inp.company_profile);
+    const cleanThemeNote = stripVisualAssetReferences(inp.theme_note);
+    const themeProfile = [cleanCompanyProfile, cleanThemeNote ? `主题补充：${cleanThemeNote}` : '']
       .filter(Boolean)
       .join('\n');
     const pageTitle = (inp.page_title || inp.brand_name || '官网').trim();
@@ -341,19 +426,20 @@ export async function tool(props: In): Promise<Out> {
       inp.hero_title_en || (bilingual ? `${brandNameEn} official site` : undefined)
     )?.trim();
     const heroSubtitle = (
-      inp.hero_subtitle ||
+      stripVisualAssetReferences(inp.hero_subtitle) ||
       themeProfile ||
       (englishOnly
         ? `${brandNameEn} presents its brand story, services, cases and contact information in one polished official site.`
         : `${brandName} 的品牌介绍、核心服务、案例亮点与联系入口已整合为一套可发布官网。`)
     ).trim();
     const heroSubtitleEn = (
-      inp.hero_subtitle_en ||
+      stripVisualAssetReferences(inp.hero_subtitle_en) ||
       (bilingual
         ? themeProfile ||
           `${brandNameEn} presents its brand story, services, cases and contact information in one polished official site.`
         : undefined)
     )?.trim();
+    const visualAssetSection = buildVisualAssetSection(visualAssets, englishOnly ? 'en' : 'zh');
     const mainSections = cleanHtml(
       (
         inp.main_sections_html ||
@@ -363,7 +449,7 @@ export async function tool(props: In): Promise<Out> {
           navItems: inp.nav_items,
           lang: englishOnly ? 'en' : 'zh'
         })
-      ).trim()
+      ).trim() + (visualAssetSection ? `\n${visualAssetSection}` : '')
     );
     const mainSectionsEn = inp.main_sections_html_en
       ? cleanHtml(inp.main_sections_html_en.trim())
@@ -414,7 +500,11 @@ export async function tool(props: In): Promise<Out> {
       hero_secondary_label_en:
         inp.hero_secondary_label_en?.trim() || (bilingual ? 'Contact us' : undefined),
       hero_secondary_href: inp.hero_secondary_href?.trim(),
-      hero_media_html: inp.hero_media_html ? cleanHtml(inp.hero_media_html.trim()) : undefined,
+      hero_media_html: inp.hero_media_html
+        ? cleanHtml(inp.hero_media_html.trim())
+        : visualAssets[0]
+          ? buildHeroMediaHtml(visualAssets[0], baseBrandName)
+          : undefined,
       main_sections_html: mainSections,
       main_sections_html_en: mainSectionsEn,
       sub_pages: subPages,

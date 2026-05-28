@@ -334,11 +334,14 @@ function renderSlide(state: DeckState, slide: SlideSpec, idx: number, total: num
 
     case 'split_image': {
       const im = slide.image;
+      const req = slide.image_request;
       const fig = im
         ? `<figure class="hs-fig">${imgBlock(im.url, im.alt, '')}${
             im.caption?.trim() ? `<figcaption>${escapeHtml(im.caption.trim())}</figcaption>` : ''
           }</figure>`
-        : '<div class="hs-fig-ph">（未提供 image_url）</div>';
+        : req
+          ? `<div class="hs-fig-ph"><strong>待生成配图</strong><span>${escapeHtml(req.role)} · ${escapeHtml(req.size ?? '1536x1024')}</span></div>`
+          : '<div class="hs-fig-ph">（未提供 image_url）</div>';
       const colTxt = `<div class="hs-split-txt">${kick}${h1}${subEn}<div class="hs-rule"></div>${bodyBullets(state, slide.bullets)}</div>`;
       const colImg = `<div class="hs-split-img">${fig}</div>`;
       const order = im?.position === 'left' ? `${colImg}${colTxt}` : `${colTxt}${colImg}`;
@@ -679,6 +682,17 @@ body { background: #0a0a0a; }
   border: 1px dashed color-mix(in srgb, var(--hs-text) 25%, transparent);
   color: var(--hs-muted);
   border-radius: 4px;
+}
+.hs-fig-ph strong {
+  display: block;
+  color: var(--hs-text);
+  font-family: var(--hs-sans);
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+.hs-fig-ph span {
+  display: block;
+  font-size: 14px;
 }
 
 .hs-quote {

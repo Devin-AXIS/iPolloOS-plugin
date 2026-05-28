@@ -1,27 +1,51 @@
 import { z } from 'zod';
 
-const DEFAULT_APP_KEY = 'fastgpt-zcsl6cVKscTHsUnPw6BdRAKlkFaXe6vRkmzA9exQwymd9eSP37JVoNwGO8NSvt9V';
+const DEFAULT_APP_KEY = process.env.MOBILE_AI_SERVICE_AI_APP_KEY || '';
 const DEFAULT_APP_URL =
   process.env.MOBILE_AI_SERVICE_AI_APP_URL ||
   process.env.FASTGPT_BASE_URL ||
   process.env.IPOLLOOS_BASE_URL ||
-  'http://ai.wemoai.com/api';
+  '';
 
 const emptyToDefault = (value: unknown, defaultValue: string) => {
   const text = typeof value === 'string' ? value.trim() : '';
+  if (/^https?:\/\/ai\.wemoai\.com(?:\/|$)/i.test(text)) return defaultValue;
   return text || defaultValue;
 };
 
-export const AiAppFields = z.object({
-  ai_app_key: z.preprocess(
-    (value) => emptyToDefault(value, DEFAULT_APP_KEY),
-    z.string().min(1).max(4096)
-  ),
-  ai_app_url: z.preprocess(
-    (value) => emptyToDefault(value, DEFAULT_APP_URL),
-    z.string().url().max(2048)
-  )
-});
+const normalizeLegacyAiAppAuth = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  const aiAppUrl = typeof record.ai_app_url === 'string' ? record.ai_app_url.trim() : '';
+  if (!/^https?:\/\/ai\.wemoai\.com(?:\/|$)/i.test(aiAppUrl)) return value;
+  return {
+    ...record,
+    ai_app_url: '',
+    ai_app_key: ''
+  };
+};
+
+export const AiAppFields = z.preprocess(
+  normalizeLegacyAiAppAuth,
+  z.object({
+    ai_app_key: z.preprocess(
+      (value) => emptyToDefault(value, DEFAULT_APP_KEY),
+      z
+        .string()
+        .min(1, '未配置移动 AI 服务上游 AI 应用 Key，请设置 MOBILE_AI_SERVICE_AI_APP_KEY')
+        .max(4096)
+    ),
+    ai_app_url: z.preprocess(
+      (value) => emptyToDefault(value, DEFAULT_APP_URL),
+      z
+        .string()
+        .url(
+          '未配置移动 AI 服务上游 AI 应用地址，请设置 MOBILE_AI_SERVICE_AI_APP_URL、FASTGPT_BASE_URL 或 IPOLLOOS_BASE_URL'
+        )
+        .max(2048)
+    )
+  })
+);
 
 export type AiAppAuth = z.infer<typeof AiAppFields>;
 

@@ -32,6 +32,7 @@ export const FileInputSchema = z
     prefix: z.string().optional(),
     keepRawFilename: z.boolean().optional(),
     contentType: z.string().optional(),
+    contentDisposition: z.string().optional(),
     expireMins: z.number().optional()
   })
   .refine(

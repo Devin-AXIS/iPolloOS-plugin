@@ -19,6 +19,14 @@ export const LayoutIdEnum = z.enum([
 ]);
 
 export const ImagePositionEnum = z.enum(['left', 'right']);
+export const ImageRoleEnum = z.enum([
+  'right_illustration',
+  'left_illustration',
+  'background_visual',
+  'product_visual',
+  'concept_visual',
+  'texture'
+]);
 export const ChartTypeEnum = z.enum([
   'line',
   'area',
@@ -89,6 +97,15 @@ export const SlideSchema = z.object({
       alt: z.string().optional(),
       caption: z.string().optional(),
       position: ImagePositionEnum.default('right')
+    })
+    .optional(),
+  image_request: z
+    .object({
+      prompt: z.string().min(1),
+      role: ImageRoleEnum.default('right_illustration'),
+      reference_urls: z.array(z.string()).optional(),
+      size: z.string().optional(),
+      style_lock: z.string().optional()
     })
     .optional(),
   mermaid: z.string().optional(),

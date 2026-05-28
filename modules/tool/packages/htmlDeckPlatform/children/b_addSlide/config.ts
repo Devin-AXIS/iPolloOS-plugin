@@ -16,7 +16,7 @@ export default defineTool({
       '高级精修工具：在已有 deck_state 上补充或重做单页。普通生成请优先使用「幻灯片 · 生成整套」。',
     en: 'Advanced refinement tool for adding one slide to an existing deck state.'
   },
-  toolDescription: `【反复调用】首次 deck_state 留空 + deck_title + theme_id（五选一，不填则由你判断：${themeGuideForAgent()}）。每页：layout_id、title、body（要点每行一条）。图表页另填 chart_data；配图填 image_url；流程图填 mermaid_code。完成后「导出网页」。图标颜色无需设置。`,
+  toolDescription: `【反复调用】首次 deck_state 留空 + deck_title + theme_id（五选一，不填则由你判断：${themeGuideForAgent()}）。每页：layout_id、title、body（要点每行一条）。图表页另填 chart_data；已有配图填 image_url；需要生成配图时填 image_prompt，本工具会输出带主题色和版式约束的 image_requests_json，随后调用图片生成/融合工具，把得到的 image_url 再用于本页或后续精修。流程图填 mermaid_code。完成后「导出网页」。图标和配图风格都跟随主题。`,
   versionList: [
     {
       value: '5.0.0',
@@ -95,7 +95,53 @@ export default defineTool({
           label: '图片 URL',
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.input],
-          toolDescription: 'split_image 必填 https'
+          toolDescription:
+            '已有图片时填写。若还没有图片，不要编造 URL，改填 image_prompt 让上游先生成主题一致的局部配图。'
+        },
+        {
+          key: 'image_prompt',
+          label: '配图生成需求',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
+          toolDescription:
+            '需要本页配图但还没有图片 URL 时填写。只描述局部图，不要要求生成整页 PPT；系统会自动追加主题色、版式和风格锁定。'
+        },
+        {
+          key: 'image_role',
+          label: '配图角色',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.select, FlowNodeInputTypeEnum.reference],
+          defaultValue: 'right_illustration',
+          list: [
+            { label: '右侧插图', value: 'right_illustration' },
+            { label: '左侧插图', value: 'left_illustration' },
+            { label: '背景主视觉', value: 'background_visual' },
+            { label: '产品视觉', value: 'product_visual' },
+            { label: '概念视觉', value: 'concept_visual' },
+            { label: '纹理/氛围图', value: 'texture' }
+          ],
+          toolDescription: '决定图片尺寸、构图和插入位置的语义角色。'
+        },
+        {
+          key: 'image_reference_urls',
+          label: '参考图 URL',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
+          toolDescription: '可选，每行一个 URL。需要图生图/多图融合时给上游图片融合工具使用。'
+        },
+        {
+          key: 'image_size',
+          label: '配图尺寸',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.select, FlowNodeInputTypeEnum.reference],
+          defaultValue: '1536x1024',
+          list: [
+            { label: '1536 × 1024（横向插图）', value: '1536x1024' },
+            { label: '2048 × 1152（16:9 主视觉）', value: '2048x1152' },
+            { label: '1024 × 1024（方图）', value: '1024x1024' },
+            { label: '1024 × 1536（竖图）', value: '1024x1536' }
+          ],
+          toolDescription: '传给图片生成工具的目标尺寸。'
         },
         {
           key: 'mermaid_code',
@@ -111,6 +157,16 @@ export default defineTool({
         { valueType: WorkflowIOValueTypeEnum.string, key: 'theme_id', label: '主题 id' },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'theme_label', label: '主题名' },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'summary', label: '摘要' },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'image_requests_json',
+          label: '待生成配图请求'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.number,
+          key: 'pending_image_count',
+          label: '待生成配图数'
+        },
         {
           type: FlowNodeOutputTypeEnum.error,
           valueType: WorkflowIOValueTypeEnum.string,

@@ -13,16 +13,16 @@ export default defineTool({
   },
   description: {
     'zh-CN':
-      '选择 html-anything 内置模板，将文本/Markdown/CSV/JSON/SQL 生成完整单文件 HTML，并默认发布到 OSS 公网域名。',
+      '选择 html-anything 内置模板，将文本/Markdown/CSV/JSON/SQL 生成完整单文件 HTML，支持网站、PPT、电子书、研究报告、白皮书，并默认发布到 OSS 公网域名。',
     en: 'Choose an html-anything template and generate a complete single-file HTML page for OSS publishing.'
   },
   toolDescription:
-    '通过 template_id 选择 html-anything 的 75 个内置模板。必填 content。默认 page_output_mode=auto_publish，插件框架会按现有 HTML 页面上传方式发布到 OSS 公网域名并写回 page_url；除非调试，不要改 raw_html。',
+    '通过 template_id 选择 html-anything 的内置模板。必填 content。支持网站、PPT、电子书、研究报告、白皮书等 HTML 页面。默认 page_output_mode=auto_publish，插件框架会按现有 HTML 页面上传方式发布到 OSS 公网域名并写回 page_url；除非调试，不要改 raw_html。',
   versionList: [
     {
-      value: '1.2.0',
+      value: '1.2.16',
       description:
-        'Generate single-file HTML with auto template routing or gallery template selection',
+        'Generate single-file HTML with strict output type routing, native slide controls reuse, unified publication mobile TOC, native print PDF export, and gallery template selection',
       inputs: [
         {
           key: 'template_id',
@@ -43,7 +43,7 @@ export default defineTool({
             autoLabel: 'AI 自动选择'
           },
           toolDescription:
-            '模板 ID。填 auto 时由 AI 根据 content、format 和 extra_requirements 自动选择；也可以手动选择 html-anything 内置模板。常用：saas-landing、prototype-web、dashboard、data-report、deck-swiss-international、card-xiaohongshu、poster-hero、video-hyperframes。'
+            '模板 ID。填 auto 时由 AI 根据 content、format 和 extra_requirements 自动选择；也可以手动选择 html-anything 内置模板。常用：saas-landing、prototype-web、dashboard、data-report、book-editorial、research-report、academic-paper、whitepaper-html、magazine-feature、deck-swiss-international、card-xiaohongshu、poster-hero、video-hyperframes。书籍/电子书选 book-editorial，行业/课题研究选 research-report，学术/课程/会议/期刊论文选 academic-paper，企业白皮书选 whitepaper-html，杂志专题选 magazine-feature。注意：Apple/OpenAI/Linear/Stripe、深色背景、毛玻璃、弥散渐变、大圆角、柔和阴影这类科技感 PPT 需求不要选 deck-swiss-international，优先用 deck-graphify-dark、deck-product-launch 或 deck-simple。'
         },
         {
           key: 'content',
@@ -129,7 +129,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'page_html',
           label: '页面 HTML',
-          description: '完整单文件 HTML。auto_publish 时会上传到 OSS 并生成 page_url。'
+          description: '完整单文件 HTML。仅 raw_html 模式返回；auto_publish 模式只返回 page_url。'
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,
@@ -140,7 +140,7 @@ export default defineTool({
         {
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'full_html',
-          label: '完整 HTML 文档（兼容字段）'
+          label: '完整 HTML 文档（兼容字段，仅 raw_html 模式返回）'
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,

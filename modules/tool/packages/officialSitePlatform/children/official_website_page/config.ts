@@ -121,6 +121,14 @@ export default defineTool({
             '可选。只写主题级补充，例如「更像苹果官网」「更年轻」「背景要霓虹弥散但整体克制」。不要在这里填写具体按钮、分区或正文。'
         },
         {
+          key: 'visual_assets',
+          label: '视觉素材 URL',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
+          toolDescription:
+            '可选。用户提供或上游生成的图片素材 URL，每行一个；也支持「首屏汽车图|https://...png」。工具会自动作为首屏图和视觉图片区渲染，不要把图片 URL 混进公司简介正文。'
+        },
+        {
           key: 'page_output_mode',
           label: '页面输出模式',
           valueType: WorkflowIOValueTypeEnum.string,

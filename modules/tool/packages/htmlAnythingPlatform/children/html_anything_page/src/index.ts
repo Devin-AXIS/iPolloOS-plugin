@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { uploadFile } from '@tool/utils/uploadFile';
 import { AiAppFields, callAiApp } from '../../../lib/aiApp';
 import { extractCompleteHtml } from '../../../lib/html';
 import {
@@ -6,10 +7,14 @@ import {
   buildGeneratePrompt,
   buildTemplateSelectionPrompt
 } from '../../../lib/prompt';
+import { injectPdfExport } from '../../../lib/pdfExport';
+import { injectSlideRuntime } from '../../../lib/slideRuntime';
 import {
   AUTO_TEMPLATE_ID,
+  coerceTemplateForRequest,
   getHtmlAnythingTemplate,
-  hasHtmlAnythingTemplate
+  hasHtmlAnythingTemplate,
+  resolveExplicitHtmlAnythingTemplate
 } from '../../../lib/templates';
 
 const emptyToUndef = (value: unknown) => {
@@ -60,6 +65,8 @@ export const OutputType = z.object({
   template_id: z.string(),
   template_name: z.string(),
   summary: z.string(),
+  page_storage_key: z.string().optional(),
+  page_storage_size: z.number().optional(),
   system_error: z.string().optional()
 });
 
@@ -91,29 +98,56 @@ function parseSelectedTemplateId(raw: string): string | undefined {
   }
 }
 
+async function publishHtmlPage(html: string, templateId: string) {
+  const { accessUrl, objectName, size } = await uploadFile({
+    buffer: Buffer.from(html),
+    defaultFilename: `html-anything-${templateId}-${Date.now()}.html`,
+    contentType: 'text/html; charset=utf-8',
+    contentDisposition: 'inline',
+    keepRawFilename: true
+  });
+
+  return {
+    page_url: accessUrl,
+    page_storage_key: objectName,
+    page_storage_size: size
+  };
+}
+
 async function resolveTemplate(input: In) {
+  const requestText = [input.content, input.extra_requirements].filter(Boolean).join('\n');
   if (input.template_id !== AUTO_TEMPLATE_ID) {
-    return getHtmlAnythingTemplate(input.template_id);
+    return coerceTemplateForRequest(
+      resolveExplicitHtmlAnythingTemplate(input.template_id, requestText),
+      requestText
+    );
   }
 
-  const raw = await callAiApp({
-    auth: input,
-    prompt: buildTemplateSelectionPrompt({
-      content: input.content,
-      format: input.format,
-      language: input.language,
-      extraRequirements: input.extra_requirements
-    }),
-    chatId: `html-anything-template-router-${Date.now()}`,
-    variables: {
-      template_mode: AUTO_TEMPLATE_ID,
-      format: input.format,
-      language: input.language,
-      content: input.content
-    }
-  });
-  const selectedId = parseSelectedTemplateId(raw);
-  return selectedId ? getHtmlAnythingTemplate(selectedId) : undefined;
+  try {
+    const raw = await callAiApp({
+      auth: input,
+      prompt: buildTemplateSelectionPrompt({
+        content: input.content,
+        format: input.format,
+        language: input.language,
+        extraRequirements: input.extra_requirements
+      }),
+      chatId: `html-anything-template-router-${Date.now()}`,
+      variables: {
+        template_mode: AUTO_TEMPLATE_ID,
+        format: input.format,
+        language: input.language,
+        content: input.content
+      }
+    });
+    const selectedId = parseSelectedTemplateId(raw);
+    return coerceTemplateForRequest(
+      selectedId ? getHtmlAnythingTemplate(selectedId) : undefined,
+      requestText
+    );
+  } catch {
+    return coerceTemplateForRequest(getHtmlAnythingTemplate('poster-hero'), requestText);
+  }
 }
 
 export async function tool(props: In): Promise<Out> {
@@ -157,15 +191,51 @@ export async function tool(props: In): Promise<Out> {
         content: input.content
       }
     });
-    const fullHtml = extractCompleteHtml(raw);
+    const generatedHtml = await (async () => {
+      try {
+        return extractCompleteHtml(raw);
+      } catch (firstError) {
+        const retryRaw = await callAiApp({
+          auth: input,
+          prompt: `${prompt}
+
+【上一次输出无效】
+${raw.slice(0, 2000)}
+
+请重新输出。必须只输出真正可运行的完整 HTML 源码，不要解释，不要复述要求，不要 Markdown 代码围栏。
+HTML 必须包含实际的 <html>、<head>...</head>、<body>...</body>、</html> 标签。`,
+          chatId: `html-anything-${template.id}-${Date.now()}-retry`,
+          variables: {
+            template_id: template.id,
+            template_name: template.zhName,
+            template_category: template.category,
+            template_scenario: template.scenario,
+            format: input.format,
+            language: input.language,
+            content: input.content,
+            previous_invalid_output: raw.slice(0, 2000),
+            previous_error: firstError instanceof Error ? firstError.message : String(firstError)
+          }
+        });
+        return extractCompleteHtml(retryRaw);
+      }
+    })();
+    const fullHtml = injectPdfExport(injectSlideRuntime(generatedHtml, template), template);
+
+    const autoPublish = input.page_output_mode === 'auto_publish';
+    const published = autoPublish ? await publishHtmlPage(fullHtml, template.id) : { page_url: '' };
 
     return {
-      page_html: fullHtml,
-      page_url: '',
-      full_html: fullHtml,
+      page_html: autoPublish ? '' : fullHtml,
+      page_url: published.page_url,
+      full_html: autoPublish ? '' : fullHtml,
       template_id: template.id,
       template_name: template.zhName,
-      summary: `已使用 ${template.zhName} (${template.id}) 生成完整单文件 HTML；默认将由插件框架发布到 OSS 公网域名并写回 page_url。`
+      page_storage_key: 'page_storage_key' in published ? published.page_storage_key : undefined,
+      page_storage_size: 'page_storage_size' in published ? published.page_storage_size : undefined,
+      summary: autoPublish
+        ? `已使用 ${template.zhName} (${template.id}) 生成完整单文件 HTML，并已通过插件能力层发布到 OSS。`
+        : `已使用 ${template.zhName} (${template.id}) 生成完整单文件 HTML。`
     };
   } catch (error: unknown) {
     return empty(error instanceof Error ? error.message : String(error));

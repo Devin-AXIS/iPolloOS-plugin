@@ -13,5 +13,5 @@ export default defineToolSet({
     en: 'Generate publishable single-file HTML from Markdown, CSV, JSON, SQL or text using 75 html-anything templates.'
   },
   toolDescription:
-    '工具 html_anything_page 通过 template_id 选择 html-anything 内置模板，直接调用上游 AI 应用生成 page_html/full_html；默认 page_output_mode=auto_publish，由插件框架使用现有 HTML 上传方式发布到 OSS 公网域名并回填 page_url。无需单独配置 AI Key。'
+    '工具 html_anything_page 通过 template_id 选择 html-anything 内置模板，直接调用上游 AI 应用生成完整单文件 HTML；默认 page_output_mode=auto_publish，由插件能力层发布到 OSS 公网域名并返回 page_url，不在输出中回传大段 HTML。只有 raw_html 模式返回 page_html/full_html。无需单独配置 AI Key。'
 });

@@ -18,4 +18,17 @@ describe('html helpers', () => {
       'viewport'
     );
   });
+
+  it('rejects upstream gateway error pages', () => {
+    expect(() =>
+      extractHtml(`<!DOCTYPE html>
+<html>
+<head><title>504 Gateway Time-out</title></head>
+<body bgcolor="white">
+<center><h1>504 Gateway Time-out</h1></center>
+<hr><center>alb</center>
+</body>
+</html>`)
+    ).toThrow('upstream error page');
+  });
 });

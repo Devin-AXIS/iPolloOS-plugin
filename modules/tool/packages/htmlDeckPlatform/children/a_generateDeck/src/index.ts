@@ -4,6 +4,7 @@ import { createDeckState } from '../../../lib/presets';
 import { stringifyDeckState } from '../../../lib/state';
 import { LayoutIdEnum, type DeckState, type SlideSpec } from '../../../lib/types';
 import { ThemeIdEnum, resolveDeckTheme } from '../../../lib/themes';
+import { collectDeckImageRequests } from '../../../lib/imageRequests';
 
 const emptyToUndef = (v: unknown) => (v === '' || v === null || v === undefined ? undefined : v);
 
@@ -30,6 +31,8 @@ export const OutputType = z.object({
   theme_id: z.string(),
   theme_label: z.string(),
   summary: z.string(),
+  image_requests_json: z.string(),
+  pending_image_count: z.number(),
   system_error: z.string().optional()
 });
 
@@ -245,6 +248,7 @@ export async function tool(props: In): Promise<Out> {
     const deck_state = stringifyDeckState(state);
     const themeId = state.meta.theme_id ?? 'huashu_editorial';
     const themeLabel = resolveDeckTheme(themeId).label;
+    const imageRequests = collectDeckImageRequests(state);
 
     return {
       page_html: html_document,
@@ -255,7 +259,9 @@ export async function tool(props: In): Promise<Out> {
       slide_count: state.slides.length,
       theme_id: themeId,
       theme_label: themeLabel,
-      summary: `已用「${themeLabel}」主题生成 ${state.slides.length} 页完整 HTML 幻灯片。page_html 是最终页面；deck_state 可用于高级单页精修。`
+      image_requests_json: JSON.stringify(imageRequests),
+      pending_image_count: imageRequests.length,
+      summary: `已用「${themeLabel}」主题生成 ${state.slides.length} 页完整 HTML 幻灯片。${imageRequests.length ? `有 ${imageRequests.length} 个待生成配图。` : ''}page_html 是最终页面；deck_state 可用于高级单页精修。`
     };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -269,6 +275,8 @@ export async function tool(props: In): Promise<Out> {
       theme_id: '',
       theme_label: '',
       summary: '',
+      image_requests_json: '[]',
+      pending_image_count: 0,
       system_error: msg
     };
   }

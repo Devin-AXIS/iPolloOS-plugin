@@ -12,6 +12,93 @@ export function hasHtmlAnythingTemplate(id: string): boolean {
   return id === AUTO_TEMPLATE_ID || Boolean(getHtmlAnythingTemplate(id));
 }
 
+const SWISS_TEMPLATE_STYLE_CONFLICT_RE =
+  /Apple|OpenAI|Linear|Stripe|硅谷|AI\s*Native|毛玻璃|玻璃拟态|glassmorphism|glass|大圆角|圆角|柔和阴影|阴影|弥散渐变|渐变|深色|暗色|dark/i;
+
+const TECH_DECK_RE = /AI|Agent|智能|模型|技术|科技|未来|基础设施|产品|战略|架构|dev|developer/i;
+const SLIDES_REQUEST_RE =
+  /PPT|幻灯片|演示文稿|演示稿|presentation|slide\s*deck|slides?|deck|keynote/i;
+const PUBLICATION_REQUEST_RE =
+  /电子书|书籍|书本|图书|book|ebook|研究报告|行业报告|白皮书|论文|学术论文|课程论文|会议论文|期刊论文|paper|whitepaper|report/i;
+const WEB_REQUEST_RE = /网站|官网|落地页|产品页|原型|网页|web\s*page|landing\s*page|prototype/i;
+
+type RequestedOutputFamily = 'slides' | 'publication' | 'web';
+
+const PUBLICATION_CATEGORIES = new Set(['book', 'research', 'publication']);
+const WEB_CATEGORIES = new Set(['prototype', 'dashboard', 'mobile']);
+
+export function getTemplateOutputFamily(
+  template: HtmlAnythingTemplate
+): RequestedOutputFamily | undefined {
+  if (template.category === 'slides') return 'slides';
+  if (PUBLICATION_CATEGORIES.has(template.category)) return 'publication';
+  if (WEB_CATEGORIES.has(template.category)) return 'web';
+  return undefined;
+}
+
+export function resolveExplicitHtmlAnythingTemplate(
+  id: string,
+  requestText = ''
+): HtmlAnythingTemplate | undefined {
+  if (id === 'deck-swiss-international' && SWISS_TEMPLATE_STYLE_CONFLICT_RE.test(requestText)) {
+    return (
+      getHtmlAnythingTemplate(
+        TECH_DECK_RE.test(requestText) ? 'deck-graphify-dark' : 'deck-product-launch'
+      ) || getHtmlAnythingTemplate('deck-simple')
+    );
+  }
+
+  return getHtmlAnythingTemplate(id);
+}
+
+export function getRequestedOutputFamily(requestText: string): RequestedOutputFamily | undefined {
+  if (SLIDES_REQUEST_RE.test(requestText)) return 'slides';
+  if (PUBLICATION_REQUEST_RE.test(requestText)) return 'publication';
+  if (WEB_REQUEST_RE.test(requestText)) return 'web';
+  return undefined;
+}
+
+export function coerceTemplateForRequest(
+  template: HtmlAnythingTemplate | undefined,
+  requestText: string
+): HtmlAnythingTemplate | undefined {
+  const family = getRequestedOutputFamily(requestText);
+  if (!template || !family) return template;
+  const templateFamily = getTemplateOutputFamily(template);
+
+  if (family === 'slides' && templateFamily !== 'slides') {
+    return (
+      getHtmlAnythingTemplate('ppt-keynote') || getHtmlAnythingTemplate('deck-simple') || template
+    );
+  }
+
+  if (family === 'publication' && templateFamily !== 'publication') {
+    if (/论文|paper|academic/i.test(requestText)) {
+      return getHtmlAnythingTemplate('academic-paper') || template;
+    }
+    if (/白皮书|whitepaper/i.test(requestText)) {
+      return getHtmlAnythingTemplate('whitepaper-html') || template;
+    }
+    if (/研究报告|行业报告|report/i.test(requestText)) {
+      return getHtmlAnythingTemplate('research-report') || template;
+    }
+    return getHtmlAnythingTemplate('book-editorial') || template;
+  }
+
+  if (family === 'web' && templateFamily !== 'web') {
+    if (/原型|prototype/i.test(requestText)) {
+      return getHtmlAnythingTemplate('prototype-web') || template;
+    }
+    return (
+      getHtmlAnythingTemplate('saas-landing') ||
+      getHtmlAnythingTemplate('prototype-web') ||
+      template
+    );
+  }
+
+  return template;
+}
+
 export function listTemplateOptions(): Array<{
   label: string;
   value: string;

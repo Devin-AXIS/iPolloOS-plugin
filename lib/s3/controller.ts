@@ -57,6 +57,11 @@ export class S3Service {
    *  Get public readable URL
    */
   generateExternalUrl(_objectName: string) {
+    const publicBaseUrl = env.STORAGE_EXTERNAL_ENDPOINT?.replace(/\/+$/, '');
+    if (publicBaseUrl) {
+      return `${publicBaseUrl}/${_objectName.replace(/^\/+/, '')}`;
+    }
+
     const { url } = this.externalClient.generatePublicGetUrl({ key: _objectName });
     return url;
   }
@@ -145,12 +150,15 @@ export class S3Service {
       const uploadTime = new Date();
 
       const contentType = inferContentType(originalFilename);
+      const contentDisposition =
+        input.contentDisposition ||
+        `${contentType.toLowerCase().startsWith('text/html') ? 'inline' : 'attachment'}; filename="${encodeURIComponent(originalFilename)}"`;
 
       await this.client.uploadObject({
         key: objectName,
         body: fileBuffer,
         contentType: contentType,
-        contentDisposition: `attachment; filename="${encodeURIComponent(originalFilename)}"`,
+        contentDisposition,
         metadata: {
           originalFilename: encodeURIComponent(originalFilename),
           uploadTime: uploadTime.toISOString()

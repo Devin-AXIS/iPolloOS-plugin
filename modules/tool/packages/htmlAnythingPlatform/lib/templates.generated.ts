@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 // Generated from nexu-io/html-anything SKILL.md templates.
 // Source project: https://github.com/nexu-io/html-anything (Apache-2.0).
 
@@ -41,6 +42,74 @@ export const HTML_ANYTHING_TEMPLATES = [
     aspectHint: '长页面',
     tags: ['blog', 'essay', 'case study', '长文'],
     body: '【模板: 博客长文 / Blog Post】\n【意图】≥ 600 字的真正的长文章, 排版以 typography 为主, 70% 文字 20% 图 10% chrome。\n【布局】\n- Masthead (publication name + date)\n- Hero (大标题 + 副标 + 作者署名 + 阅读时间)\n- 正文 (单栏 65ch, 含 figures, pull quotes, 行内引用)\n- Author bio 卡片\n- Related posts (3 张卡)\n【设计细节】\n- Pull quote 用大号 serif 斜体 + 左侧色条\n- Figures 自带 caption (italic, smaller)\n- 代码块: 圆角 + 深色 + 语言标签'
+  },
+  {
+    id: 'book-editorial',
+    zhName: '编辑级电子书',
+    enName: 'Editorial HTML Book',
+    emoji: '📚',
+    description: '最高 30 页 HTML 电子书, 含封面、版权页、目录、章节、引用、结尾',
+    category: 'book',
+    scenario: 'publication',
+    aspectHint: 'A4 / 阅读长页 / 30 页内',
+    featured: 12,
+    recommended: 4,
+    tags: ['book', 'ebook', 'publication', '书籍', '电子书', '长文', '章节'],
+    body: '【模板: 编辑级电子书 / Editorial HTML Book】\n【意图】把用户内容整理成可直接发布的 HTML 电子书, 适合方法论、知识手册、行业读本、课程讲义。打开后必须像一本电子书, 不是 PPT, 不是落地页。\n【页数规则】\n- 最多 30 页, 包含封面、版权/说明、目录、章节页、正文页、引用页、结尾页。\n- 用户未给完整章节时, 先根据内容自动规划 4-8 个章节, 但不要编造事实和数据。\n- 主体使用 `<article class="book-shell">` 包裹, 每个页面使用 `<section class="page book-page">`, 保持 A4/书页比例视觉, 长内容拆页, 不得让单页正文过长。\n【硬性阅读体验】\n- 禁止使用 slide/deck/swiper/horizontal-swipe 作为主体结构, 不要生成 PPT 式横向翻页。\n- 桌面端居中显示纸张阴影/书页留白/页眉页脚, 像电子书阅读器；移动端改为连续阅读。\n- 目录和章节导航必须是阅读器工具层, 不得直接占用书籍顶部正文空间。桌面端使用左侧固定/粘性目录栏, 宽度约 220-280px, 正文书页在右侧居中；移动端隐藏左侧目录, 只在底部安全区上方放一个目录 icon 按钮, 点击后弹出底部抽屉/全屏弹层/章节选择器, 点击章节锚点后自动收起。\n- 每页必须有页码, 每章必须有 chapter number 和 running header。\n【结构】\n- Cover: 书名 + 副标题 + 作者/机构 + 日期 + 简洁出版物标识。\n- Colophon: 适用对象、阅读说明、版本信息、免责声明。\n- TOC: 目录页作为书籍内容的一页保留, 但不要把完整目录直接铺在移动端首屏顶部；交互目录在桌面左侧栏展示, 在移动端通过底部 icon 打开抽屉, 显示章节编号、标题、摘要和页码范围。\n- Chapter Opener: 大章标题、章节导语、关键问题。\n- Body Pages: 正文、要点列表、图表占位、定义框、案例框。\n- Quote/Interlude: 重要引用或章节间隔页。\n- Closing: 核心结论、下一步行动、参考资料或附录。\n【电子书组件类别】\n- 阅读结构: chapter-opener、section-divider、toc-drawer、reader-progress、running-header、page-number、colophon-card。\n- 解释组件: glossary-box、definition-card、margin-note、footnote、annotation-strip、summary-box、key-takeaways。\n- 叙事组件: pull-quote、case-study-box、story-card、timeline、roadmap、before-after、concept-map。\n- 插图组件: figure-card、caption-block、process-map、knowledge-graph、world-map-diagram、china-map-diagram、route-map、architecture-diagram。\n- 数据组件: kpi-grid、metric-strip、ranking-bars、comparison-table、matrix-table、mini-chart、source-note。\n- 组件视觉必须像书籍插图: 纸张感、细线、低饱和 accent、清晰 caption；不要做 dashboard 卡片堆叠。\n【设计细节】\n- 版心 68-76ch, 正文 16-18px, 行高 1.75-1.9, 标题用 serif/display, 正文用 Noto Sans SC / Inter。\n- 页眉包含书名或章节名, 页脚包含页码；移动端改为连续阅读。交互控件必须悬浮在边角/底部安全区, 不遮挡正文和系统浏览器底栏, 打印时全部隐藏。\n- 使用 restrained editorial palette: paper、ink、accent 三层, 不用花哨装饰。\n- 图表若无真实数据, 只能做概念图/流程图, 标注为概念示意。\n- 输出一个自包含 HTML, 可打印, CSS 加 `@media print` 保持分页, 并隐藏目录抽屉、章节选择器、导出按钮等阅读器控件。'
+  },
+  {
+    id: 'research-report',
+    zhName: '专业研究报告',
+    enName: 'Research Report',
+    emoji: '📊',
+    description: '最高 30 页行业/课题研究报告, 含摘要、目录、方法论、图表、结论、附录',
+    category: 'research',
+    scenario: 'analysis',
+    aspectHint: 'A4 / 研究报告 / 30 页内',
+    featured: 13,
+    recommended: 5,
+    tags: ['research', 'report', 'analysis', '研究报告', '行业报告', '咨询报告', '白皮书'],
+    body: '【模板: 专业研究报告 / Research Report】\n【意图】把材料整理成企业级研究报告 HTML, 适合行业分析、趋势研究、战略洞察、竞品研究。打开后必须像专业报告阅读器, 重点是可信、清晰、结构化。\n【页数规则】\n- 最多 30 页, 主体使用 `<article class="report-shell">`, 每页使用 `<section class="page report-page">`。\n- 必须包含封面、执行摘要、目录、研究范围/方法论、正文分析、关键图表、结论建议、附录/参考；内容目录页必须位于封面之后。\n- 如果用户资料不足, 用“观察/判断/待验证”区分确定性, 不得把推测写成事实。\n【硬性阅读体验】\n- 禁止使用 slide/deck/swiper/horizontal-swipe 作为主体结构, 不要生成 PPT 式横向翻页。\n- 桌面端像咨询报告/PDF 阅读页, 有封面、目录、页眉页脚、页码、图表编号、source 行。\n- 移动端连续阅读, 隐藏桌面左侧目录, 只保留底部安全区上方的目录 icon 按钮, 点击后弹出底部抽屉/全屏章节选择器；不得把目录固定在顶部或直接铺在首屏顶部。\n【结构】\n- Cover: 报告标题、研究主题、机构/作者、日期、保密级别或版本号。\n- Executive Summary: 3-6 条核心发现 + 1 个总览图。\n- Methodology: 样本、范围、口径、限制说明。\n- Insight Chapters: 每章一个核心判断, 配证据、数据、案例、影响。\n- Charts: KPI 卡、趋势图、矩阵、象限、分层架构图；没有数据时用定性矩阵。\n- Recommendations: 行动建议按短期/中期/长期排列。\n- Appendix: 术语表、参考来源、补充数据。\n【研究报告组件类别】\n- 管理摘要: executive-summary-grid、finding-card、implication-card、recommendation-list、risk-callout。\n- 数据图表: kpi-grid、metric-strip、bar-chart、stacked-bar、line-chart、area-chart、donut-chart、ranking-bars、heatmap、data-table。\n- 分析框架: matrix-table、quadrant、pest、swot、five-forces、value-chain、market-landscape-map、competitor-map。\n- 结构图: architecture-diagram、capability-map、layered-stack、process-map、swimlane、roadmap、decision-tree、funnel。\n- 区域/产业图: world-map-diagram、china-map-diagram、region-heatmap、supply-chain-map、ecosystem-map。\n- 组件视觉必须像咨询/研究报告: 白底、细线、编号、source/note、单一强调色；不能像广告海报。\n【设计细节】\n- 咨询报告风: 白底、深墨色正文、单一强调色、细线网格、严谨页眉页脚。\n- 大量使用编号、caption、source 行；所有图表必须有标题和说明。\n- 正文严禁营销腔, 句子短, 判断明确。\n- 桌面端看起来像可翻页报告, 移动端连续阅读；支持打印。'
+  },
+  {
+    id: 'academic-paper',
+    zhName: '学术论文',
+    enName: 'Academic Paper',
+    emoji: '🎓',
+    description: '学术论文 HTML, 含摘要、关键词、引言、相关工作、方法、实验、讨论、结论、参考文献',
+    category: 'research',
+    scenario: 'academic',
+    aspectHint: 'A4 / 学术论文 / 30 页内',
+    featured: 16,
+    recommended: 6,
+    tags: ['academic', 'paper', '论文', '学术论文', '期刊', '会议论文', '参考文献'],
+    body: '【模板: 学术论文 / Academic Paper】\n【意图】把研究内容整理成学术论文风格 HTML, 适合课程论文、会议论文草稿、期刊论文草稿、研究型长文。打开后必须像可阅读/可打印的论文, 不是 PPT, 不是咨询报告。\n【页数规则】\n- 最多 30 页, 主体使用 `<article class="academic-paper-shell">`, 每页使用 `<section class="page paper-page">` 或连续论文版心。\n- 如果用户资料不足, 明确标注“待补充/待验证/示例结构”, 不得编造实验数据、引用来源、作者和 DOI。\n【硬性阅读体验】\n- 禁止使用 slide/deck/swiper/horizontal-swipe 作为主体结构, 不要生成 PPT 式横向翻页。\n- 桌面端像学术 PDF/论文阅读页, 有论文标题、作者信息、摘要、关键词、章节编号、图表编号、公式/代码块、参考文献。\n- 移动端连续阅读；隐藏左侧章节导航, 只保留底部安全区上方的目录 icon 按钮, 点击后弹出底部抽屉/全屏章节选择器, 不得压住正文或铺在首屏顶部。\n- 打印时隐藏所有阅读器控件, 保留论文页眉页脚和分页。\n【结构】\n- Title Block: 论文题目、作者、机构、邮箱/通讯作者、日期或版本。\n- Abstract: 150-300 字摘要, 简述问题、方法、结果、贡献。\n- Keywords: 3-6 个关键词。\n- Introduction: 研究背景、问题定义、贡献列表。\n- Related Work: 相关工作, 按主题分段；无真实文献时只写“待补充参考文献”。\n- Methodology: 方法、模型、数据、流程或理论框架。\n- Experiments / Analysis: 实验设置、指标、结果表格、消融或案例分析；没有真实数据时不得伪造数值。\n- Discussion: 局限性、威胁、适用范围。\n- Conclusion: 结论和未来工作。\n- References: 参考文献列表, 使用 [1] [2] 编号格式；没有来源时只放占位说明。\n【学术论文组件类别】\n- 论文结构: abstract-box、keywords-row、contribution-list、section-numbering、appendix、reference-list、footnote。\n- 研究方法: methodology-flow、algorithm-block、formula-block、code-listing、variable-table、protocol-card。\n- 实验结果: table-result、ablation-table、metric-table、line-chart、bar-chart、box-plot-style、confusion-matrix-style、error-analysis-card。\n- 学术图示: figure-card、architecture-diagram、model-diagram、pipeline-diagram、concept-map、taxonomy-tree、dependency-map。\n- 讨论组件: limitation-box、threats-to-validity、future-work-list、comparison-table。\n- 组件视觉必须像论文 Figure/Table: 黑白或单色、严谨编号、caption 在图下/表上、note/source 清楚；不得使用花哨装饰。\n【设计细节】\n- 版心 70-78ch, 正文 15-17px, 行高 1.65-1.85；标题/小标题严谨克制。\n- 中文优先 Noto Serif SC / Noto Sans SC, 英文可用 Source Serif / Georgia / Inter。\n- 图表必须有 Figure/Table 编号、caption 和 source/note。\n- 公式可用纯文本、MathJax CDN 或语义化 `<code>`/`pre>`；不要为了装饰加入无意义图形。\n- 输出自包含 HTML, 可打印, CSS 加 `@media print` 保持 A4 分页。'
+  },
+  {
+    id: 'magazine-feature',
+    zhName: '杂志专题长页',
+    enName: 'Magazine Feature',
+    emoji: '🗞️',
+    description: '杂志专题 HTML, 适合品牌故事、人物专题、行业趋势、深度报道',
+    category: 'publication',
+    scenario: 'editorial',
+    aspectHint: '长页面 / 杂志专题',
+    featured: 14,
+    tags: ['magazine', 'feature', 'editorial', '专题', '杂志', '深度报道'],
+    body: '【模板: 杂志专题长页 / Magazine Feature】\n【意图】把内容做成高级杂志专题网页, 适合品牌故事、人物访谈、行业趋势、产品叙事。打开后必须像杂志专题长文, 强调阅读节奏和视觉情绪。\n【硬性阅读体验】\n- 禁止使用 slide/deck/swiper/horizontal-swipe 作为主体结构, 不要生成 PPT 式横向翻页。\n- 主体使用 `<article class="magazine-feature">`, 以 masthead、章节锚点、正文、caption、sidebar 组织连续阅读。\n- 桌面端可以有杂志跨栏和专题封面感, 移动端必须回到单栏阅读。\n【结构】\n- Masthead: 出版物名、栏目、日期。\n- Hero Feature: 大标题、副题、导语、作者、首屏视觉区。\n- Opening Essay: 强导语 + 首字下沉 + 关键背景。\n- Feature Sections: 多个章节, 交替使用单栏正文、双栏图文、pull quote、数据插页。\n- Sidebars: 人物档案、时间线、术语解释、幕后信息。\n- Ending: 编辑结语、相关阅读、署名。\n【杂志专题组件类别】\n- 编辑叙事: masthead、hero-feature、drop-cap、pull-quote、interview-card、profile-card、editor-note。\n- 图文模块: image-spread、caption-block、figure-card、sidebar-note、fact-box、timeline、before-after。\n- 数据插页: big-number、ranking-bars、mini-chart、comparison-table、map-diagram、market-landscape-map。\n- 关系/专题: concept-map、entity-network、ecosystem-map、route-map、storyline-map。\n- 组件视觉必须像杂志专题: 强版式、留白、caption、栏目感；移动端回到单栏阅读, 不得遮挡正文。\n【设计细节】\n- 允许更强的 editorial display, 但正文必须可读。\n- 图像可以用用户提供 URL；没有图像时用 CSS 色块、编号、caption 做杂志感占位。\n- Pull quote 不超过 32 个中文字符；长句拆行。\n- 不做 PPT 横向翻页, 输出连续阅读 HTML。'
+  },
+  {
+    id: 'whitepaper-html',
+    zhName: '企业白皮书',
+    enName: 'HTML Whitepaper',
+    emoji: '📄',
+    description: '企业白皮书 HTML, 适合方案、技术架构、行业观点和产品方法论',
+    category: 'research',
+    scenario: 'business',
+    aspectHint: 'A4 / 白皮书 / 30 页内',
+    featured: 15,
+    tags: ['whitepaper', 'business', 'solution', '白皮书', '解决方案', '企业'],
+    body: '【模板: 企业白皮书 / HTML Whitepaper】\n【意图】把企业观点、解决方案、技术架构或行业方法论整理成可发布的 HTML 白皮书。打开后必须像企业白皮书阅读器, 比营销页更严肃, 比研究报告更偏方案落地。\n【页数规则】\n- 最多 30 页, 主体使用 `<article class="whitepaper-shell">`, 每页使用 `<section class="page whitepaper-page">` 拆分。\n- 建议结构: 封面、摘要、目录、背景与挑战、核心观点、解决方案、架构/流程、案例/场景、实施路径、风险治理、结论、附录；内容目录页必须位于封面之后。\n【硬性阅读体验】\n- 禁止使用 slide/deck/swiper/horizontal-swipe 作为主体结构, 不要生成 PPT 式横向翻页。\n- 桌面端像白皮书/PDF 阅读页, 有封面、目录、页眉页脚、章节编号、图表说明、附录。\n- 移动端连续阅读, 隐藏桌面左侧目录, 只保留底部安全区上方的目录 icon 按钮, 点击后弹出底部抽屉/全屏章节选择器；不得把目录固定在顶部或直接铺在首屏顶部。\n【结构】\n- Cover: 标题、版本、机构、日期。\n- Problem Framing: 行业背景、痛点、为什么现在重要。\n- Point of View: 3-5 个核心观点。\n- Solution Architecture: 分层架构图、流程图、能力地图。\n- Use Cases: 场景、用户、价值、落地步骤。\n- Roadmap: 30/60/90 天或阶段计划。\n- Governance: 风险、合规、安全、评估指标。\n【白皮书组件类别】\n- 方案框架: problem-solution-map、capability-map、architecture-diagram、layered-stack、process-map、swimlane、roadmap。\n- 业务论证: value-chain、use-case-card、persona-scenario、benefit-matrix、risk-control-matrix、governance-checklist。\n- 数据表达: kpi-grid、metric-strip、comparison-table、matrix-table、ranking-bars、line-chart、bar-chart、data-table。\n- 生态/区域: ecosystem-map、stakeholder-map、supply-chain-map、world-map-diagram、china-map-diagram、region-heatmap。\n- 技术组件: api-flow、security-model、deployment-topology、integration-map、maturity-model。\n- 组件视觉必须像企业白皮书: 克制、可信、轻量图表、清晰编号、source/note；不做营销页式大卡片。\n【设计细节】\n- 企业级克制风格: 清晰网格、轻量图表、编号系统、页眉页脚。\n- 多用框架图和表格, 少用大段堆叠文字。\n- 每章结尾给出要点总结或行动建议。\n- 输出单文件 HTML, 支持打印和移动端阅读。'
   },
   {
     id: 'card-twitter',
@@ -155,7 +224,7 @@ export const HTML_ANYTHING_TEMPLATES = [
     aspectHint: '16:9',
     featured: 28,
     tags: ['graph', 'dev tool', 'ai', 'cli'],
-    body: '【模板: Graphify Dark Graph Deck】\n【意图】AI-native / 知识图谱 / dev-tool launch deck。\n【布局】\n- Cover: #06060c→#0e1020 渐变 + 浮动 blur orbs + SVG 力导向 graph\n- Section 页: 彩虹渐变标题\n- 代码 / CLI 页: JetBrains Mono 高亮\n- Glassmorphism 卡片页'
+    body: '【模板: Graphify Dark Graph Deck】\n【意图】AI-native / 知识图谱 / dev-tool launch deck。\n【布局】\n- Cover: #06060c→#0e1020 渐变 + 浮动 blur orbs + SVG 力导向 graph\n- Section 页: 彩虹渐变标题\n- 代码 / CLI 页: JetBrains Mono 高亮\n- Glassmorphism 卡片页\n【PPT 图表/架构组件】\n- 商业图: traction-chart、market-map、competitive-matrix、growth-loop、pricing-ladder、gtm-funnel、unit-economics。\n- 架构图: ai-agent-workflow、knowledge-graph、model-pipeline、data-flow、integration-map、system-architecture、event-driven-flow。\n- 视觉规则: 深色背景 + 霓虹细线 + glowing nodes + mono labels；节点和连线必须像图谱/开发者工具, 不得使用彩色云图标。'
   },
   {
     id: 'deck-guizang-editorial',
@@ -222,7 +291,7 @@ export const HTML_ANYTHING_TEMPLATES = [
     featured: 35,
     recommended: 9,
     tags: ['canvas', 'open-slide', 'freeform', '1920', 'react'],
-    body: '【模板: 1920 画布自由 Deck】\n【意图】不想被模板束缚的场景 (个人作品集、奇特演讲、艺术 / 设计课 deck)。给一个固定 1920×1080 画布 + 极强的类型 / 调色约束, 让 agent 像写 React 组件一样按内容自由排布每一页。Inspired by 1weiho/open-slide。\n\n【硬性技术规格】\n- 画布: 每页严格 `width: 1920px; height: 1080px;` 用 `transform: scale(...)` 适配视窗 (默认 `scale(0.7)` 居中)。\n- **绝对禁止 overflow**: 每页内容必须 fit in 1920×1080, 不许滚动条出现。\n- 字号 type scale (px): `2xs:18 · xs:22 · sm:28 · md:36 · lg:48 · xl:64 · 2xl:88 · 3xl:120 · 4xl:160 · 5xl:220`。\n- 边距 padding: 96 / 128 / 160 三档之一。\n- 每页有 `<section class="slide" data-slide-id="<n>">`。\n\n【调色板 — 每个 deck 选 1 套, 全程不改】\n- 🌫 **Ash & Lime** — bg `#f1efea`, ink `#161616`, accent `#c5e803`。\n- 🌌 **Sea Indigo** — bg `#0a0e1a`, ink `#f5f5f7`, accent `#5ac8fa`。\n- 🧉 **Mate Mocha** — bg `#1a1411`, ink `#f5e9d6`, accent `#d97757`。\n- 🌸 **Pearl Rose** — bg `#fdf6f3`, ink `#1a1015`, accent `#ff5d8f`。\n\n【布局自由度 — 这是核心】\n- 不强制模板, 每页根据**内容性质**自选布局: cover / question / quote / image-text / 三列 / 五列 / 列表 / 数据卡 / 满版图。\n- 但每页**必须遵守一条规则**: 视觉重心 (visual hierarchy) 只有 1 个 — 一句金句、一个数字、一张图, 不要"什么都强调"。\n- 不许塞两段平等的文字; 真要并列就上 3 列等权重网格。\n\n【字体】\n- 西文: `Inter Tight` (display) + `Inter` (body); 或 `Source Serif Pro` (editorial 风时)。\n- 中文: `Noto Sans SC` (sans 风) 或 `Noto Serif SC` (editorial 风); 不混 sans + serif。\n- mono: `JetBrains Mono` 给数据 / 时间戳。\n\n【设计细节】\n- 严禁 emoji 装饰 (内容里的允许); 严禁多色彩虹; accent 只用一个色。\n- 严禁 SVG icon 套用 lucide / feather 等通用库 (自己写 inline SVG)。\n- 加键盘 ← / → 切换 + hash 同步; 角标固定: 右下 `№N/M`, 左下 deck title。\n- 必须用用户的真实内容; 严禁 lorem ipsum。\n- 单文件 HTML; Tailwind CDN; 不要外链图片。'
+    body: '【模板: 1920 画布自由 Deck】\n【意图】不想被模板束缚的场景 (个人作品集、奇特演讲、艺术 / 设计课 deck)。给一个固定 1920×1080 画布 + 极强的类型 / 调色约束, 让 agent 像写 React 组件一样按内容自由排布每一页。Inspired by 1weiho/open-slide。\n\n【硬性技术规格】\n- 画布: 每页严格 `width: 1920px; height: 1080px;` 用 `transform: scale(...)` 适配视窗 (默认 `scale(0.7)` 居中)。\n- **绝对禁止 overflow**: 每页内容必须 fit in 1920×1080, 不许滚动条出现。\n- 字号 type scale (px): `2xs:18 · xs:22 · sm:28 · md:36 · lg:48 · xl:64 · 2xl:88 · 3xl:120 · 4xl:160 · 5xl:220`。\n- 边距 padding: 96 / 128 / 160 三档之一。\n- 每页有 `<section class="slide" data-slide-id="<n>">`。\n\n【调色板 — 每个 deck 选 1 套, 全程不改】\n- 🌫 **Ash & Lime** — bg `#f1efea`, ink `#161616`, accent `#c5e803`。\n- 🌌 **Sea Indigo** — bg `#0a0e1a`, ink `#f5f5f7`, accent `#5ac8fa`。\n- 🧉 **Mate Mocha** — bg `#1a1411`, ink `#f5e9d6`, accent `#d97757`。\n- 🌸 **Pearl Rose** — bg `#fdf6f3`, ink `#1a1015`, accent `#ff5d8f`。\n\n【布局自由度 — 这是核心】\n- 不强制模板, 每页根据**内容性质**自选布局: cover / question / quote / image-text / 三列 / 五列 / 列表 / 数据卡 / 满版图。\n- 但每页**必须遵守一条规则**: 视觉重心 (visual hierarchy) 只有 1 个 — 一句金句、一个数字、一张图, 不要"什么都强调"。\n- 不许塞两段平等的文字; 真要并列就上 3 列等权重网格。\n\n【字体】\n- 西文: `Inter Tight` (display) + `Inter` (body); 或 `Source Serif Pro` (editorial 风时)。\n- 中文: `Noto Sans SC` (sans 风) 或 `Noto Serif SC` (editorial 风); 不混 sans + serif。\n- mono: `JetBrains Mono` 给数据 / 时间戳。\n\n【设计细节】\n- 严禁 emoji 装饰 (内容里的允许); 严禁多色彩虹; accent 只用一个色。\n- 严禁 SVG icon 套用 lucide / feather 等通用库 (自己写 inline SVG)。\n- 加键盘 ← / → 切换 + hash 同步; 角标固定: 右下 `№N/M`, 左下 deck title。\n- 必须用用户的真实内容; 严禁 lorem ipsum。\n【PPT 图表/架构组件】\n- 商业图: business-model-canvas、market-size-funnel、pricing-ladder、traction-chart、revenue-waterfall、competitive-matrix、risk-matrix。\n- 架构图: system-architecture、layered-architecture、cloud-topology、data-flow、api-sequence、deployment-topology、security-architecture。\n- 自由画布允许组合复杂图, 但每页只能有一个主图；复杂架构拆成 overview / layers / flow / deployment 多页。\n- 单文件 HTML; Tailwind CDN; 不要外链图片。'
   },
   {
     id: 'deck-pitch',
@@ -235,7 +304,7 @@ export const HTML_ANYTHING_TEMPLATES = [
     aspectHint: '16:9 ×10',
     featured: 20,
     tags: ['pitch', 'investor', 'seed', 'vc'],
-    body: '【模板: Investor Pitch Deck】\n【意图】10 页投资人 ready 的 fundraising deck。\n【布局】\n- Cover (Logo + Tagline + Round/$Ask)\n- Problem · Solution · Why Now\n- Product (截图占位)\n- Market size (TAM/SAM/SOM)\n- Traction (柱状图大数字)\n- Business model\n- Go-to-market\n- Team\n- Ask: $4.5M-style page\n- Thanks / Contact'
+    body: '【模板: Investor Pitch Deck】\n【意图】10 页投资人 ready 的 fundraising deck。\n【布局】\n- Cover (Logo + Tagline + Round/$Ask)\n- Problem · Solution · Why Now\n- Product (截图占位)\n- Market size (TAM/SAM/SOM)\n- Traction (柱状图大数字)\n- Business model\n- Go-to-market\n- Team\n- Ask: $4.5M-style page\n- Thanks / Contact\n【PPT 图表/架构组件】\n- 商业图: market-size-funnel、tam-sam-som、traction-chart、revenue-waterfall、unit-economics、gtm-funnel、competitive-matrix、funding-use-pie、milestone-roadmap。\n- 架构图: product-architecture、platform-map、data-flow、integration-map、defensibility-map。\n- 视觉规则: 投资人阅读优先, 数字必须真实或标注假设, 每页只讲一个投资判断。'
   },
   {
     id: 'deck-presenter-mode',
@@ -261,7 +330,7 @@ export const HTML_ANYTHING_TEMPLATES = [
     aspectHint: '16:9',
     featured: 21,
     tags: ['launch', 'keynote', 'product'],
-    body: '【模板: Product Launch Keynote】\n【意图】新产品发布的 Keynote 风 deck。\n【布局】\n- Cover (暗背景 + 大字主题)\n- Why we built this (问题)\n- Introducing (产品名 + 1 张 hero shot)\n- Feature cards (3-6 个)\n- Pricing tiers\n- CTA / Available now\n【设计细节】\n- accent: 暖橙→桃 渐变'
+    body: '【模板: Product Launch Keynote】\n【意图】新产品发布的 Keynote 风 deck。\n【布局】\n- Cover (暗背景 + 大字主题)\n- Why we built this (问题)\n- Introducing (产品名 + 1 张 hero shot)\n- Feature cards (3-6 个)\n- Pricing tiers\n- CTA / Available now\n【PPT 图表/架构组件】\n- 商业图: problem-solution-map、value-prop-canvas、feature-matrix、pricing-ladder、gtm-funnel、customer-journey、competitive-matrix、launch-roadmap。\n- 架构图: product-architecture、integration-map、data-flow、ai-agent-workflow、api-sequence、deployment-topology。\n- 视觉规则: 暗 hero + 亮内容页, 暖橙→桃 accent, 图表要像产品 keynote, 不要像后台 dashboard。\n【设计细节】\n- accent: 暖橙→桃 渐变'
   },
   {
     id: 'deck-replit',
@@ -298,7 +367,7 @@ export const HTML_ANYTHING_TEMPLATES = [
     scenario: 'product',
     aspectHint: '16:9',
     tags: ['deck', 'simple', 'swipe'],
-    body: '【模板: Simple Deck】\n【意图】干净通用的 horizontal-swipe deck (pitch / overview / study)。\n【布局】\n- Cover + N 个 content 页 + 收尾 (N 由【用户内容】长度决定, 完整覆盖每个要点; 短内容 6-10 起步, 长内容应更多)\n- 每页一个核心信息 + 1 张图 / 1 个图表\n- 顶部 progress bar\n【设计细节】\n- 键盘 ← / → 切换 + hash 同步'
+    body: '【模板: Simple Deck】\n【意图】干净通用的 horizontal-swipe deck (pitch / overview / study)。\n【布局】\n- Cover + N 个 content 页 + 收尾 (N 由【用户内容】长度决定, 完整覆盖每个要点; 短内容 6-10 起步, 长内容应更多)\n- 每页一个核心信息 + 1 张图 / 1 个图表\n- 顶部 progress bar\n【设计细节】\n- 键盘 ← / → 切换 + hash 同步\n【PPT 图表/架构组件】\n- 商业图: kpi-grid、market-map、competitive-matrix、roadmap、risk-matrix、comparison-table、pricing-ladder。\n- 架构图: system-architecture、layered-architecture、flowchart、data-flow、integration-map、capability-map。\n- 视觉规则: 干净通用, 少装饰, 图表用清晰网格和 1 个 accent, 不要堆卡片。'
   },
   {
     id: 'deck-swiss-international',
@@ -313,7 +382,7 @@ export const HTML_ANYTHING_TEMPLATES = [
     featured: 50,
     recommended: 2,
     tags: ['swiss', 'grid', 'international', 'ikb', 'editorial', 'facts'],
-    body: '【模板: 瑞士国际主义 Deck (Swiss International)】\n【意图】事实、产品、分析、方法论表达。极度冷静、理性、学院派, 没有任何手绘 / 噪点 / 装饰。Inspired by op7418/guizang-ppt-skill Style B。\n\n【主题】**只能从下面 4 套二选一, 不许混用、不许改 hex**:\n- 🔵 **Klein Blue (IKB)** — accent `#002FA7`, paper `#fafaf8`, ink `#0a0a0a`. 商业 / AI / 设计场景。\n- 🟡 **Lemon Yellow** — accent `#FFD500`, paper `#f7f5ee` (淡奶油), ink `#0a0a0a`. 年轻 / 零售 / 体育。文字必须用黑色 (不能白色)。\n- 🟢 **Lemon Green / Neon** — accent `#C5E803`, paper `#f7f5ee`, ink `#0a0a0a`. 可持续 / 科技初创 / Gen-Z 品牌。文字必须用黑色。\n- 🟠 **Safety Orange** — accent `#FF6B35`, paper `#f7f5ee`, ink `#0a0a0a`. 工业 / 汽车 / 紧急消息。文字用白色 + bold ≥ 600。\n\n【布局 — 22 个可复用版式池, 不许新增或改造版式; **数量由内容决定**, 把【用户内容】完整覆盖完为止 (短内容 6-10 张起步, 长内容应远超此范围, 同一版式可在不同章节重复使用)】\n- **S01 Cover** — 全屏 accent + ASCII 呼吸点阵 + 反白标题 + 元数据 chrome (date / № / topic)。\n- **S02 Vertical Timeline** — 左侧虚线轴 + 圆点; 右侧节点 = 年份 + KPI + 描述。\n- **S03 Statement** — 9.6vw 居中巨字 + 左侧大段留白 + 底部 hairline + 注释。\n- **S04 Six Cells** — 2×3 网格, 每格: icon + 编号 + 短标题 + 单行描述。\n- **S05 Three Sub-cards** — 左侧 hero 标题 + 右侧 3 张水平堆叠的灰色卡。\n- **S06 KPI Tower** — 4 列变高蓝色柱状; 柱顶 icon; 柱底大数字 + 标签。\n- **S07 H-Bar Chart** — 水平排名横条, 宽度反映数据, 末端标数字。\n- **S08 Duo Compare** — 垂直分割线; 左 Before / 右 After。\n- **S09 Closing Manifesto** — 左 IKB 块 + ASCII 点阵 + 宣言; 右白底 + 3 条要点。\n- **S10 Dot Matrix Statement** — 居中宣言 + 角落几何点矩阵 / 圆环矩阵。\n- **S11 Horizontal Timeline** — 顶部 headline, 中部 hairline 轴, 等距节点, 节点下方步骤名。\n- **S12 Manifesto + Ink Banner** — 上半 headline + 解释; 下半全宽黑色横幅 + 反白小字。\n- **S13 Three Forces Cards** — 左 ink hero 块; 右 3 张灰色卡, 每卡: 大数字 + 文本。\n- **S14 Loop Diagram** — 左编号步骤; 右 SVG 同心环; 中心 "LOOP" 标签。\n- **S15 Image Matrix + Hero Stat** — 4×3 等高卡片 (12 项) + 底部 summary 大数字 + 标签。\n- **S16 Multi-card Brief** — 3×2 微卡; 主文左上, 注脚右下, 单卡 accent 高亮。\n- **S17 System Diagram** — 左 headline + 3 段描述; 右 SVG 三同心圆 + 外部标签。\n- **S18 Why Now** — 3 列, 每列: category label + headline + 描述 + 底部数字 (最后一列 accent)。\n- **S19 Four Cards** — 顶部 accent hairline + headline + 4 张等宽卡 (元数据 / 标题 / 正文)。\n- **S20 Stacked KPI Ledger** — 垂直行 + hairline 分隔; 左大数字 / 中标签 / 右 icon。\n- **S21 Tech Spec Sheet** — 左标题块 / 中 3 个 KPI hairline / 右变高柱 / 底数据。\n- **S22 Image Hero** — 上 60% 全宽图 + 白色标题块覆盖; 下 40% 解释 + 3 列 KPI。\n\n【设计细节 — 绝对铁律】\n- **只用直角**: 全程 `border-radius: 0`。圆角 = 立刻违反。\n- **1px hairline borders**, 黑色或 accent; 严禁阴影 / 渐变 / blur。\n- **16 列网格**: `grid-template-columns: repeat(16, 1fr); gap: 0`。\n- **字体**: Inter Tight (Latin display) / Inter (body) / Noto Sans SC (中文) / JetBrains Mono (数据); 严禁衬线、严禁装饰字体。\n- **字号极端反差**: cover 用 9.6vw display, body 14-16px, label 11px uppercase letterspacing 0.08em。\n- **键盘 ← / → 切换 + hash 同步**; 角标固定: `№N/N` 右下, topic 标签左下。\n- **不许编造**: 数字必须来自用户输入, 图表柱高 = 真实数据按比例。\n- 输出单文件 HTML, 不用任何外部图片 URL; 装饰几何 (ASCII 矩阵 / 同心圆) 用纯 CSS 或内联 SVG。'
+    body: '【模板: 瑞士国际主义 Deck (Swiss International)】\n【意图】事实、产品、分析、方法论表达。极度冷静、理性、学院派, 没有任何手绘 / 噪点 / 装饰。Inspired by op7418/guizang-ppt-skill Style B。\n\n【主题】**只能从下面 4 套二选一, 不许混用、不许改 hex**:\n- 🔵 **Klein Blue (IKB)** — accent `#002FA7`, paper `#fafaf8`, ink `#0a0a0a`. 商业 / AI / 设计场景。\n- 🟡 **Lemon Yellow** — accent `#FFD500`, paper `#f7f5ee` (淡奶油), ink `#0a0a0a`. 年轻 / 零售 / 体育。文字必须用黑色 (不能白色)。\n- 🟢 **Lemon Green / Neon** — accent `#C5E803`, paper `#f7f5ee`, ink `#0a0a0a`. 可持续 / 科技初创 / Gen-Z 品牌。文字必须用黑色。\n- 🟠 **Safety Orange** — accent `#FF6B35`, paper `#f7f5ee`, ink `#0a0a0a`. 工业 / 汽车 / 紧急消息。文字用白色 + bold ≥ 600。\n\n【布局 — 22 个可复用版式池, 不许新增或改造版式; **数量由内容决定**, 把【用户内容】完整覆盖完为止 (短内容 6-10 张起步, 长内容应远超此范围, 同一版式可在不同章节重复使用)】\n- **S01 Cover** — 全屏 accent + ASCII 呼吸点阵 + 反白标题 + 元数据 chrome (date / № / topic)。\n- **S02 Vertical Timeline** — 左侧虚线轴 + 圆点; 右侧节点 = 年份 + KPI + 描述。\n- **S03 Statement** — 9.6vw 居中巨字 + 左侧大段留白 + 底部 hairline + 注释。\n- **S04 Six Cells** — 2×3 网格, 每格: icon + 编号 + 短标题 + 单行描述。\n- **S05 Three Sub-cards** — 左侧 hero 标题 + 右侧 3 张水平堆叠的灰色卡。\n- **S06 KPI Tower** — 4 列变高蓝色柱状; 柱顶 icon; 柱底大数字 + 标签。\n- **S07 H-Bar Chart** — 水平排名横条, 宽度反映数据, 末端标数字。\n- **S08 Duo Compare** — 垂直分割线; 左 Before / 右 After。\n- **S09 Closing Manifesto** — 左 IKB 块 + ASCII 点阵 + 宣言; 右白底 + 3 条要点。\n- **S10 Dot Matrix Statement** — 居中宣言 + 角落几何点矩阵 / 圆环矩阵。\n- **S11 Horizontal Timeline** — 顶部 headline, 中部 hairline 轴, 等距节点, 节点下方步骤名。\n- **S12 Manifesto + Ink Banner** — 上半 headline + 解释; 下半全宽黑色横幅 + 反白小字。\n- **S13 Three Forces Cards** — 左 ink hero 块; 右 3 张灰色卡, 每卡: 大数字 + 文本。\n- **S14 Loop Diagram** — 左编号步骤; 右 SVG 同心环; 中心 "LOOP" 标签。\n- **S15 Image Matrix + Hero Stat** — 4×3 等高卡片 (12 项) + 底部 summary 大数字 + 标签。\n- **S16 Multi-card Brief** — 3×2 微卡; 主文左上, 注脚右下, 单卡 accent 高亮。\n- **S17 System Diagram** — 左 headline + 3 段描述; 右 SVG 三同心圆 + 外部标签。\n- **S18 Why Now** — 3 列, 每列: category label + headline + 描述 + 底部数字 (最后一列 accent)。\n- **S19 Four Cards** — 顶部 accent hairline + headline + 4 张等宽卡 (元数据 / 标题 / 正文)。\n- **S20 Stacked KPI Ledger** — 垂直行 + hairline 分隔; 左大数字 / 中标签 / 右 icon。\n- **S21 Tech Spec Sheet** — 左标题块 / 中 3 个 KPI hairline / 右变高柱 / 底数据。\n- **S22 Image Hero** — 上 60% 全宽图 + 白色标题块覆盖; 下 40% 解释 + 3 列 KPI。\n\n【设计细节 — 绝对铁律】\n- **只用直角**: 全程 `border-radius: 0`。圆角 = 立刻违反。\n- **1px hairline borders**, 黑色或 accent; 严禁阴影 / 渐变 / blur。\n- **16 列网格**: `grid-template-columns: repeat(16, 1fr); gap: 0`。\n- **字体**: Inter Tight (Latin display) / Inter (body) / Noto Sans SC (中文) / JetBrains Mono (数据); 严禁衬线、严禁装饰字体。\n- **字号极端反差**: cover 用 9.6vw display, body 14-16px, label 11px uppercase letterspacing 0.08em。\n- 中文长标题必须拆成 2-3 行或降低字号；时间线节点标题最多 2 行，正文最多 3 行，任何节点不得互相压住。\n- S03 的 9.6vw 巨字只适合 8 个汉字以内；超过 8 个汉字时必须降到 5.6vw 以下并换行。\n- 背景 ASCII / 点阵 / 同心圆不得穿过正文可读区域；透明装饰只能放在角落或留白区。\n- **键盘 ← / → 切换 + hash 同步**; 角标固定: `№N/N` 右下, topic 标签左下。\n- **不许编造**: 数字必须来自用户输入, 图表柱高 = 真实数据按比例。\n- 输出单文件 HTML, 不用任何外部图片 URL; 装饰几何 (ASCII 矩阵 / 同心圆) 用纯 CSS 或内联 SVG。\n【PPT 图表/架构组件】\n- 商业图: H-Bar Chart、KPI Tower、Stacked KPI Ledger、market-size-funnel、competitive-matrix、risk-matrix、roadmap。\n- 架构图: System Diagram、layered-architecture、capability-map、value-chain、process-map、data-flow。\n- 视觉规则: 必须直角、16 列网格、1px hairline、单一 accent；禁止阴影、渐变、blur、圆角。'
   },
   {
     id: 'deck-tech-sharing',
@@ -326,7 +395,7 @@ export const HTML_ANYTHING_TEMPLATES = [
     aspectHint: '16:9',
     featured: 22,
     tags: ['tech talk', 'conference', 'engineering'],
-    body: '【模板: Tech Sharing Deck】\n【意图】工程内部分享 / 会议 talk 的 deck。\n【布局】\n- Cover (议题 + 讲者 + handle)\n- Agenda 页\n- 正文页若干 (代码块 + 关键观点)\n- Demo 页 (terminal 截图)\n- Q&A 页\n【设计细节】\n- GitHub-dark 配色 + JetBrains Mono'
+    body: '【模板: Tech Sharing Deck】\n【意图】工程内部分享 / 会议 talk 的 deck。\n【布局】\n- Cover (议题 + 讲者 + handle)\n- Agenda 页\n- 正文页若干 (代码块 + 关键观点)\n- Demo 页 (terminal 截图)\n- Q&A 页\n【设计细节】\n- GitHub-dark 配色 + JetBrains Mono\n【PPT 图表/架构组件】\n- 技术图: system-architecture、layered-architecture、cloud-topology、data-flow、api-sequence、service-mesh、event-driven-flow、deployment-topology、security-architecture。\n- 产品/商业图: feature-matrix、developer-funnel、performance-benchmark、cost-comparison、roadmap。\n- 视觉规则: GitHub-dark + mono labels + code-like annotations, 架构图用线框和端口标签, 不用彩色云 icon。'
   },
   {
     id: 'deck-xhs-pastel',
@@ -724,7 +793,7 @@ export const HTML_ANYTHING_TEMPLATES = [
     aspectHint: '16:9 (1280×720)',
     featured: 19,
     tags: ['slides', 'deck', 'presentation', '幻灯片', '演讲'],
-    body: '【模板: Keynote 风格 PPT】\n- 每张幻灯片是一个 `<section class="slide">`, 整体宽 1280 高 720, 居中显示, 背景渐变。\n- 单页内容极简: 大标题 + 1-3 行支持文字; 或一张数据图; 或一个金句。\n- 字号: 标题 `text-7xl font-semibold tracking-tight`, 副标题 `text-2xl text-neutral-500`。\n- 第一页是封面 (主题 + 演讲者 / 日期), 最后一页是 "Thanks." 或行动号召。\n- 顶部右上角小指示器: 当前页 / 总页数。\n- 加一段 JavaScript 监听 ArrowLeft / ArrowRight / 空格键切换 slide; 同时维护 hash (#/3)。\n- 每页之间用 fade-in 动画。\n- 保持留白, 数据卡片用 grid 布局对齐, 颜色克制。'
+    body: '【模板: Keynote 风格 PPT】\n- 每张幻灯片是一个 `<section class="slide">`, 整体宽 1280 高 720, 居中显示, 背景渐变。\n- 单页内容极简: 大标题 + 1-3 行支持文字; 或一张数据图; 或一个金句。\n- 字号: 标题 `text-7xl font-semibold tracking-tight`, 副标题 `text-2xl text-neutral-500`。\n- 第一页是封面 (主题 + 演讲者 / 日期), 最后一页是 "Thanks." 或行动号召。\n- 顶部右上角小指示器: 当前页 / 总页数。\n- 加一段 JavaScript 监听 ArrowLeft / ArrowRight / 空格键切换 slide; 同时维护 hash (#/3)。\n- 每页之间用 fade-in 动画。\n- 保持留白, 数据卡片用 grid 布局对齐, 颜色克制。\n【PPT 图表/架构组件】\n- 商业图: kpi-grid、market-size-funnel、traction-chart、business-model-canvas、customer-journey、competitive-matrix、roadmap、pricing-ladder。\n- 架构图: product-architecture、system-architecture、data-flow、ai-agent-workflow、integration-map、deployment-topology。\n- 视觉规则: Apple/Keynote 感, 大留白、柔和层次、少量 accent；图表必须像 keynote 主视觉, 不要像表格报表。'
   },
   {
     id: 'pricing-page',

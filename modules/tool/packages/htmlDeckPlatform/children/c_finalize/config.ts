@@ -77,6 +77,16 @@ export default defineTool({
         { valueType: WorkflowIOValueTypeEnum.number, key: 'slide_count', label: '总页数' },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'summary', label: '摘要' },
         {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'image_requests_json',
+          label: '待生成配图请求'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.number,
+          key: 'pending_image_count',
+          label: '待生成配图数'
+        },
+        {
           type: FlowNodeOutputTypeEnum.error,
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'system_error',
