@@ -52,6 +52,22 @@ describe('html_anything_page tool', () => {
     expect(result.full_html).toContain('html-anything-publication-toc-script');
   });
 
+  it('rejects mixed slide template with non-slide long page html', async () => {
+    const { tool } = await import('../children/html_anything_page/src');
+    const result = await tool({
+      template_id: 'ppt-keynote',
+      content:
+        '<!DOCTYPE html><html><head><title>Report</title></head><body><main class="magazine-feature"><h1>AI Report</h1><section><h2>趋势</h2><p>长篇报告内容</p></section></main></body></html>',
+      page_output_mode: 'raw_html'
+    });
+
+    expect(result.system_error).toContain('不同交付类别不能混用');
+    expect(result.system_error).toContain('ppt-keynote');
+    expect(result.system_error).toContain('research-report');
+    expect(result.page_url).toBe('');
+    expect(result.full_html).toBe('');
+  });
+
   it('asks upstream AI brain to regenerate when content is not complete HTML', async () => {
     const { tool } = await import('../children/html_anything_page/src');
     const result = await tool({

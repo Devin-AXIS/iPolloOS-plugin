@@ -8,6 +8,7 @@ import {
   AUTO_TEMPLATE_ID,
   coerceTemplateForRequest,
   getHtmlAnythingTemplate,
+  getTemplateOutputFamily,
   hasHtmlAnythingTemplate,
   inferTemplateFromGeneratedHtml,
   resolveExplicitHtmlAnythingTemplate
@@ -114,6 +115,44 @@ function resolveTemplate(input: In) {
   return coerceTemplateForRequest(getHtmlAnythingTemplate('poster-hero'), requestText);
 }
 
+function hasRealSlideStructure(html: string): boolean {
+  const text = html.slice(0, 300_000);
+  return (
+    /<section\b[^>]*class=["'][^"']*\bslide\b/i.test(text) ||
+    /<[^>]+\bdata-slide-controls\b/i.test(text) ||
+    /<[^>]+\bdata-slide-next\b/i.test(text) ||
+    /<[^>]+\bdata-slide-prev\b/i.test(text)
+  );
+}
+
+function validateTemplateFamily(
+  input: In,
+  html: string,
+  template: NonNullable<ReturnType<typeof resolveTemplate>>
+) {
+  const family = getTemplateOutputFamily(template);
+
+  if (input.template_id !== AUTO_TEMPLATE_ID) {
+    const explicitTemplate = resolveExplicitHtmlAnythingTemplate(input.template_id);
+    const explicitFamily = explicitTemplate ? getTemplateOutputFamily(explicitTemplate) : undefined;
+    if (explicitFamily && family && explicitFamily !== family) {
+      return [
+        `模板选择是 ${explicitTemplate?.zhName} (${input.template_id})，但内容被判断成 ${template.zhName} (${template.id})。`,
+        '不同交付类别不能混用：PPT/幻灯片、电子书、研究报告、白皮书、论文、网页必须各走各的模板和结构。',
+        '请上游 AI 大脑按用户真正需要的类别重新选择模板并生成对应结构的完整 HTML。'
+      ].join('');
+    }
+  }
+
+  if (family === 'slides' && !hasRealSlideStructure(html)) {
+    return [
+      `模板类别是幻灯片 (${template.id})，但上游 AI 生成的 HTML 不是幻灯片结构。`,
+      'slides/PPT/deck 必须由多个 <section class="slide"> 页面组成，不能生成电子书、报告、杂志长页或普通网页后再套幻灯片模板。',
+      '请上游 AI 大脑按当前幻灯片模板重新生成完整 HTML 后再调用插件。'
+    ].join('');
+  }
+}
+
 export async function tool(props: In): Promise<Out> {
   try {
     const input = InputType.parse(props);
@@ -123,6 +162,11 @@ export async function tool(props: In): Promise<Out> {
     }
 
     const generatedHtml = extractCompleteHtml(input.content);
+    const familyError = validateTemplateFamily(input, generatedHtml, template);
+    if (familyError) {
+      return empty(familyError);
+    }
+
     const fullHtml = injectPdfExport(
       injectPublicationToc(injectSlideRuntime(generatedHtml, template), template),
       template
