@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { uploadFile } from '@tool/utils/uploadFile';
 import { extractCompleteHtml } from '../../../lib/html';
 import { injectPdfExport } from '../../../lib/pdfExport';
+import { injectPublicationToc } from '../../../lib/publicationToc';
 import { injectSlideRuntime } from '../../../lib/slideRuntime';
 import {
   AUTO_TEMPLATE_ID,
@@ -116,7 +117,10 @@ export async function tool(props: In): Promise<Out> {
     }
 
     const generatedHtml = extractCompleteHtml(input.content);
-    const fullHtml = injectPdfExport(injectSlideRuntime(generatedHtml, template), template);
+    const fullHtml = injectPdfExport(
+      injectPublicationToc(injectSlideRuntime(generatedHtml, template), template),
+      template
+    );
 
     const autoPublish = input.page_output_mode === 'auto_publish';
     const published = autoPublish ? await publishHtmlPage(fullHtml, template.id) : { page_url: '' };

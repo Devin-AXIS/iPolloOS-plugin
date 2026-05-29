@@ -25,6 +25,20 @@ describe('html_anything_page tool', () => {
     expect(result.summary).toContain('上游 AI 大脑');
   });
 
+  it('keeps publication reader toc mechanism when upstream html omits it', async () => {
+    const { tool } = await import('../children/html_anything_page/src');
+    const result = await tool({
+      template_id: 'book-editorial',
+      content:
+        '<!DOCTYPE html><html><head><title>Book</title></head><body><article><h1>第一章</h1><h2>方法</h2><h2>结论</h2></article></body></html>',
+      page_output_mode: 'raw_html'
+    });
+
+    expect(result.template_id).toBe('book-editorial');
+    expect(result.full_html).toContain('html-anything-publication-toc-script');
+    expect(result.full_html).toContain('html-anything-pdf-export-script');
+  });
+
   it('asks upstream AI brain to regenerate when content is not complete HTML', async () => {
     const { tool } = await import('../children/html_anything_page/src');
     const result = await tool({
