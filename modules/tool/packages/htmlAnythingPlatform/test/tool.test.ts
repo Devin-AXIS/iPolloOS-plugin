@@ -68,6 +68,21 @@ describe('html_anything_page tool', () => {
     expect(result.full_html).toBe('');
   });
 
+  it('rejects publication templates that contain fixed poster html', async () => {
+    const { tool } = await import('../children/html_anything_page/src');
+    const result = await tool({
+      template_id: 'academic-paper',
+      content:
+        '<!DOCTYPE html><html><head><style>html,body{margin:0;height:100%;overflow:hidden}.viewport{height:100vh;overflow:hidden}.poster{aspect-ratio:16/9}</style></head><body><div class="viewport"><section class="poster"><h1>AI Brief</h1><p>No Scroll</p></section></div></body></html>',
+      page_output_mode: 'raw_html'
+    });
+
+    expect(result.system_error).toContain('模板类别是出版物');
+    expect(result.system_error).toContain('不能生成固定 16:9 海报');
+    expect(result.page_url).toBe('');
+    expect(result.full_html).toBe('');
+  });
+
   it('asks upstream AI brain to regenerate when content is not complete HTML', async () => {
     const { tool } = await import('../children/html_anything_page/src');
     const result = await tool({

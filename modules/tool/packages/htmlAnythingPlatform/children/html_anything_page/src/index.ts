@@ -125,6 +125,28 @@ function hasRealSlideStructure(html: string): boolean {
   );
 }
 
+function hasPublicationStructure(html: string): boolean {
+  const text = html.slice(0, 300_000);
+  const headingCount = (text.match(/<h[1-3]\b/gi) || []).length;
+  const hasDocumentShell =
+    /<(article|main)\b/i.test(text) ||
+    /\b(academic-paper-shell|paper-page|book-shell|report-shell|whitepaper-shell|publication)\b/i.test(
+      text
+    );
+  const hasLockedViewport =
+    /html\s*,\s*body\s*\{[^}]*overflow\s*:\s*hidden/i.test(text) ||
+    /html\s*,\s*body\s*\{[^}]*height\s*:\s*100%[^}]*overflow\s*:\s*hidden/i.test(text) ||
+    /\b(viewport|poster|cover-card)\b[^{}]*\{[^}]*height\s*:\s*100vh[^}]*overflow\s*:\s*hidden/i.test(
+      text
+    );
+  const looksLikeSinglePoster =
+    /\b(class|id)=["'][^"']*(poster|cover-card|magazine-cover|single-screen|no-scroll|viewport)/i.test(
+      text
+    ) || /No Scroll|不可滑动|0<\/b>\s*<span>\s*scroll required/i.test(text);
+
+  return hasDocumentShell && headingCount >= 2 && !hasLockedViewport && !looksLikeSinglePoster;
+}
+
 function validateTemplateFamily(
   input: In,
   html: string,
@@ -149,6 +171,15 @@ function validateTemplateFamily(
       `模板类别是幻灯片 (${template.id})，但上游 AI 生成的 HTML 不是幻灯片结构。`,
       'slides/PPT/deck 必须由多个 <section class="slide"> 页面组成，不能生成电子书、报告、杂志长页或普通网页后再套幻灯片模板。',
       '请上游 AI 大脑按当前幻灯片模板重新生成完整 HTML 后再调用插件。'
+    ].join('');
+  }
+
+  if (family === 'publication' && !hasPublicationStructure(html)) {
+    return [
+      `模板类别是出版物/论文/报告 (${template.id})，但上游 AI 生成的 HTML 不是可阅读的出版物结构。`,
+      'publication/book/research/academic-paper 必须是可上下滚动的 article/main 长文结构，包含章节标题、正文、目录/引用等内容。',
+      '不能生成固定 16:9 海报、单屏卡片、封面页、poster/viewport/no-scroll 结构，也不能锁定 html/body overflow:hidden。',
+      '请上游 AI 大脑按当前出版物模板重新生成完整 HTML 后再调用插件。'
     ].join('');
   }
 }
