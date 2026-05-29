@@ -11,16 +11,15 @@ export default defineTool({
     en: 'HyperFrames · create video project'
   },
   description: {
-    'zh-CN':
-      '让 AI 根据需求、HTML 页面或视频素材生成 HyperFrames composition/manifest，负责剪辑决策、字幕、配音、转场和 H5 叠加编排。',
-    en: 'Generate a HyperFrames composition/manifest from a brief, HTML page, or source video.'
+    'zh-CN': '校验上游 AI 大脑生成的 HyperFrames composition/manifest，用于后续视频渲染。',
+    en: 'Validate an upstream-AI-authored HyperFrames composition/manifest for rendering.'
   },
   toolDescription:
-    '视频创作节点。AI 在这里决定怎么剪辑、怎么配音、怎么转场、怎么加字幕、怎么叠加 H5，并输出 composition_html / manifest_json。渲染请交给「HyperFrames · 视频渲染」。',
+    '视频工程节点。上游 AI 大脑应先决定剪辑、配音、转场、字幕、H5 叠加，并生成完整 composition_html / manifest_json，再调用本工具。本工具不调用 AI，只校验和规范化输出。渲染请交给「HyperFrames · 视频渲染」。',
   versionList: [
     {
       value: '0.1.0',
-      description: 'Generate HyperFrames composition and render manifest',
+      description: 'Validate upstream AI generated HyperFrames composition and render manifest',
       inputs: [
         {
           key: 'brief',
@@ -29,7 +28,31 @@ export default defineTool({
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
           required: true,
           toolDescription:
-            '描述你想要的视频结果，例如把 PPT 做成 60 秒解说视频、给视频加字幕和 H5 标注、做产品片头等。'
+            '视频需求摘要，用于追踪和默认 manifest；真正的视频工程内容必须由上游 AI 大脑放入 composition_html / manifest_json。'
+        },
+        {
+          key: 'composition_html',
+          label: 'HyperFrames 完整 HTML',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
+          required: true,
+          toolDescription:
+            '上游 AI 大脑生成的完整 HyperFrames 单文件 HTML。必须包含 <html>...</html>，不要传原始需求或 Markdown。'
+        },
+        {
+          key: 'manifest_json',
+          label: '视频工程 Manifest',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
+          toolDescription:
+            '上游 AI 大脑生成的视频工程 JSON，包含视频类型、画幅、时长、来源素材、字幕、配音、转场等渲染信息。'
+        },
+        {
+          key: 'render_profile',
+          label: '渲染配置',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.input],
+          toolDescription: '可选。上游 AI 大脑指定的渲染 profile；留空使用 hyperframes。'
         },
         {
           key: 'mode',

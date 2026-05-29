@@ -8,7 +8,7 @@ describe('html helpers', () => {
   });
 
   it('rejects incomplete html', () => {
-    expect(() => extractCompleteHtml('<div>nope</div>')).toThrow('complete HTML');
+    expect(() => extractCompleteHtml('<div>nope</div>')).toThrow('完整 HTML');
   });
 
   it('rejects textual instructions that only mention html tags', () => {
@@ -16,7 +16,7 @@ describe('html helpers', () => {
       extractCompleteHtml(
         '<!DOCTYPE html> 开头，包含 <html>、<head>、<meta name="viewport">、<style> 或必要 CDN、<body>，并以 </html>'
       )
-    ).toThrow('complete <html>');
+    ).toThrow('完整 <html>');
   });
 
   it('rejects upstream gateway error pages', () => {
@@ -29,6 +29,6 @@ describe('html helpers', () => {
 <hr><center>alb</center>
 </body>
 </html>`)
-    ).toThrow('upstream error page');
+    ).toThrow('上游错误页');
   });
 });

@@ -9,7 +9,7 @@ vi.mock('@tool/utils/uploadFile', () => ({
 }));
 
 describe('html_anything_page tool', () => {
-  it('publishes LangGraph-generated HTML without ai_app_key', async () => {
+  it('publishes upstream-AI-generated HTML without ai_app_key', async () => {
     const { tool } = await import('../children/html_anything_page/src');
     const result = await tool({
       template_id: 'saas-landing',
@@ -22,10 +22,10 @@ describe('html_anything_page tool', () => {
     expect(result.template_id).toBe('saas-landing');
     expect(result.full_html).toContain('<html>');
     expect(result.full_html).toContain('Test');
-    expect(result.summary).toContain('LangGraph');
+    expect(result.summary).toContain('上游 AI 大脑');
   });
 
-  it('asks LangGraph to regenerate when content is not complete HTML', async () => {
+  it('asks upstream AI brain to regenerate when content is not complete HTML', async () => {
     const { tool } = await import('../children/html_anything_page/src');
     const result = await tool({
       template_id: 'auto',
@@ -33,7 +33,7 @@ describe('html_anything_page tool', () => {
       page_output_mode: 'raw_html'
     });
 
-    expect(result.system_error).toContain('complete HTML');
+    expect(result.system_error).toContain('完整 HTML');
     expect(result.page_url).toBe('');
   });
 });

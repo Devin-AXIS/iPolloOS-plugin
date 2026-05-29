@@ -9,10 +9,12 @@ export function extractHtml(raw: string): string {
   const finalHtml = docEnd >= 0 ? html.slice(0, docEnd + '</html>'.length).trim() : html;
 
   if (!/<html[\s>]/i.test(finalHtml) || !/<\/html>/i.test(finalHtml)) {
-    throw new Error('AI app output is not a complete HTML document');
+    throw new Error(
+      '工具入参 generated_html 不是完整 HTML。请由上游 AI 大脑重新生成包含 <!DOCTYPE html><html><head>...</head><body>...</body></html> 的完整移动端单文件 HTML 后，再调用本工具。'
+    );
   }
   if (!/<meta\s+name=["']viewport["']/i.test(finalHtml)) {
-    throw new Error('AI app output missing mobile viewport meta');
+    throw new Error('工具入参 generated_html 缺少移动端 viewport meta。请上游 AI 大脑补全后重试。');
   }
   return finalHtml;
 }

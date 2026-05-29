@@ -130,8 +130,8 @@ export async function tool(props: In): Promise<Out> {
       page_storage_key: 'page_storage_key' in published ? published.page_storage_key : undefined,
       page_storage_size: 'page_storage_size' in published ? published.page_storage_size : undefined,
       summary: autoPublish
-        ? `已发布由 LangGraph 大脑生成的完整单文件 HTML，模板标记为 ${template.zhName} (${template.id})。`
-        : `已校验由 LangGraph 大脑生成的完整单文件 HTML，模板标记为 ${template.zhName} (${template.id})。`
+        ? `已发布由上游 AI 大脑生成的完整单文件 HTML，模板标记为 ${template.zhName} (${template.id})。`
+        : `已校验由上游 AI 大脑生成的完整单文件 HTML，模板标记为 ${template.zhName} (${template.id})。`
     };
   } catch (error: unknown) {
     return empty(error instanceof Error ? error.message : String(error));

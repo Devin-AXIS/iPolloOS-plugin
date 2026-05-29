@@ -34,13 +34,19 @@ export function extractCompleteHtml(raw: string): string {
   const finalHtml = docEnd >= 0 ? html.slice(0, docEnd + '</html>'.length).trim() : html;
 
   if (!/<html[\s>]/i.test(finalHtml) || !/<\/html>/i.test(finalHtml)) {
-    throw new Error('AI app output is not a complete HTML document');
+    throw new Error(
+      '工具入参 content 不是完整 HTML。请由上游 AI 大脑重新生成包含 <!DOCTYPE html><html><head>...</head><body>...</body></html> 的完整单文件 HTML 后，再调用本发布工具。'
+    );
   }
   if (!isCompleteHtmlDocument(finalHtml)) {
-    throw new Error('AI app output must include complete <html>, <head>, and <body> sections');
+    throw new Error(
+      '工具入参 content 必须包含完整 <html>、<head>、<body> 结构。请上游 AI 大脑不要传原始需求、Markdown 或片段 HTML。'
+    );
   }
   if (isUpstreamErrorHtmlDocument(finalHtml)) {
-    throw new Error('AI app output is an upstream error page, not generated HTML');
+    throw new Error(
+      '工具入参 content 是上游错误页，不是可发布 HTML。请上游 AI 大脑重新生成完整页面后再调用工具。'
+    );
   }
 
   return /^<!doctype html>/i.test(finalHtml) ? finalHtml : `<!DOCTYPE html>\n${finalHtml}`;
