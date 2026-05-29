@@ -27,7 +27,10 @@ function buildSlideRuntimeSnippet(): string {
     max-width: none !important;
     max-height: none !important;
     margin: 0 !important;
-    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
@@ -217,6 +220,28 @@ function buildSlideRuntimeSnippet(): string {
     show(current + delta);
   }
 
+  function findScrollableFromEvent(event) {
+    var node = event && event.target;
+    var activeSlide = slides[current];
+    while (node && node !== document && node !== window) {
+      if (activeSlide && node === activeSlide) return activeSlide;
+      if (activeSlide && node.nodeType === 1 && activeSlide.contains(node)) {
+        var style = window.getComputedStyle(node);
+        var canScroll = /(auto|scroll)/.test(style.overflowY || '') && node.scrollHeight > node.clientHeight + 1;
+        if (canScroll) return node;
+      }
+      node = node.parentNode;
+    }
+    return activeSlide && activeSlide.scrollHeight > activeSlide.clientHeight + 1 ? activeSlide : null;
+  }
+
+  function canScrollVertically(node, deltaY) {
+    if (!node || !deltaY) return false;
+    if (node.scrollHeight <= node.clientHeight + 1) return false;
+    if (deltaY > 0) return node.scrollTop + node.clientHeight < node.scrollHeight - 1;
+    return node.scrollTop > 1;
+  }
+
   if (prev) prev.addEventListener('click', function () { go(-1); });
   if (next) next.addEventListener('click', function () { go(1); });
 
@@ -237,10 +262,14 @@ function buildSlideRuntimeSnippet(): string {
 
   var wheelLock = 0;
   window.addEventListener('wheel', function (event) {
-    event.preventDefault();
     var now = Date.now();
-    if (now - wheelLock < 520) return;
     var delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    var scrollable = findScrollableFromEvent(event);
+    if (Math.abs(event.deltaY) >= Math.abs(event.deltaX) && canScrollVertically(scrollable, event.deltaY)) {
+      return;
+    }
+    event.preventDefault();
+    if (now - wheelLock < 520) return;
     if (Math.abs(delta) < 24) return;
     wheelLock = now;
     go(delta > 0 ? 1 : -1);
@@ -257,6 +286,8 @@ function buildSlideRuntimeSnippet(): string {
     if (!event.changedTouches || !event.changedTouches.length) return;
     var dx = event.changedTouches[0].clientX - touchStartX;
     var dy = event.changedTouches[0].clientY - touchStartY;
+    var verticalIntent = Math.abs(dy) > Math.abs(dx);
+    if (verticalIntent && canScrollVertically(findScrollableFromEvent(event), -dy)) return;
     var primary = Math.abs(dx) >= Math.abs(dy) ? dx : -dy;
     if (Math.abs(primary) < 48) return;
     go(primary < 0 ? 1 : -1);

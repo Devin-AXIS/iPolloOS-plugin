@@ -14,6 +14,8 @@ describe('slide runtime injection', () => {
     expect(result).toContain('html-anything-slide-runtime-script');
     expect(result).toContain('html-anything-slide-controls');
     expect(result).toContain('overflow: hidden !important');
+    expect(result).toContain('overflow-y: auto !important');
+    expect(result).toContain('-webkit-overflow-scrolling: touch !important');
     expect(result).toContain('body > nav:not(.html-anything-slide-controls)');
     expect(result).toContain('body > .progress');
     expect(result).toContain('html-anything-native-slide-controls');
@@ -28,6 +30,9 @@ describe('slide runtime injection', () => {
     expect(result).toContain("event.key === 'ArrowRight'");
     expect(result).toContain('event.stopImmediatePropagation()');
     expect(result).toContain("window.addEventListener('wheel'");
+    expect(result).toContain('findScrollableFromEvent');
+    expect(result).toContain('canScrollVertically');
+    expect(result).toContain('if (verticalIntent && canScrollVertically');
     expect(result).toContain("window.addEventListener('touchend'");
     expect(result).toContain("history.replaceState(null, '', nextHash)");
     expect(result).toContain('progress.style.width');
