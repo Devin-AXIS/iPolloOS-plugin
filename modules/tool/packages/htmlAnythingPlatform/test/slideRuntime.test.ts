@@ -25,6 +25,8 @@ describe('slide runtime injection', () => {
     expect(result).toContain('[data-slide-prev]');
     expect(result).toContain('[data-slide-progress]');
     expect(result).toContain("document.querySelectorAll('section.slide, .slide')");
+    expect(result).toContain('if (!slides.length)');
+    expect(result).toContain('if (controls) controls.remove()');
     expect(result).toContain("slide.classList.toggle('active', active)");
     expect(result).toContain("slide.classList.remove('exiting')");
     expect(result).toContain("event.key === 'ArrowRight'");

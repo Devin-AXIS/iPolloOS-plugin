@@ -137,10 +137,15 @@ function buildSlideRuntimeSnippet(): string {
 (function () {
   if (window.__htmlAnythingSlideRuntime) return;
   window.__htmlAnythingSlideRuntime = true;
-  document.documentElement.classList.add('html-anything-slide-runtime');
 
   var slides = Array.prototype.slice.call(document.querySelectorAll('section.slide, .slide'));
-  if (!slides.length) return;
+  var controls = document.querySelector('.html-anything-slide-controls');
+  if (!slides.length) {
+    if (controls) controls.remove();
+    return;
+  }
+
+  document.documentElement.classList.add('html-anything-slide-runtime');
 
   slides.forEach(function (slide, index) {
     slide.classList.add('slide');
@@ -148,7 +153,6 @@ function buildSlideRuntimeSnippet(): string {
     slide.setAttribute('tabindex', '-1');
   });
 
-  var controls = document.querySelector('.html-anything-slide-controls');
   var nativeControls = findNativeControls();
   if (nativeControls) {
     nativeControls.classList.add('html-anything-native-slide-controls');
