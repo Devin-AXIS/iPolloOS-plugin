@@ -27,6 +27,59 @@ type RequestedOutputFamily = 'slides' | 'publication' | 'web';
 const PUBLICATION_CATEGORIES = new Set(['book', 'research', 'publication']);
 const WEB_CATEGORIES = new Set(['prototype', 'dashboard', 'mobile']);
 
+export function inferTemplateFromGeneratedHtml(html: string): HtmlAnythingTemplate | undefined {
+  const text = html.slice(0, 300_000);
+
+  if (
+    /academic-paper-shell|paper-page|class=["'][^"']*(academic|paper)/i.test(text) ||
+    /<h1[^>]*>\s*(Abstract|摘要|论文|References|参考文献)/i.test(text)
+  ) {
+    return getHtmlAnythingTemplate('academic-paper');
+  }
+
+  if (/whitepaper-shell|whitepaper-page|白皮书|whitepaper/i.test(text)) {
+    return getHtmlAnythingTemplate('whitepaper-html');
+  }
+
+  if (/report-shell|report-page|executive-summary|methodology|研究报告|行业报告/i.test(text)) {
+    return getHtmlAnythingTemplate('research-report');
+  }
+
+  if (/book-shell|book-page|chapter-opener|toc-drawer|电子书|书籍|chapter\s+\d/i.test(text)) {
+    return getHtmlAnythingTemplate('book-editorial');
+  }
+
+  if (/magazine-feature|masthead|drop-cap|pull-quote|杂志专题/i.test(text)) {
+    return getHtmlAnythingTemplate('magazine-feature');
+  }
+
+  if (
+    /section[^>]+class=["'][^"']*\bslide\b/i.test(text) ||
+    /data-slide-controls|data-slide-next|data-slide-prev|slide-counter|presentation-runtime/i.test(
+      text
+    )
+  ) {
+    if (/swiss|IKB|Klein Blue|16\s*列|hairline/i.test(text)) {
+      return getHtmlAnythingTemplate('deck-swiss-international');
+    }
+    return getHtmlAnythingTemplate('deck-simple');
+  }
+
+  if (/dashboard|kpi-grid|metric-card|data-report|chart-panel|analytics/i.test(text)) {
+    return getHtmlAnythingTemplate('dashboard');
+  }
+
+  if (/iphone|mobile-app|bottom-tab|status-bar|dynamic-island|phone-frame/i.test(text)) {
+    return getHtmlAnythingTemplate('mobile-app');
+  }
+
+  if (/landing|hero|pricing|testimonial|feature-grid|call-to-action|navbar/i.test(text)) {
+    return getHtmlAnythingTemplate('saas-landing');
+  }
+
+  return undefined;
+}
+
 export function getTemplateOutputFamily(
   template: HtmlAnythingTemplate
 ): RequestedOutputFamily | undefined {

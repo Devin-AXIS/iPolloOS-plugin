@@ -9,6 +9,7 @@ import {
   coerceTemplateForRequest,
   getHtmlAnythingTemplate,
   hasHtmlAnythingTemplate,
+  inferTemplateFromGeneratedHtml,
   resolveExplicitHtmlAnythingTemplate
 } from '../../../lib/templates';
 
@@ -103,6 +104,11 @@ function resolveTemplate(input: In) {
       resolveExplicitHtmlAnythingTemplate(input.template_id, requestText),
       requestText
     );
+  }
+
+  const inferredFromHtml = inferTemplateFromGeneratedHtml(input.content);
+  if (inferredFromHtml) {
+    return coerceTemplateForRequest(inferredFromHtml, requestText);
   }
 
   return coerceTemplateForRequest(getHtmlAnythingTemplate('poster-hero'), requestText);

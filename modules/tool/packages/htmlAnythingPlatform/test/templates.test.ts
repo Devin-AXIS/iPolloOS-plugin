@@ -5,6 +5,7 @@ import {
   getRequestedOutputFamily,
   getHtmlAnythingTemplate,
   getTemplateOutputFamily,
+  inferTemplateFromGeneratedHtml,
   resolveExplicitHtmlAnythingTemplate
 } from '../lib/templates';
 import { buildGeneratePrompt } from '../lib/prompt';
@@ -241,5 +242,25 @@ describe('html-anything templates', () => {
       expect(body).toContain(first);
       expect(body).toContain(second);
     }
+  });
+
+  it('infers template family from upstream generated html structure', () => {
+    expect(
+      inferTemplateFromGeneratedHtml(
+        '<!DOCTYPE html><html><body><article class="book-shell"><section class="page book-page"><h1>第一章</h1></section></article></body></html>'
+      )?.id
+    ).toBe('book-editorial');
+
+    expect(
+      inferTemplateFromGeneratedHtml(
+        '<!DOCTYPE html><html><body><article class="report-shell"><section class="report-page"><h1>Executive Summary</h1></section></article></body></html>'
+      )?.id
+    ).toBe('research-report');
+
+    expect(
+      inferTemplateFromGeneratedHtml(
+        '<!DOCTYPE html><html><body><section class="slide active"><h1>Roadmap</h1></section><nav data-slide-controls></nav></body></html>'
+      )?.id
+    ).toBe('deck-simple');
   });
 });

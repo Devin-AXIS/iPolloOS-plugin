@@ -39,6 +39,19 @@ describe('html_anything_page tool', () => {
     expect(result.full_html).toContain('html-anything-pdf-export-script');
   });
 
+  it('auto-detects publication template from generated html before injecting runtimes', async () => {
+    const { tool } = await import('../children/html_anything_page/src');
+    const result = await tool({
+      template_id: 'auto',
+      content:
+        '<!DOCTYPE html><html><head><title>Book</title></head><body><article class="book-shell"><h1>第一章</h1><h2>方法</h2><h2>结论</h2></article></body></html>',
+      page_output_mode: 'raw_html'
+    });
+
+    expect(result.template_id).toBe('book-editorial');
+    expect(result.full_html).toContain('html-anything-publication-toc-script');
+  });
+
   it('asks upstream AI brain to regenerate when content is not complete HTML', async () => {
     const { tool } = await import('../children/html_anything_page/src');
     const result = await tool({
