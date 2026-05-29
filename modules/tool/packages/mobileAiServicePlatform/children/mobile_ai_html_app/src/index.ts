@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { buildCoverJson, extractHtml } from '../../../lib/html';
 import { DEFAULT_CAPABILITIES } from '../../../lib/prompt';
+import { injectRuntimeBridge } from '../../../lib/runtimeBridge';
 
 const empty = (value: unknown) =>
   value === '' || value === null || value === undefined ? undefined : value;
@@ -42,6 +43,9 @@ export const OutputType = z.object({
   page_url: z.string(),
   page_cover: z.string(),
   full_html: z.string(),
+  interactive_html: z.boolean(),
+  interactive_title: z.string(),
+  interactive_description: z.string(),
   summary: z.string(),
   system_error: z.string().optional()
 });
@@ -52,7 +56,8 @@ type Out = z.infer<typeof OutputType>;
 export async function tool(props: In): Promise<Out> {
   try {
     const input = InputType.parse(props);
-    const fullHtml = extractHtml(input.generated_html || input.user_requirement);
+    const generatedHtml = extractHtml(input.generated_html || input.user_requirement);
+    const fullHtml = injectRuntimeBridge(generatedHtml);
     const title = input.user_requirement.trim().split(/\n/)[0] || '移动端 AI 服务';
 
     return {
@@ -65,8 +70,12 @@ export async function tool(props: In): Promise<Out> {
         language: input.service_language
       }),
       full_html: fullHtml,
+      interactive_html: true,
+      interactive_title: title,
+      interactive_description:
+        '移动端 AI 应用运行时；页面内 AI、搜索、语音、图像、视频和数据库动作会通过 iPolloOS Runtime 调用。',
       summary:
-        '已校验上游 AI 大脑生成的移动端 AI 服务 HTML；插件本身未调用 AI，也不需要 ai_app_key。'
+        'UPSTREAM_AI_RUNTIME_BRIDGE：已校验上游 AI 大脑生成的移动端 AI 服务 HTML，并注入 iPolloOS Runtime 调用桥；插件本身未调用 AI，也不需要 ai_app_key。'
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -75,6 +84,9 @@ export async function tool(props: In): Promise<Out> {
       page_url: '',
       page_cover: '',
       full_html: '',
+      interactive_html: false,
+      interactive_title: '',
+      interactive_description: '',
       summary: '',
       system_error: message
     };

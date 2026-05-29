@@ -10,7 +10,7 @@ describe('html helpers', () => {
   });
 
   it('rejects incomplete html', () => {
-    expect(() => extractHtml('<div>nope</div>')).toThrow('complete HTML');
+    expect(() => extractHtml('<div>nope</div>')).toThrow('完整 HTML');
   });
 
   it('requires mobile viewport', () => {

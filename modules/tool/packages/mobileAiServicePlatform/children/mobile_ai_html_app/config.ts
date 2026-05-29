@@ -16,11 +16,12 @@ export default defineTool({
     en: 'Publish an upstream-AI-generated mobile-first AI service HTML app, suitable for short-video/video tools, divination, mini games, interactive forms, and non-chat-only experiences.'
   },
   toolDescription:
-    '当用户想做一个移动端 AI 应用/服务时，上游 AI 大脑应先完成需求理解、页面设计、交互逻辑和完整单文件 HTML 生成，再调用本工具。插件本身不调用 AI、不需要 ai_app_key；generated_html 必须是真实完整 HTML，不能传原始需求或 Markdown。',
+    '当用户想做一个移动端 AI 应用/服务时，上游 AI 大脑应先完成需求理解、页面设计、交互逻辑和完整单文件 HTML 生成，再调用本工具。插件本身不调用 AI、不需要 ai_app_key；generated_html 必须是真实完整 HTML，不能传原始需求或 Markdown。工具只校验 HTML、注入 iPolloOS Runtime 调用桥，并返回 page_html 供平台发布 page_url。',
   versionList: [
     {
-      value: '1.0.4',
-      description: '上游 AI 大脑生成版：插件不调用模型，只校验完整 HTML 并返回页面内容',
+      value: '4.0.0',
+      description:
+        '上游 AI 大脑生成 + iPolloOS Runtime 版：插件不调用模型，只校验完整 HTML 并注入运行时调用桥',
       inputs: [
         {
           key: 'user_requirement',
@@ -126,6 +127,21 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'full_html',
           label: '完整 HTML 文档（兼容旧字段）'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.boolean,
+          key: 'interactive_html',
+          label: '运行时交互页标记'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'interactive_title',
+          label: '运行时交互标题'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'interactive_description',
+          label: '运行时交互说明'
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,
