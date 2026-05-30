@@ -54,6 +54,16 @@ describe('hyperframes platform', () => {
     ).toThrow();
   });
 
+  it('allows platform default render endpoint configuration', () => {
+    const input = InputType.parse({
+      action: 'submit',
+      page_url: 'https://os.ipollo.net/demo.html'
+    });
+
+    expect(input.renderEndpointUrl).toBeUndefined();
+    expect(buildRenderRequest(input).source.page_url).toBe('https://os.ipollo.net/demo.html');
+  });
+
   it('rejects invalid manifest JSON', () => {
     expect(() =>
       InputType.parse({

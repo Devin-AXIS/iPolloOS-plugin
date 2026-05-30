@@ -22,7 +22,7 @@ function optionalJson(label: string) {
 
 export const InputType = z
   .object({
-    renderEndpointUrl: z.string().url(),
+    renderEndpointUrl: z.preprocess(emptyToUndef, z.string().url().optional()),
     renderApiToken: z.preprocess(emptyToUndef, z.string().optional()),
     renderAuthHeaderName: z
       .preprocess(emptyToUndef, z.string().optional())
@@ -97,6 +97,14 @@ export function buildRenderRequest(input: In) {
   };
 }
 
+function readEnv(...keys: string[]) {
+  for (const key of keys) {
+    const value = process.env[key]?.trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
 function textValue(...values: unknown[]): string | undefined {
   for (const value of values) {
     if (typeof value === 'string' && value.trim()) return value.trim();
@@ -120,16 +128,35 @@ function summarize(action: In['action'], status: string, jobId?: string, videoUr
 
 export async function tool(props: In): Promise<Out> {
   const input = InputType.parse(props);
+  const renderEndpointUrl =
+    input.renderEndpointUrl || readEnv('HYPERFRAMES_RENDER_ENDPOINT_URL', 'RENDER_ENDPOINT_URL');
+  const renderApiToken =
+    input.renderApiToken || readEnv('HYPERFRAMES_RENDER_API_TOKEN', 'RENDER_API_TOKEN');
+  const renderAuthHeaderName =
+    input.renderAuthHeaderName ||
+    readEnv('HYPERFRAMES_RENDER_AUTH_HEADER_NAME', 'RENDER_AUTH_HEADER_NAME') ||
+    'X-Render-Token';
+
+  if (!renderEndpointUrl) {
+    return {
+      status: 'error',
+      summary: 'HyperFrames 渲染服务未配置。',
+      raw_response: '',
+      system_error:
+        'HyperFrames 渲染服务未配置：请在系统密钥中填写函数计算渲染入口 URL，或配置 HYPERFRAMES_RENDER_ENDPOINT_URL。'
+    };
+  }
+
   const body = buildRenderRequest(input);
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   };
 
-  if (input.renderApiToken) {
-    headers[input.renderAuthHeaderName || 'X-Render-Token'] = input.renderApiToken;
+  if (renderApiToken) {
+    headers[renderAuthHeaderName] = renderApiToken;
   }
 
-  const response = await fetch(input.renderEndpointUrl, {
+  const response = await fetch(renderEndpointUrl, {
     method: 'POST',
     headers,
     body: JSON.stringify(body)
