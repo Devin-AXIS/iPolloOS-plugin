@@ -206,6 +206,143 @@ export const VIDEO_TEMPLATE_IDS = VIDEO_TEMPLATES.map((item) => item.id) as [
   ...VideoTemplateId[]
 ];
 
+const normalizeKey = (value: unknown) =>
+  typeof value === 'string'
+    ? value
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_]+/g, '-')
+    : '';
+
+const makeAliasMap = <T extends { id: string; zhName: string; enName: string }>(
+  items: readonly T[],
+  extraAliases: Record<string, string>
+) => {
+  const map = new Map<string, string>();
+  for (const item of items) {
+    map.set(normalizeKey(item.id), item.id);
+    map.set(normalizeKey(item.zhName), item.id);
+    map.set(normalizeKey(item.enName), item.id);
+  }
+  for (const [alias, id] of Object.entries(extraAliases)) {
+    map.set(normalizeKey(alias), id);
+  }
+  return map;
+};
+
+const purposeAliasMap = makeAliasMap(VIDEO_PURPOSES, {
+  新闻: 'news-briefing',
+  资讯: 'news-briefing',
+  新闻解读: 'news-briefing',
+  ai资讯: 'news-briefing',
+  产品: 'product-intro',
+  产品视频: 'product-intro',
+  报告: 'research-briefing',
+  研究: 'research-briefing',
+  白皮书: 'research-briefing',
+  架构: 'architecture-explainer',
+  方案: 'architecture-explainer',
+  演示: 'feature-demo',
+  demo: 'feature-demo'
+});
+
+const styleAliasMap = makeAliasMap(VIDEO_STYLES, {
+  magazine: 'magazine-editorial',
+  magazine_style: 'magazine-editorial',
+  'magazine-style': 'magazine-editorial',
+  杂志: 'magazine-editorial',
+  杂志风格: 'magazine-editorial',
+  科技: 'tech-product',
+  科技风: 'tech-product',
+  科技产品: 'tech-product',
+  产品风: 'tech-product',
+  consulting: 'consulting-report',
+  report: 'consulting-report',
+  咨询: 'consulting-report',
+  咨询风: 'consulting-report',
+  报告风: 'consulting-report',
+  keynote: 'keynote-launch',
+  keynote风: 'keynote-launch',
+  发布会: 'keynote-launch',
+  发布会风: 'keynote-launch',
+  data: 'data-journalism',
+  data_news: 'data-journalism',
+  'data-news': 'data-journalism',
+  数据: 'data-journalism',
+  数据新闻: 'data-journalism',
+  数据新闻风: 'data-journalism',
+  social: 'social-reel',
+  reel: 'social-reel',
+  social_reel: 'social-reel',
+  竖屏: 'social-reel',
+  短视频: 'social-reel',
+  社媒: 'social-reel',
+  竖屏社媒: 'social-reel'
+});
+
+const templateAliasMap = makeAliasMap(VIDEO_TEMPLATES, {
+  横屏新闻: 'ai-news-magazine',
+  ai新闻: 'ai-news-magazine',
+  ai资讯: 'ai-news-magazine',
+  新闻杂志: 'ai-news-magazine',
+  竖屏新闻: 'news-reel-portrait',
+  资讯快讯: 'news-reel-portrait',
+  产品发布: 'product-launch-landscape',
+  产品介绍: 'product-launch-landscape',
+  发布会: 'keynote-product-story',
+  功能演示: 'feature-demo-walkthrough',
+  竖屏功能: 'social-feature-reel',
+  研究报告: 'research-report-briefing',
+  架构讲解: 'architecture-deep-dive',
+  数据洞察: 'data-insight-story'
+});
+
+export function normalizeVideoPurposeId(value: unknown) {
+  const normalized = purposeAliasMap.get(normalizeKey(value));
+  return normalized as VideoPurposeId | undefined;
+}
+
+export function normalizeVideoStyleId(value: unknown) {
+  const normalized = styleAliasMap.get(normalizeKey(value));
+  return normalized as VideoStyleId | undefined;
+}
+
+export function normalizeVideoTemplateId(value: unknown) {
+  const normalized = templateAliasMap.get(normalizeKey(value));
+  return normalized as VideoTemplateId | undefined;
+}
+
+export function resolveVideoTemplateForOrientation(params: {
+  videoTemplateId?: VideoTemplateId;
+  purposeId?: VideoPurposeId;
+  styleId?: VideoStyleId;
+  orientation: 'landscape' | 'portrait';
+}) {
+  const template = params.videoTemplateId ? getVideoTemplate(params.videoTemplateId) : undefined;
+  if (!template || template.orientation === params.orientation) {
+    return params.videoTemplateId;
+  }
+
+  return (
+    VIDEO_TEMPLATES.find(
+      (item) =>
+        item.orientation === params.orientation &&
+        item.purposeId === template.purposeId &&
+        (!params.styleId || item.styleId === params.styleId)
+    )?.id ||
+    VIDEO_TEMPLATES.find(
+      (item) => item.orientation === params.orientation && item.purposeId === template.purposeId
+    )?.id ||
+    VIDEO_TEMPLATES.find(
+      (item) =>
+        item.orientation === params.orientation &&
+        params.purposeId &&
+        item.purposeId === params.purposeId
+    )?.id ||
+    params.videoTemplateId
+  );
+}
+
 export function getVideoPurpose(id: string) {
   return VIDEO_PURPOSES.find((item) => item.id === id);
 }

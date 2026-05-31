@@ -30,7 +30,7 @@ describe('hyperframes video project generation', () => {
       'utf8'
     );
 
-    expect(configText).toContain("value: '0.3.0'");
+    expect(configText).toContain("value: '0.3.1'");
     expect(configText).toContain("label: '视频模板'");
     expect(configText).toContain("label: '视频用途'");
     expect(configText).toContain("label: '视觉风格'");
@@ -104,6 +104,44 @@ describe('hyperframes video project generation', () => {
     expect(input.video_template_id).toBe('keynote-product-story');
   });
 
+  it('accepts Chinese aliases for style, purpose and template ids', () => {
+    const input = InputType.parse({
+      brief: '做一个横屏 AI 资讯杂志视频',
+      video_template_id: 'AI 资讯杂志片',
+      purpose_id: '资讯解读',
+      style_id: '杂志风',
+      orientation: 'landscape',
+      composition_html: validCompositionHtml,
+      manifest_json:
+        '{"schema_version":"hyperframes.video.v1","duration_seconds":5,"timeline":[{"scene_id":"s01","start":0,"duration":5,"track_index":1}]}'
+    });
+
+    expect(input.video_template_id).toBe('ai-news-magazine');
+    expect(input.purpose_id).toBe('news-briefing');
+    expect(input.style_id).toBe('magazine-editorial');
+  });
+
+  it('automatically resolves portrait news templates when landscape is requested', async () => {
+    const result = await tool({
+      brief: '做一个横屏 AI 新闻视频',
+      video_template_id: 'news-reel-portrait',
+      purpose_id: 'news-briefing',
+      style_id: '杂志风',
+      orientation: 'landscape',
+      composition_html: validCompositionHtml,
+      manifest_json: {
+        schema_version: 'hyperframes.video.v1',
+        duration_seconds: 5,
+        timeline: [{ scene_id: 's01', start: 0, duration: 5, track_index: 1 }]
+      },
+      storyboard_json: { scenes: [{ scene_id: 's01', start: 0, duration: 5 }] }
+    });
+
+    expect(result.system_error).toBeUndefined();
+    expect(result.manifest_json).toContain('"video_template_id": "ai-news-magazine"');
+    expect(result.manifest_json).toContain('"style_id": "magazine-editorial"');
+  });
+
   it('validates upstream AI authored project output', async () => {
     const result = await tool({
       brief: '做一个产品发布片头',
@@ -149,7 +187,7 @@ describe('hyperframes video project generation', () => {
     expect(result.manifest_json).toContain('"width": 1080');
     expect(result.manifest_json).toContain('"height": 1920');
     expect(result.storyboard_json).toContain('杂志风');
-    expect(result.storyboard_json).toContain('AI 资讯杂志片');
+    expect(result.storyboard_json).toContain('竖屏资讯快讯');
     expect(result.voiceover_script).toContain('未提供配音稿');
     expect(result.subtitle_srt).toContain('未提供 SRT 字幕');
   });

@@ -5,7 +5,11 @@ import {
   VIDEO_TEMPLATE_IDS,
   getVideoPurpose,
   getVideoStyle,
-  getVideoTemplate
+  getVideoTemplate,
+  normalizeVideoPurposeId,
+  normalizeVideoStyleId,
+  normalizeVideoTemplateId,
+  resolveVideoTemplateForOrientation
 } from '../lib/videoTemplates';
 import { validateHyperframesContract } from '../lib/hyperframesContract';
 
@@ -19,11 +23,27 @@ const emptyToUndef = (value: unknown) => {
 
 const readString = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
+const normalizeEnumInput =
+  (resolver: (value: unknown) => string | undefined) => (value: unknown) => {
+    const normalized = emptyToUndef(value);
+    if (!normalized) return undefined;
+    return resolver(normalized) || normalized;
+  };
+
 export const InputType = z.object({
   brief: z.string().min(1).max(200_000),
-  purpose_id: z.preprocess(emptyToUndef, z.enum(VIDEO_PURPOSE_IDS).optional()),
-  style_id: z.preprocess(emptyToUndef, z.enum(VIDEO_STYLE_IDS).optional()),
-  video_template_id: z.preprocess(emptyToUndef, z.enum(VIDEO_TEMPLATE_IDS).optional()),
+  purpose_id: z.preprocess(
+    normalizeEnumInput(normalizeVideoPurposeId),
+    z.enum(VIDEO_PURPOSE_IDS).optional()
+  ),
+  style_id: z.preprocess(
+    normalizeEnumInput(normalizeVideoStyleId),
+    z.enum(VIDEO_STYLE_IDS).optional()
+  ),
+  video_template_id: z.preprocess(
+    normalizeEnumInput(normalizeVideoTemplateId),
+    z.enum(VIDEO_TEMPLATE_IDS).optional()
+  ),
   orientation: z.enum(['landscape', 'portrait']).default('landscape'),
   composition_html: z.preprocess(emptyToUndef, z.string().max(2_000_000).optional()),
   manifest_json: z.preprocess(
@@ -73,6 +93,25 @@ export const OutputType = z.object({
 type In = z.infer<typeof InputType>;
 type Out = z.infer<typeof OutputType>;
 
+function normalizeTemplateSelection(input: In): In {
+  const resolvedTemplateId = resolveVideoTemplateForOrientation({
+    videoTemplateId: input.video_template_id,
+    purposeId: input.purpose_id,
+    styleId: input.style_id,
+    orientation: input.orientation
+  });
+
+  if (!resolvedTemplateId || resolvedTemplateId === input.video_template_id) return input;
+
+  const template = getVideoTemplate(resolvedTemplateId);
+  return {
+    ...input,
+    video_template_id: resolvedTemplateId,
+    purpose_id: input.purpose_id || template?.purposeId,
+    style_id: input.style_id || template?.styleId
+  };
+}
+
 function parseJsonFromText(raw: string): Record<string, unknown> {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
   const text = fenced || raw.match(/\{[\s\S]*\}/)?.[0] || raw;
@@ -91,6 +130,23 @@ function normalizeManifest(value: unknown, input: In) {
   if (typeof value === 'string') return parseJsonFromText(value);
   if (typeof value === 'object') return value as Record<string, unknown>;
   return fallbackManifest(input);
+}
+
+function applySelectionToManifest(manifest: Record<string, unknown>, input: In) {
+  const dimensions = getRenderDimensions(input.render_size, input.orientation);
+  return {
+    ...manifest,
+    schema_version: manifest.schema_version || 'hyperframes.video.v1',
+    video_template_id: input.video_template_id || manifest.video_template_id,
+    purpose_id: input.purpose_id || manifest.purpose_id,
+    style_id: input.style_id || manifest.style_id,
+    orientation: input.orientation || manifest.orientation,
+    width: manifest.width || dimensions.width,
+    height: manifest.height || dimensions.height,
+    fps: manifest.fps || input.fps,
+    render_size: manifest.render_size || input.render_size,
+    duration_seconds: manifest.duration_seconds || input.duration_seconds
+  };
 }
 
 function assertCompleteHtml(html: string) {
@@ -201,10 +257,10 @@ function fallbackAssetPlan(input: In) {
 
 export async function tool(props: In): Promise<Out> {
   try {
-    const input = InputType.parse(props);
+    const input = normalizeTemplateSelection(InputType.parse(props));
     const compositionHtml = readString(input.composition_html);
     assertCompleteHtml(compositionHtml);
-    const manifest = normalizeManifest(input.manifest_json, input);
+    const manifest = applySelectionToManifest(normalizeManifest(input.manifest_json, input), input);
     const storyboard = normalizeJsonLike(
       input.storyboard_json,
       fallbackStoryboard(input, manifest)
