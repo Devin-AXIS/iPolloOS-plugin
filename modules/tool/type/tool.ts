@@ -21,6 +21,7 @@ export const ToolSchema = ToolConfigWithCbSchema.extend({
   toolId: z.string().describe('The unique id of the tool'),
   tags: z.array(ToolTagEnum).optional().describe('The tags of the tool'),
   icon: z.string().describe('The icon of the tool'),
+  avatar: z.string().optional().describe('The avatar of the tool'),
 
   // Computed
   parentId: z.string().optional().describe('The parent id of the tool'),

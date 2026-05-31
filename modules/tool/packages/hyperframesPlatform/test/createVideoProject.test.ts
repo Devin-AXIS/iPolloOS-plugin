@@ -30,7 +30,7 @@ describe('hyperframes video project generation', () => {
       'utf8'
     );
 
-    expect(configText).toContain("value: '0.3.1'");
+    expect(configText).toContain("value: '0.3.3'");
     expect(configText).toContain("label: '视频模板'");
     expect(configText).toContain("label: '视频用途'");
     expect(configText).toContain("label: '视觉风格'");
@@ -190,6 +190,49 @@ describe('hyperframes video project generation', () => {
     expect(result.storyboard_json).toContain('竖屏资讯快讯');
     expect(result.voiceover_script).toContain('未提供配音稿');
     expect(result.subtitle_srt).toContain('未提供 SRT 字幕');
+  });
+
+  it('does not JSON.parse plain HTML, voiceover or requirement string fields', async () => {
+    const htmlWithBraces = validCompositionHtml.replace(
+      '</head>',
+      '<style>body { color: #111; } .card::after { content: "{not-json}"; }</style></head>'
+    );
+
+    const result = await tool({
+      brief: '做一个带 CSS 和脚本花括号的最小视频工程',
+      video_template_id: 'ai-news-magazine',
+      purpose_id: 'news-briefing',
+      style_id: 'magazine-editorial',
+      orientation: 'landscape',
+      composition_html: htmlWithBraces,
+      voiceover_script: '这里是普通配音稿，不是 JSON：{"text":"hello"}',
+      extra_requirements: '普通字符串：不要解析 {foo: bar}',
+      fps: 30,
+      voiceover_mode: 'script_only'
+    });
+
+    expect(result.system_error).toBeUndefined();
+    expect(result.composition_html).toContain('{not-json}');
+    expect(result.voiceover_script).toContain('普通配音稿');
+    expect(result.manifest_json).toContain('hyperframes.video.v1');
+  });
+
+  it('extracts the first valid JSON artifact when model output has trailing text', async () => {
+    const result = await tool({
+      brief: '做一个产品发布片头',
+      purpose_id: 'product-intro',
+      style_id: 'keynote-launch',
+      composition_html: validCompositionHtml,
+      manifest_json:
+        '{"schema_version":"hyperframes.video.v1","duration_seconds":5,"timeline":[{"scene_id":"s01","start":0,"duration":5,"track_index":1}]} 后续说明文字 {"ignored":true}',
+      storyboard_json:
+        '```json\n{"scenes":[{"scene_id":"s01","start":0,"duration":5}]}\n```\n补充说明'
+    });
+
+    expect(result.system_error).toBeUndefined();
+    expect(result.manifest_json).toContain('"duration_seconds": 5');
+    expect(result.manifest_json).not.toContain('ignored');
+    expect(result.storyboard_json).toContain('"scene_id": "s01"');
   });
 
   it('rejects ordinary static HTML pages as video projects', async () => {

@@ -51,7 +51,7 @@ export const parsePkg = async (filepath: string, temp: boolean = true) => {
         : `${UploadToolsS3Path}/${mod.toolId}`;
       await publicS3Server.uploadFileAdvanced({
         path,
-        defaultFilename: file.split('.').slice(0, -1).join('.'), // remove the extention name
+        defaultFilename: file,
         prefix,
         keepRawFilename: true,
         contentType: mimeMap[parse(path).ext],

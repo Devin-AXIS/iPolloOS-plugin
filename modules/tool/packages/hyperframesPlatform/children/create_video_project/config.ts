@@ -23,9 +23,9 @@ export default defineTool({
     '视频工程节点。上游 AI 大脑应先按用途 purpose_id、视觉风格 style_id、横竖屏、时长、帧率决定分镜、配音、转场、字幕、H5 叠加，并生成完整 composition_html / manifest_json / storyboard_json / subtitle_srt / voiceover_script，再调用本工具。本工具不调用 AI，只校验和规范化输出。渲染请交给「HyperFrames · 视频渲染」。',
   versionList: [
     {
-      value: '0.3.1',
+      value: '0.3.3',
       description:
-        'HyperFrames skill contract validation with Chinese aliases, orientation-safe templates, storyboard, subtitles and voiceover fields',
+        'Robust JSON artifact normalization across create/render flow with field-level parse diagnostics',
       inputs: [
         {
           key: 'brief',

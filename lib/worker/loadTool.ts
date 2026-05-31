@@ -151,6 +151,7 @@ export const parseMod = async ({
         courseUrl: rootMod.courseUrl,
         author: rootMod.author,
         icon: childIcon,
+        avatar: childIcon,
         toolFilename: filename,
         version: childVersion
       });
@@ -162,6 +163,7 @@ export const parseMod = async ({
       tags: rootMod.tags || [ToolTagEnum.enum.other],
       toolId: toolsetId,
       icon: parentIcon,
+      avatar: parentIcon,
       toolFilename: `${filename}`,
       cb: () => Promise.resolve({}),
       versionList: [],
@@ -177,6 +179,7 @@ export const parseMod = async ({
       ...rootMod,
       tags: rootMod.tags || [ToolTagEnum.enum.tools],
       icon,
+      avatar: icon,
       toolId,
       toolFilename: filename,
       version: generateToolVersion(rootMod.versionList ?? [])

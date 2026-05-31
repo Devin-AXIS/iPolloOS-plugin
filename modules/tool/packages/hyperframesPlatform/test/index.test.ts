@@ -140,6 +140,36 @@ describe('hyperframes platform', () => {
     });
   });
 
+  it('normalizes render JSON artifacts with trailing model text', () => {
+    const input = InputType.parse({
+      renderEndpointUrl: 'https://render.example.com/jobs',
+      action: 'submit',
+      manifest_json:
+        '{"duration_seconds":60,"fps":30,"timeline":[{"scene_id":"s01","start":0,"duration":60}]}\\nDone.',
+      storyboard_json:
+        '```json\n{"scenes":[{"scene_id":"s01","start":0,"duration":60}]}\n```\nextra',
+      asset_plan_json: '{"required_assets":[]} trailing text',
+      extra_payload: '{"oss_prefix":"renders/demo"} ignored'
+    });
+
+    expect(input.manifest_json?.duration_seconds).toBe(60);
+    expect(input.storyboard_json?.scenes).toHaveLength(1);
+    expect(input.asset_plan_json?.required_assets).toEqual([]);
+    expect(input.extra_payload?.oss_prefix).toBe('renders/demo');
+  });
+
+  it('returns field context when render input JSON parsing fails', async () => {
+    const result = await tool({
+      renderEndpointUrl: 'https://render.example.com/jobs',
+      action: 'submit',
+      manifest_json: '{"duration_seconds":60,,}'
+    });
+
+    expect(result.status).toBe('error');
+    expect(result.system_error).toContain('JSON_PARSE_FAILED');
+    expect(result.system_error).toContain('manifest_json');
+  });
+
   it('requires a render project for submissions', () => {
     expect(() =>
       InputType.parse({
@@ -215,7 +245,7 @@ describe('hyperframes platform', () => {
           trace_id: 'trace-1'
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )) as typeof fetch;
+      )) as unknown as typeof fetch;
 
     try {
       const result = await tool({

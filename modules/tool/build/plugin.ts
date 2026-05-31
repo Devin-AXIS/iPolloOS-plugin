@@ -3,6 +3,48 @@ import { parse } from '@babel/parser';
 import traverse from '@babel/traverse';
 import generate from '@babel/generator';
 import { readdirSync } from 'fs';
+import { dirname } from 'path';
+
+const uploadToolsS3Path = 'system/plugin/tools';
+const publicBaseUrl = 'https://os.ipollo.net';
+const iconFormats = ['svg', 'png', 'jpeg', 'webp', 'jpg'];
+
+const getLocalIconFilename = (filePath: string) => {
+  const dir = dirname(filePath);
+  const files = readdirSync(dir);
+  return files.find((file) => {
+    const dotIndex = file.lastIndexOf('.');
+    return (
+      dotIndex > -1 &&
+      file.slice(0, dotIndex) === 'logo' &&
+      iconFormats.includes(file.slice(dotIndex + 1))
+    );
+  });
+};
+
+const hasTopLevelProperty = (objectExpression: any, name: string) =>
+  objectExpression.properties.some(
+    (property: any) =>
+      property.type === 'ObjectProperty' &&
+      property.key.type === 'Identifier' &&
+      property.key.name === name
+  );
+
+const addStringProperty = (objectExpression: any, name: string, value: string) => {
+  objectExpression.properties.push({
+    type: 'ObjectProperty',
+    key: {
+      type: 'Identifier',
+      name
+    },
+    value: {
+      type: 'StringLiteral',
+      value
+    },
+    computed: false,
+    shorthand: false
+  });
+};
 
 const transformSourceCode = async ({
   sourceCode,
@@ -29,54 +71,32 @@ const transformSourceCode = async ({
     CallExpression(path) {
       if (
         path.node.callee.type === 'Identifier' &&
-        // path.node.callee.name === 'defineToolSet' &&
+        ['defineTool', 'defineToolSet'].includes(path.node.callee.name) &&
         path.node.arguments[0] &&
         path.node.arguments[0].type === 'ObjectExpression'
       ) {
-        let hasToolId = false;
-        traverse(
-          path.node,
-          {
-            ObjectProperty(path) {
-              if (path.node.key.type === 'Identifier' && path.node.key.name === 'toolId') {
-                hasToolId = true;
-              }
-            }
-          },
-          path.scope,
-          path.parentPath
-        );
+        const configObject = path.node.arguments[0];
+        const hasToolId = hasTopLevelProperty(configObject, 'toolId');
         // console.log('hasToolId', hasToolId, toolId);
         if (!hasToolId) {
-          path.node.arguments[0].properties.push({
-            type: 'ObjectProperty',
-            key: {
-              type: 'Identifier',
-              name: 'toolId'
-            },
-            value: {
-              type: 'StringLiteral',
-              value: toolId
-            },
-            computed: false,
-            shorthand: false
-          });
+          addStringProperty(configObject, 'toolId', toolId);
+        }
+
+        const iconFilename = getLocalIconFilename(filePath);
+        if (iconFilename) {
+          const iconUrl = `${publicBaseUrl}/${uploadToolsS3Path}/${toolId}/logo`;
+          const hasIcon = hasTopLevelProperty(configObject, 'icon');
+          const hasAvatar = hasTopLevelProperty(configObject, 'avatar');
+          if (!hasIcon) {
+            addStringProperty(configObject, 'icon', iconUrl);
+          }
+          if (!hasAvatar) {
+            addStringProperty(configObject, 'avatar', iconUrl);
+          }
         }
 
         if (path.node.callee.name === 'defineToolSet') {
-          let hasCustomChildren = false;
-          traverse(
-            path.node,
-            {
-              ObjectProperty(path) {
-                if (path.node.key.type === 'Identifier' && path.node.key.name === 'children') {
-                  hasCustomChildren = true;
-                }
-              }
-            },
-            path.scope,
-            path.parentPath
-          );
+          const hasCustomChildren = hasTopLevelProperty(configObject, 'children');
           if (hasCustomChildren) {
             return;
           }
@@ -141,12 +161,6 @@ export const autoToolIdPlugin: BunPlugin = {
       },
       async (args) => {
         const content = await Bun.file(args.path).text();
-        if (content.includes('toolId:')) {
-          return {
-            contents: content,
-            loader: 'ts'
-          };
-        }
         return {
           contents: await transformSourceCode({
             sourceCode: content,

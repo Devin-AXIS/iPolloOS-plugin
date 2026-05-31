@@ -8,15 +8,153 @@ const emptyToUndef = (value: unknown) => {
   return text || undefined;
 };
 
+function parseJsonErrorPosition(message: string) {
+  const position = message.match(/position\s+(\d+)/i)?.[1];
+  const line = message.match(/line\s+(\d+)/i)?.[1];
+  const column = message.match(/column\s+(\d+)/i)?.[1];
+
+  return {
+    position: position ? Number(position) : undefined,
+    line: line ? Number(line) : undefined,
+    column: column ? Number(column) : undefined
+  };
+}
+
+function getParseContext(raw: string, position?: number) {
+  const at = typeof position === 'number' ? position : Math.min(raw.length, 80);
+  const start = Math.max(0, at - 80);
+  const end = Math.min(raw.length, at + 80);
+  return raw.slice(start, end);
+}
+
+function formatJsonParseError(field: string, raw: string, causeMessage: string) {
+  const { position, line, column } = parseJsonErrorPosition(causeMessage);
+  return JSON.stringify(
+    {
+      ok: false,
+      stage: 'normalize_input',
+      error_code: 'JSON_PARSE_FAILED',
+      field,
+      position,
+      line,
+      column,
+      received_type: 'string',
+      context: getParseContext(raw, position),
+      message: `${field} 必须是合法 JSON；${causeMessage}`
+    },
+    null,
+    2
+  );
+}
+
+function tryParseJson(text: string) {
+  try {
+    return { ok: true as const, value: JSON.parse(text) as unknown };
+  } catch (error) {
+    return {
+      ok: false as const,
+      message: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+function extractFirstJsonBlock(raw: string) {
+  const text = raw.trim();
+  let start = -1;
+  let open = '';
+  let close = '';
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (start < 0) {
+      if (char === '{' || char === '[') {
+        start = i;
+        open = char;
+        close = char === '{' ? '}' : ']';
+        depth = 1;
+      }
+      continue;
+    }
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+
+    if (char === open) {
+      depth++;
+    } else if (char === close) {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+
+  return undefined;
+}
+
+function parseJsonFromText(raw: string, field: string): Record<string, unknown> {
+  const trimmed = raw.trim();
+  const direct = tryParseJson(trimmed);
+  if (
+    direct.ok &&
+    direct.value &&
+    typeof direct.value === 'object' &&
+    !Array.isArray(direct.value)
+  ) {
+    return direct.value as Record<string, unknown>;
+  }
+
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
+  if (fenced) {
+    const fencedParsed = tryParseJson(fenced);
+    if (
+      fencedParsed.ok &&
+      fencedParsed.value &&
+      typeof fencedParsed.value === 'object' &&
+      !Array.isArray(fencedParsed.value)
+    ) {
+      return fencedParsed.value as Record<string, unknown>;
+    }
+  }
+
+  const firstJson = extractFirstJsonBlock(trimmed);
+  if (firstJson) {
+    const firstParsed = tryParseJson(firstJson);
+    if (
+      firstParsed.ok &&
+      firstParsed.value &&
+      typeof firstParsed.value === 'object' &&
+      !Array.isArray(firstParsed.value)
+    ) {
+      return firstParsed.value as Record<string, unknown>;
+    }
+  }
+
+  throw new Error(formatJsonParseError(field, raw, direct.message || 'Invalid JSON object'));
+}
+
 function optionalJson(label: string) {
   return z.preprocess(emptyToUndef, z.string().optional()).transform((value, ctx) => {
     if (!value) return undefined;
     try {
-      return JSON.parse(value) as Record<string, unknown>;
-    } catch {
+      return parseJsonFromText(value, label);
+    } catch (error) {
       ctx.addIssue({
         code: 'custom',
-        message: `${label} 必须是合法 JSON`
+        message: error instanceof Error ? error.message : `${label} 必须是合法 JSON`
       });
       return z.NEVER;
     }
@@ -321,8 +459,21 @@ function summarize(action: In['action'], status: string, jobId?: string, videoUr
     : `渲染任务${jobId ? ` ${jobId}` : ''}当前状态: ${status}。`;
 }
 
-export async function tool(props: In): Promise<Out> {
-  const input = InputType.parse(props);
+export async function tool(props: unknown): Promise<Out> {
+  let input: In;
+  try {
+    input = InputType.parse(props);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      status: 'error',
+      summary: 'HyperFrames 渲染入参解析失败。',
+      raw_response: '',
+      error_detail_json: buildErrorDetail({ error: message, stage: 'normalize_input' }, message),
+      system_error: message
+    };
+  }
+
   const renderEndpointUrl =
     input.renderEndpointUrl || readEnv('HYPERFRAMES_RENDER_ENDPOINT_URL', 'RENDER_ENDPOINT_URL');
   const renderApiToken =

@@ -22,9 +22,9 @@ export default defineTool({
   courseUrl: 'https://help.aliyun.com/zh/functioncompute/',
   versionList: [
     {
-      value: '0.3.0',
+      value: '0.3.1',
       description:
-        'Submit/query/cancel ready HyperFrames render jobs with timeline artifacts, long-video safety options and diagnostics',
+        'Submit/query/cancel ready HyperFrames render jobs with robust JSON artifact normalization and diagnostics',
       inputs: [
         {
           key: 'action',

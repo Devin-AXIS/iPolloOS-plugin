@@ -93,6 +93,17 @@ export const OutputType = z.object({
 type In = z.infer<typeof InputType>;
 type Out = z.infer<typeof OutputType>;
 
+class FieldJsonParseError extends Error {
+  constructor(
+    readonly field: string,
+    readonly raw: string,
+    readonly causeMessage: string
+  ) {
+    super(formatJsonParseError(field, raw, causeMessage));
+    this.name = 'FieldJsonParseError';
+  }
+}
+
 function normalizeTemplateSelection(input: In): In {
   const resolvedTemplateId = resolveVideoTemplateForOrientation({
     videoTemplateId: input.video_template_id,
@@ -112,23 +123,167 @@ function normalizeTemplateSelection(input: In): In {
   };
 }
 
-function parseJsonFromText(raw: string): Record<string, unknown> {
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
-  const text = fenced || raw.match(/\{[\s\S]*\}/)?.[0] || raw;
-  return JSON.parse(text) as Record<string, unknown>;
+function parseJsonErrorPosition(message: string) {
+  const position = message.match(/position\s+(\d+)/i)?.[1];
+  const line = message.match(/line\s+(\d+)/i)?.[1];
+  const column = message.match(/column\s+(\d+)/i)?.[1];
+
+  return {
+    position: position ? Number(position) : undefined,
+    line: line ? Number(line) : undefined,
+    column: column ? Number(column) : undefined
+  };
 }
 
-function normalizeJsonLike(value: unknown, fallback: Record<string, unknown> | unknown[]) {
+function getParseContext(raw: string, position?: number) {
+  const at = typeof position === 'number' ? position : Math.min(raw.length, 80);
+  const start = Math.max(0, at - 80);
+  const end = Math.min(raw.length, at + 80);
+  return raw.slice(start, end);
+}
+
+function formatJsonParseError(field: string, raw: string, causeMessage: string) {
+  const { position, line, column } = parseJsonErrorPosition(causeMessage);
+  return JSON.stringify(
+    {
+      ok: false,
+      stage: 'normalize_input',
+      error_code: 'JSON_PARSE_FAILED',
+      field,
+      position,
+      line,
+      column,
+      received_type: 'string',
+      context: getParseContext(raw, position),
+      message: `${field} 必须是合法 JSON；${causeMessage}`
+    },
+    null,
+    2
+  );
+}
+
+function formatUnknownJsonParseError(error: Error) {
+  const { position, line, column } = parseJsonErrorPosition(error.message);
+  return JSON.stringify(
+    {
+      ok: false,
+      stage: 'normalize_input',
+      error_code: 'JSON_PARSE_FAILED',
+      field: 'unknown',
+      position,
+      line,
+      column,
+      received_type: 'unknown',
+      context: '',
+      message: error.message
+    },
+    null,
+    2
+  );
+}
+
+function tryParseJson(text: string) {
+  try {
+    return { ok: true as const, value: JSON.parse(text) as unknown };
+  } catch (error) {
+    return {
+      ok: false as const,
+      message: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+function extractFirstJsonBlock(raw: string) {
+  const text = raw.trim();
+  let start = -1;
+  let open = '';
+  let close = '';
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (start < 0) {
+      if (char === '{' || char === '[') {
+        start = i;
+        open = char;
+        close = char === '{' ? '}' : ']';
+        depth = 1;
+      }
+      continue;
+    }
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+
+    if (char === open) {
+      depth++;
+    } else if (char === close) {
+      depth--;
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function parseJsonFromText(raw: string, field: string): unknown {
+  const trimmed = raw.trim();
+  const direct = tryParseJson(trimmed);
+  if (direct.ok) return direct.value;
+
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
+  if (fenced) {
+    const fencedParsed = tryParseJson(fenced);
+    if (fencedParsed.ok) return fencedParsed.value;
+  }
+
+  const firstJson = extractFirstJsonBlock(trimmed);
+  if (firstJson) {
+    const firstParsed = tryParseJson(firstJson);
+    if (firstParsed.ok) return firstParsed.value;
+  }
+
+  throw new FieldJsonParseError(field, raw, direct.message);
+}
+
+function normalizeJsonLike(
+  value: unknown,
+  fallback: Record<string, unknown> | unknown[],
+  field: string
+): Record<string, unknown> | unknown[] {
   if (!value) return fallback;
-  if (typeof value === 'string') return parseJsonFromText(value);
+  if (typeof value === 'string') {
+    const parsed = parseJsonFromText(value, field);
+    return parsed && typeof parsed === 'object'
+      ? (parsed as Record<string, unknown> | unknown[])
+      : fallback;
+  }
   if (typeof value === 'object') return value as Record<string, unknown> | unknown[];
   return fallback;
 }
 
 function normalizeManifest(value: unknown, input: In) {
   if (!value) return fallbackManifest(input);
-  if (typeof value === 'string') return parseJsonFromText(value);
-  if (typeof value === 'object') return value as Record<string, unknown>;
+  const parsed = typeof value === 'string' ? parseJsonFromText(value, 'manifest_json') : value;
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    return parsed as Record<string, unknown>;
+  }
   return fallbackManifest(input);
 }
 
@@ -255,7 +410,7 @@ function fallbackAssetPlan(input: In) {
   };
 }
 
-export async function tool(props: In): Promise<Out> {
+export async function tool(props: unknown): Promise<Out> {
   try {
     const input = normalizeTemplateSelection(InputType.parse(props));
     const compositionHtml = readString(input.composition_html);
@@ -263,9 +418,14 @@ export async function tool(props: In): Promise<Out> {
     const manifest = applySelectionToManifest(normalizeManifest(input.manifest_json, input), input);
     const storyboard = normalizeJsonLike(
       input.storyboard_json,
-      fallbackStoryboard(input, manifest)
+      fallbackStoryboard(input, manifest),
+      'storyboard_json'
     );
-    const assetPlan = normalizeJsonLike(input.asset_plan_json, fallbackAssetPlan(input));
+    const assetPlan = normalizeJsonLike(
+      input.asset_plan_json,
+      fallbackAssetPlan(input),
+      'asset_plan_json'
+    );
     const validationReport = validateHyperframesContract({
       compositionHtml,
       manifest,
@@ -293,6 +453,16 @@ export async function tool(props: In): Promise<Out> {
         '已校验上游 AI 大脑生成的 HyperFrames 视频工程；包含视频模板、用途/风格、分镜、字幕、配音稿和素材计划字段。'
     };
   } catch (error) {
+    const systemError =
+      error instanceof FieldJsonParseError
+        ? error.message
+        : error instanceof Error &&
+            /JSON|position\s+\d+|Unexpected non-whitespace/i.test(error.message)
+          ? formatUnknownJsonParseError(error)
+          : error instanceof Error
+            ? error.message
+            : String(error);
+
     return {
       composition_html: '',
       manifest_json: '',
@@ -303,7 +473,7 @@ export async function tool(props: In): Promise<Out> {
       validation_report_json: '',
       render_profile: '',
       summary: '',
-      system_error: error instanceof Error ? error.message : String(error)
+      system_error: systemError
     };
   }
 }

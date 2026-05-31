@@ -168,6 +168,7 @@ export const LoadToolsDev = async (filename: string): Promise<ToolType[]> => {
           toolId,
           toolFilename: filename,
           icon: childIcon,
+          avatar: childIcon,
           parentId: toolsetId,
           version: childVersion
         });
@@ -182,6 +183,7 @@ export const LoadToolsDev = async (filename: string): Promise<ToolType[]> => {
       tags: rootMod.tags || [ToolTagEnum.enum.other],
       toolId: toolsetId,
       icon: parentIcon,
+      avatar: parentIcon,
       toolFilename: filename,
       cb: () => Promise.resolve({}),
       versionList: [],
@@ -205,6 +207,7 @@ export const LoadToolsDev = async (filename: string): Promise<ToolType[]> => {
       tags: rootMod.tags || [ToolTagEnum.enum.other],
       toolId: toolsetId,
       icon,
+      avatar: icon,
       toolFilename: filename,
       version: toolVersion
     });

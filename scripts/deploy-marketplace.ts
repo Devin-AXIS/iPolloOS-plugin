@@ -24,6 +24,19 @@ import { generateToolVersion, generateToolSetVersion } from '../modules/tool/uti
 import { ToolDetailSchema } from '@tool/type/api';
 
 const filterToolList = ['.DS_Store', '.git', '.github', 'node_modules', 'dist', 'scripts'];
+const logoFormats = ['svg', 'png', 'jpeg', 'webp', 'jpg'];
+
+const getLogoFilename = async (dir: string) => {
+  const files = await readdir(dir).catch(() => []);
+  return files.find((file) => {
+    const dotIndex = file.lastIndexOf('.');
+    return (
+      dotIndex > -1 &&
+      file.slice(0, dotIndex) === 'logo' &&
+      logoFormats.includes(file.slice(dotIndex + 1).toLowerCase())
+    );
+  });
+};
 
 const LoadToolsDev = async (filename: string, storage: IStorage): Promise<ToolType[]> => {
   const tools: ToolType[] = [];
@@ -37,6 +50,7 @@ const LoadToolsDev = async (filename: string, storage: IStorage): Promise<ToolTy
   const isToolSet = existsSync(childrenPath);
 
   const toolsetId = rootMod.toolId || filename;
+  const parentLogoFilename = await getLogoFilename(toolPath);
 
   // 使用传入的 storage 来生成 URL
   const generateUrl = (path: string) => {
@@ -44,7 +58,9 @@ const LoadToolsDev = async (filename: string, storage: IStorage): Promise<ToolTy
     return url;
   };
 
-  const parentIcon = rootMod.icon ?? generateUrl(`${UploadToolsS3Path}/${toolsetId}/logo`);
+  const parentIcon =
+    rootMod.icon ??
+    generateUrl(`${UploadToolsS3Path}/${toolsetId}/${parentLogoFilename || 'logo'}`);
 
   if (isToolSet) {
     const children: ToolType[] = [];
@@ -56,11 +72,14 @@ const LoadToolsDev = async (filename: string, storage: IStorage): Promise<ToolTy
 
         const childMod = (await import(childPath)).default as ToolType;
         const toolId = childMod.toolId || `${toolsetId}/${file}`;
+        const childLogoFilename = await getLogoFilename(childPath);
 
         const childIcon =
           childMod.icon ??
           rootMod.icon ??
-          generateUrl(`${UploadToolsS3Path}/${toolsetId}/${file}/logo`);
+          generateUrl(
+            `${UploadToolsS3Path}/${toolsetId}/${file}/${childLogoFilename || parentLogoFilename || 'logo'}`
+          );
 
         // Generate version for child tool
         const childVersion = childMod.versionList
@@ -94,8 +113,9 @@ const LoadToolsDev = async (filename: string, storage: IStorage): Promise<ToolTy
 
     tools.push(...children);
   } else {
-    // is not toolset
-    const icon = rootMod.icon ?? generateUrl(`${UploadToolsS3Path}/${toolsetId}/logo`);
+    const icon =
+      rootMod.icon ??
+      generateUrl(`${UploadToolsS3Path}/${toolsetId}/${parentLogoFilename || 'logo'}`);
 
     // Generate version for single tool
     const toolVersion = (rootMod as any).versionList
@@ -232,7 +252,13 @@ async function main() {
   for await (const img of imgs) {
     const toolId = img.split('/').at(-2) as string;
     const ext = ('.' + img.split('.').at(-1)) as string;
-    storage.uploadObject({
+    const logoFilename = img.split('/').at(-1) as string;
+    await storage.uploadObject({
+      key: `${UploadToolsS3Path}/${toolId}/${logoFilename}`,
+      body: Buffer.from(await Bun.file(img).arrayBuffer()),
+      contentType: mimeMap[ext]
+    });
+    await storage.uploadObject({
       key: `${UploadToolsS3Path}/${toolId}/logo`,
       body: Buffer.from(await Bun.file(img).arrayBuffer()),
       contentType: mimeMap[ext]
@@ -255,7 +281,13 @@ async function main() {
       // Child has its own logo, use it
       const childLogo = childLogoFiles[0];
       const ext = ('.' + childLogo.split('.').at(-1)) as string;
-      storage.uploadObject({
+      const logoFilename = childLogo.split('/').at(-1) as string;
+      await storage.uploadObject({
+        key: `${UploadToolsS3Path}/${toolId}/${childId}/${logoFilename}`,
+        body: Buffer.from(await Bun.file(childLogo).arrayBuffer()),
+        contentType: mimeMap[ext]
+      });
+      await storage.uploadObject({
         key: `${UploadToolsS3Path}/${toolId}/${childId}/logo`,
         body: Buffer.from(await Bun.file(childLogo).arrayBuffer()),
         contentType: mimeMap[ext]
@@ -271,7 +303,13 @@ async function main() {
       if (parentLogoFiles.length > 0) {
         const parentLogo = parentLogoFiles[0];
         const ext = ('.' + parentLogo.split('.').at(-1)) as string;
-        storage.uploadObject({
+        const logoFilename = parentLogo.split('/').at(-1) as string;
+        await storage.uploadObject({
+          key: `${UploadToolsS3Path}/${toolId}/${childId}/${logoFilename}`,
+          body: Buffer.from(await Bun.file(parentLogo).arrayBuffer()),
+          contentType: mimeMap[ext]
+        });
+        await storage.uploadObject({
           key: `${UploadToolsS3Path}/${toolId}/${childId}/logo`,
           body: Buffer.from(await Bun.file(parentLogo).arrayBuffer()),
           contentType: mimeMap[ext]

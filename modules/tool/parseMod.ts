@@ -19,6 +19,34 @@ export const getIconPath = (name: string) => {
     : publicS3Server.generateExternalUrl(objectName);
 };
 
+const basename = (objectName: string) => objectName.split('/').pop() || '';
+
+export const resolveIconPath = async (name: string) => {
+  const objectName = `${UploadToolsS3Path}/${name}`;
+  const dir = objectName.split('/').slice(0, -1).join('/');
+  const expectedName = basename(objectName);
+
+  try {
+    const files = await publicS3Server.getFiles(dir);
+    const iconFile = files.find((file) => {
+      const fileBase = basename(file);
+      const dotIndex = fileBase.lastIndexOf('.');
+      return (dotIndex > -1 ? fileBase.slice(0, dotIndex) : fileBase) === expectedName;
+    });
+
+    if (iconFile) {
+      const publicBaseUrl = getPublicBaseUrl();
+      return publicBaseUrl
+        ? `${publicBaseUrl}/${iconFile.replace(/^\/+/, '')}`
+        : publicS3Server.generateExternalUrl(iconFile);
+    }
+  } catch {
+    // Fallback to the historical extensionless path.
+  }
+
+  return getIconPath(name);
+};
+
 export const parseMod = async ({
   rootMod,
   filename,
@@ -35,7 +63,8 @@ export const parseMod = async ({
   if (checkRootModToolSet(rootMod)) {
     const toolsetId = rootMod.toolId;
 
-    const parentIcon = rootMod.icon || getIconPath(`${temp ? 'temp/' : ''}${toolsetId}/logo`);
+    const parentIcon =
+      rootMod.icon || (await resolveIconPath(`${temp ? 'temp/' : ''}${toolsetId}/logo`));
 
     const children = rootMod.children;
 
@@ -46,7 +75,9 @@ export const parseMod = async ({
         : `${toolsetId}/${childToolId}`;
 
       const childIcon =
-        child.icon || rootMod.icon || getIconPath(`${temp ? 'temp/' : ''}${childIconPath}/logo`);
+        child.icon ||
+        rootMod.icon ||
+        (await resolveIconPath(`${temp ? 'temp/' : ''}${childIconPath}/logo`));
 
       // Generate version for child tool
       const childVersion = generateToolVersion(child.versionList);
@@ -58,6 +89,7 @@ export const parseMod = async ({
         courseUrl: rootMod.courseUrl,
         author: rootMod.author,
         icon: childIcon,
+        avatar: childIcon,
         toolFilename: filename,
         version: childVersion
       });
@@ -69,6 +101,7 @@ export const parseMod = async ({
       tags: rootMod.tags || [ToolTagEnum.enum.other],
       toolId: toolsetId,
       icon: parentIcon,
+      avatar: parentIcon,
       toolFilename: `${filename}`,
       cb: () => Promise.resolve({}),
       versionList: [],
@@ -78,12 +111,13 @@ export const parseMod = async ({
     // is not toolset
     const toolId = rootMod.toolId;
 
-    const icon = rootMod.icon || getIconPath(`${temp ? 'temp/' : ''}${toolId}/logo`);
+    const icon = rootMod.icon || (await resolveIconPath(`${temp ? 'temp/' : ''}${toolId}/logo`));
 
     tools.push({
       ...rootMod,
       tags: rootMod.tags || [ToolTagEnum.enum.tools],
       icon,
+      avatar: icon,
       toolId,
       toolFilename: filename,
       version: generateToolVersion(rootMod.versionList)

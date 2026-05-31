@@ -189,6 +189,7 @@ export const ToolConfigSchema = z.object({
   versionList: z.array(VersionListItemSchema).min(1),
   tags: z.array(ToolTagEnum).optional(),
   icon: z.string().optional(),
+  avatar: z.string().optional(),
   author: z.string().optional(),
   courseUrl: z.string().optional(),
   secretInputConfig: z.array(InputConfigSchema).optional()

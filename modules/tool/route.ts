@@ -123,26 +123,34 @@ tools.openapi(confirmUploadRoute, async (c) => {
 
   logger.debug(`Confirming uploaded tools: ${toolIds}`);
 
-  const pendingTools = await privateS3Server.getFiles(`${UploadToolsS3Path}/temp`);
-  const pendingToolIds = pendingTools
-    .map((item) => item.split('/').at(-1)?.split('.').at(0))
-    .filter((item): item is string => !!item);
-
-  const missingToolIds = toolIds.filter((toolId) => !pendingToolIds.includes(toolId));
-  if (missingToolIds.length > 0) {
-    logger.warn('[confirmUpload] Missing uploaded tool files', { missingToolIds, pendingToolIds });
-    return c.json(R.error(400, `Missing uploaded tool files: ${missingToolIds.join(', ')}`), 400);
-  }
-
+  const failedToolIds: Array<{ toolId: string; error: string }> = [];
   for (const toolId of toolIds) {
     if (!toolId) continue;
-    await publicS3Server.moveFiles(
-      `${UploadToolsS3Path}/temp/${toolId}`,
-      `${UploadToolsS3Path}/${toolId}`
-    );
-    await privateS3Server.moveFile(
-      `${UploadToolsS3Path}/temp/${toolId}.js`,
-      `${UploadToolsS3Path}/${toolId}.js`
+    try {
+      await publicS3Server.moveFiles(
+        `${UploadToolsS3Path}/temp/${toolId}`,
+        `${UploadToolsS3Path}/${toolId}`
+      );
+      await privateS3Server.moveFile(
+        `${UploadToolsS3Path}/temp/${toolId}.js`,
+        `${UploadToolsS3Path}/${toolId}.js`
+      );
+    } catch (error) {
+      failedToolIds.push({
+        toolId,
+        error: getErrText(error)
+      });
+    }
+  }
+
+  if (failedToolIds.length > 0) {
+    logger.warn('[confirmUpload] Failed to move uploaded tool files', { failedToolIds });
+    return c.json(
+      R.error(
+        400,
+        `Failed to confirm uploaded tool files: ${failedToolIds.map((item) => `${item.toolId}: ${item.error}`).join('; ')}`
+      ),
+      400
     );
   }
 
