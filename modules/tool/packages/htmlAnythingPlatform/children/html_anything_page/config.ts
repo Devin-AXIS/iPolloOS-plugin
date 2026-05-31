@@ -43,7 +43,7 @@ export default defineTool({
             autoLabel: 'AI 自动选择'
           },
           toolDescription:
-            '模板 ID 决定插件后续注入哪一类运行机制，不能随便固定成某个模板。上游 AI 大脑必须先判断用户要的最终交付形态，再选择模板：PPT/幻灯片/deck 选 slides 类；电子书/书籍选 book-editorial；行业/课题/趋势/咨询研究选 research-report；学术/课程/会议/期刊论文选 academic-paper；企业方案/技术架构/商业观点白皮书选 whitepaper-html；杂志专题/深度报道选 magazine-feature；官网/落地页选 saas-landing；产品原型选 prototype-web；数据看板/经营分析选 dashboard/data-report；移动 App 页面选 mobile-app；小红书选 card-xiaohongshu；海报选 poster-hero；视频项目选 video-hyperframes。若用户明确指定形态，必须优先服从用户形态而不是内容题材。'
+            '模板 ID 决定插件后续注入哪一类运行机制，不能随便固定成某个模板。上游 AI 大脑必须先判断用户要的最终交付形态，再选择模板：PPT/幻灯片/deck 选 slides 类；电子书/书籍选 book-editorial；行业/课题/趋势/咨询研究选 research-report；学术/课程/会议/期刊论文选 academic-paper；企业方案/技术架构/商业观点白皮书选 whitepaper-html；杂志专题/深度报道选 magazine-feature；官网/落地页选 saas-landing；产品原型选 prototype-web；数据看板/经营分析选 dashboard/data-report；移动 App 页面选 mobile-app；小红书选 card-xiaohongshu；海报选 poster-hero。视频不是 HTML 页面模板，请改用 HyperFrames 视频插件。若用户明确指定形态，必须优先服从用户形态而不是内容题材。'
         },
         {
           key: 'content',

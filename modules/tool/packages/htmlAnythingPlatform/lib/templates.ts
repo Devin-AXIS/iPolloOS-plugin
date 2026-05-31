@@ -3,13 +3,16 @@ import { HTML_ANYTHING_TEMPLATES, type HtmlAnythingTemplate } from './templates.
 export { HTML_ANYTHING_TEMPLATES, type HtmlAnythingTemplate };
 
 export const AUTO_TEMPLATE_ID = 'auto';
+export const HTML_ANYTHING_PUBLIC_TEMPLATES = HTML_ANYTHING_TEMPLATES.filter(
+  (item) => item.category !== 'video'
+);
 
 export function getHtmlAnythingTemplate(id: string): HtmlAnythingTemplate | undefined {
   return HTML_ANYTHING_TEMPLATES.find((item) => item.id === id);
 }
 
 export function hasHtmlAnythingTemplate(id: string): boolean {
-  return id === AUTO_TEMPLATE_ID || Boolean(getHtmlAnythingTemplate(id));
+  return id === AUTO_TEMPLATE_ID || HTML_ANYTHING_PUBLIC_TEMPLATES.some((item) => item.id === id);
 }
 
 const SWISS_TEMPLATE_STYLE_CONFLICT_RE =
@@ -168,7 +171,7 @@ export function listTemplateOptions(): Array<{
       description: '根据内容、格式和额外要求自动选择最合适的 html-anything 模板。',
       alias: 'AI 自动选择'
     },
-    ...HTML_ANYTHING_TEMPLATES.map((item) => ({
+    ...HTML_ANYTHING_PUBLIC_TEMPLATES.map((item) => ({
       label: `${item.zhName} / ${item.enName}`,
       value: item.id,
       description: `${item.description}；适配：${item.aspectHint}`,
@@ -181,7 +184,7 @@ export function listTemplateOptions(): Array<{
 }
 
 export function buildTemplateSelectionCatalog(): string {
-  return HTML_ANYTHING_TEMPLATES.map((item) =>
+  return HTML_ANYTHING_PUBLIC_TEMPLATES.map((item) =>
     [
       `- id: ${item.id}`,
       `  name: ${item.zhName} / ${item.enName}`,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   HTML_ANYTHING_TEMPLATES,
+  HTML_ANYTHING_PUBLIC_TEMPLATES,
   coerceTemplateForRequest,
   getRequestedOutputFamily,
   getHtmlAnythingTemplate,
@@ -19,6 +20,13 @@ describe('html-anything templates', () => {
     expect(getHtmlAnythingTemplate('research-report')?.category).toBe('research');
     expect(getHtmlAnythingTemplate('academic-paper')?.scenario).toBe('academic');
     expect(getHtmlAnythingTemplate('video-hyperframes')?.category).toBe('video');
+  });
+
+  it('keeps video templates out of public html routing', () => {
+    expect(HTML_ANYTHING_PUBLIC_TEMPLATES.some((item) => item.category === 'video')).toBe(false);
+    expect(HTML_ANYTHING_PUBLIC_TEMPLATES.some((item) => item.id === 'video-hyperframes')).toBe(
+      false
+    );
   });
 
   it('builds prompt with selected template body', () => {

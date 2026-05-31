@@ -94,4 +94,17 @@ describe('html_anything_page tool', () => {
     expect(result.system_error).toContain('完整 HTML');
     expect(result.page_url).toBe('');
   });
+
+  it('rejects video templates because video creation belongs to HyperFrames', async () => {
+    const { tool } = await import('../children/html_anything_page/src');
+    const result = await tool({
+      template_id: 'video-hyperframes',
+      content:
+        '<!DOCTYPE html><html><head><title>Video</title></head><body><main>Video</main></body></html>',
+      page_output_mode: 'raw_html'
+    });
+
+    expect(result.system_error).toContain('未知的 html-anything template_id');
+    expect(result.page_url).toBe('');
+  });
 });

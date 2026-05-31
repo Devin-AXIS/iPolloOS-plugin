@@ -9,11 +9,11 @@ export default defineToolSet({
   },
   description: {
     'zh-CN':
-      'HyperFrames 视频工程校验与渲染工具集：上游 AI 大脑生成 composition/manifest，插件校验后由阿里云函数计算按需渲染 MP4。',
-    en: 'HyperFrames video validation and rendering toolset: the upstream AI brain authors compositions/manifests, then this plugin validates and renders MP4 on demand.'
+      'HyperFrames 工程化视频工具集：按用途和视觉风格组织视频模板，校验分镜、字幕、配音稿、素材计划与 composition/manifest，并由阿里云函数计算按需渲染 MP4。',
+    en: 'HyperFrames video engineering toolset: organize video templates by purpose and style, validate storyboards, subtitles, voiceover scripts, asset plans, compositions/manifests, then render MP4 on demand.'
   },
   toolDescription:
-    '包含两个子工具：视频工程节点接收上游 AI 大脑已经生成好的 composition_html / manifest_json，只做校验和规范化；视频渲染负责把工程提交到阿里云函数计算导出 MP4。插件本身不另调 AI。',
+    '包含两个子工具：视频工程节点接收上游 AI 大脑按 video_template_id + purpose_id + style_id + orientation 生成好的 composition_html / manifest_json / storyboard_json / subtitle_srt / voiceover_script，只做校验和规范化；视频渲染负责把工程提交到阿里云函数计算导出 MP4。插件本身不另调 AI，渲染器也不猜分镜、字幕、配音或转场。',
   courseUrl: 'https://help.aliyun.com/zh/functioncompute/',
   secretInputConfig: [
     {

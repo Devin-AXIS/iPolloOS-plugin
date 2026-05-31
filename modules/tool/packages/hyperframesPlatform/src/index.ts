@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
 const emptyToUndef = (value: unknown) => {
+  if (value !== '' && value !== null && value !== undefined && typeof value !== 'string') {
+    return value;
+  }
   const text = typeof value === 'string' ? value.trim() : '';
   return text || undefined;
 };
@@ -31,8 +34,22 @@ export const InputType = z
     page_url: z.preprocess(emptyToUndef, z.string().url().optional()),
     html: z.preprocess(emptyToUndef, z.string().max(2_000_000).optional()),
     manifest_json: optionalJson('manifest_json'),
+    storyboard_json: optionalJson('storyboard_json'),
+    voiceover_script: z.preprocess(emptyToUndef, z.string().max(300_000).optional()),
+    subtitle_srt: z.preprocess(emptyToUndef, z.string().max(300_000).optional()),
+    asset_plan_json: optionalJson('asset_plan_json'),
+    validation_report_json: optionalJson('validation_report_json'),
     job_id: z.preprocess(emptyToUndef, z.string().optional()),
-    extra_payload: optionalJson('extra_payload')
+    extra_payload: optionalJson('extra_payload'),
+    performance_mode: z.enum(['auto', 'on', 'off']).default('auto'),
+    target_fps: z.preprocess(emptyToUndef, z.coerce.number().int().min(12).max(60).optional()),
+    segment_duration_seconds: z.preprocess(
+      emptyToUndef,
+      z.coerce.number().int().min(15).max(120).optional()
+    ),
+    disable_heavy_effects: z.enum(['auto', 'on', 'off']).default('auto'),
+    diagnostics_level: z.enum(['basic', 'verbose']).default('verbose'),
+    client_timeout_seconds: z.coerce.number().int().min(10).max(600).default(120)
   })
   .superRefine((value, ctx) => {
     if (value.action !== 'submit' && !value.job_id) {
@@ -52,6 +69,52 @@ export const InputType = z
         message: '提交渲染任务必须提供 page_url、html 或 manifest_json'
       });
     }
+
+    if (!value.manifest_json) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['manifest_json'],
+        message:
+          '视频渲染必须提供生成视频工程节点输出的 manifest_json，不能只把 HTML 页面 URL 直接交给渲染器。'
+      });
+      return;
+    }
+
+    const durationSeconds = readManifestNumber(value.manifest_json, 'duration_seconds');
+    if (!durationSeconds || durationSeconds <= 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['manifest_json'],
+        message: 'manifest_json 必须包含 duration_seconds，避免渲染器退回默认 8 秒录屏。'
+      });
+    }
+
+    const manifestTimeline = value.manifest_json.timeline;
+    const manifestScenes = value.manifest_json.scenes;
+    const storyboardScenes = Array.isArray(value.storyboard_json)
+      ? value.storyboard_json
+      : Array.isArray(value.storyboard_json?.scenes)
+        ? value.storyboard_json.scenes
+        : undefined;
+    const htmlHasTimelineMarkers =
+      typeof value.html === 'string' &&
+      /data-start\s*=|data-duration\s*=|window\.__timelines|gsap\.timeline/i.test(value.html);
+
+    if (
+      !(
+        (Array.isArray(manifestTimeline) && manifestTimeline.length > 0) ||
+        (Array.isArray(manifestScenes) && manifestScenes.length > 0) ||
+        (Array.isArray(storyboardScenes) && storyboardScenes.length > 0) ||
+        htmlHasTimelineMarkers
+      )
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['manifest_json'],
+        message:
+          '视频渲染必须包含 timeline/scenes/storyboard 或 HTML 时间轴标记，不能用静态 HTML 页面代替剪辑时间轴。'
+      });
+    }
   });
 
 export const OutputType = z.object({
@@ -60,6 +123,7 @@ export const OutputType = z.object({
   video_url: z.string().optional(),
   poster_url: z.string().optional(),
   logs_url: z.string().optional(),
+  error_detail_json: z.string().optional(),
   summary: z.string(),
   raw_response: z.string(),
   system_error: z.string().optional()
@@ -82,9 +146,100 @@ type RenderServiceResponse = {
   logs_url?: unknown;
   logsUrl?: unknown;
   message?: unknown;
+  error?: unknown;
+  system_error?: unknown;
+  stage?: unknown;
+  exit_code?: unknown;
+  exitCode?: unknown;
+  signal?: unknown;
+  stderr_tail?: unknown;
+  stderrTail?: unknown;
+  duration_before_exit_sec?: unknown;
+  durationBeforeExitSec?: unknown;
+  memory_peak_mb?: unknown;
+  memoryPeakMb?: unknown;
+  tmp_usage_mb?: unknown;
+  tmpUsageMb?: unknown;
+  trace_id?: unknown;
+  traceId?: unknown;
 };
 
+function numberValue(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) {
+      return Number(value);
+    }
+  }
+  return undefined;
+}
+
+function readManifestNumber(manifest: Record<string, unknown> | undefined, key: string) {
+  return numberValue(manifest?.[key]);
+}
+
+function readManifestString(manifest: Record<string, unknown> | undefined, key: string) {
+  const value = manifest?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function shouldUseLongVideoMode(input: In) {
+  const durationSeconds = readManifestNumber(input.manifest_json, 'duration_seconds');
+  const manifestFps = readManifestNumber(input.manifest_json, 'fps');
+  const renderSize = readManifestString(input.manifest_json, 'render_size');
+  const frameCount = durationSeconds && manifestFps ? durationSeconds * manifestFps : undefined;
+
+  return Boolean(
+    (durationSeconds && durationSeconds >= 180) ||
+      (frameCount && frameCount >= 5400) ||
+      ((renderSize === 'landscape_1080p' || renderSize === 'portrait_1080p') &&
+        durationSeconds &&
+        durationSeconds >= 120)
+  );
+}
+
+export function buildRenderOptions(input: In) {
+  const durationSeconds = readManifestNumber(input.manifest_json, 'duration_seconds');
+  const manifestFps = readManifestNumber(input.manifest_json, 'fps');
+  const longVideoMode = shouldUseLongVideoMode(input);
+  const performanceMode =
+    input.performance_mode === 'on' || (input.performance_mode === 'auto' && longVideoMode);
+  const disableHeavyEffects =
+    input.disable_heavy_effects === 'on' ||
+    (input.disable_heavy_effects === 'auto' && performanceMode);
+
+  const safeFps =
+    input.target_fps ??
+    (performanceMode
+      ? Math.min(manifestFps || 18, durationSeconds && durationSeconds >= 180 ? 18 : 24)
+      : manifestFps);
+
+  return {
+    performance_mode: performanceMode,
+    disable_blur: disableHeavyEffects,
+    disable_filter: disableHeavyEffects,
+    disable_heavy_shadow: disableHeavyEffects,
+    fps: safeFps,
+    segment_duration_seconds:
+      input.segment_duration_seconds ??
+      (performanceMode && durationSeconds && durationSeconds >= 180 ? 60 : undefined),
+    diagnostics_level: input.diagnostics_level,
+    requested_diagnostics: [
+      'stage',
+      'exit_code',
+      'signal',
+      'stderr_tail',
+      'duration_before_exit_sec',
+      'memory_peak_mb',
+      'tmp_usage_mb',
+      'job_id',
+      'trace_id'
+    ]
+  };
+}
+
 export function buildRenderRequest(input: In) {
+  const renderOptions = buildRenderOptions(input);
   return {
     action: input.action,
     job_id: input.job_id,
@@ -93,7 +248,18 @@ export function buildRenderRequest(input: In) {
       html: input.html
     },
     manifest: input.manifest_json ?? {},
-    extra: input.extra_payload ?? {}
+    artifacts: {
+      storyboard: input.storyboard_json,
+      voiceover_script: input.voiceover_script,
+      subtitle_srt: input.subtitle_srt,
+      asset_plan: input.asset_plan_json,
+      validation_report: input.validation_report_json
+    },
+    render_options: renderOptions,
+    extra: {
+      ...(input.extra_payload ?? {}),
+      render_options: renderOptions
+    }
   };
 }
 
@@ -110,6 +276,35 @@ function textValue(...values: unknown[]): string | undefined {
     if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return undefined;
+}
+
+function buildErrorDetail(data: RenderServiceResponse, fallback?: string) {
+  const detail = {
+    error: textValue(data.error, data.system_error, data.message) || fallback || '',
+    stage: textValue(data.stage) || 'unknown',
+    exit_code: textValue(data.exit_code, data.exitCode),
+    signal: textValue(data.signal),
+    stderr_tail: textValue(data.stderr_tail, data.stderrTail),
+    duration_before_exit_sec: numberValue(
+      data.duration_before_exit_sec,
+      data.durationBeforeExitSec
+    ),
+    memory_peak_mb: numberValue(data.memory_peak_mb, data.memoryPeakMb),
+    tmp_usage_mb: numberValue(data.tmp_usage_mb, data.tmpUsageMb),
+    job_id: textValue(data.job_id, data.jobId, data.id),
+    trace_id: textValue(data.trace_id, data.traceId)
+  };
+
+  return JSON.stringify(detail, null, 2);
+}
+
+function isErrorStatus(status: string, data: RenderServiceResponse) {
+  const normalized = status.toLowerCase();
+  return Boolean(
+    data.error ||
+      data.system_error ||
+      ['error', 'failed', 'terminated', 'timeout', 'canceled', 'cancelled'].includes(normalized)
+  );
 }
 
 function summarize(action: In['action'], status: string, jobId?: string, videoUrl?: string) {
@@ -156,11 +351,26 @@ export async function tool(props: In): Promise<Out> {
     headers[renderAuthHeaderName] = renderApiToken;
   }
 
-  const response = await fetch(renderEndpointUrl, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body)
-  });
+  let response: Response;
+  try {
+    const signal = AbortSignal.timeout(input.client_timeout_seconds * 1000);
+    response = await fetch(renderEndpointUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const detail = buildErrorDetail({ error: message, stage: 'request' }, message);
+    return {
+      status: 'error',
+      summary: '渲染服务请求中断。',
+      raw_response: '',
+      error_detail_json: detail,
+      system_error: message
+    };
+  }
 
   const responseText = await response.text();
   if (!response.ok) {
@@ -168,6 +378,10 @@ export async function tool(props: In): Promise<Out> {
       status: 'error',
       summary: `渲染服务请求失败: HTTP ${response.status}`,
       raw_response: responseText,
+      error_detail_json: buildErrorDetail(
+        { error: responseText || `HTTP ${response.status}`, stage: 'request' },
+        responseText || `HTTP ${response.status}`
+      ),
       system_error: responseText || `HTTP ${response.status}`
     };
   }
@@ -180,6 +394,10 @@ export async function tool(props: In): Promise<Out> {
       status: 'error',
       summary: '渲染服务返回的不是 JSON',
       raw_response: responseText,
+      error_detail_json: buildErrorDetail(
+        { error: 'Invalid render service JSON response', stage: 'response' },
+        'Invalid render service JSON response'
+      ),
       system_error: 'Invalid render service JSON response'
     };
   }
@@ -189,6 +407,21 @@ export async function tool(props: In): Promise<Out> {
   const videoUrl = textValue(data.video_url, data.videoUrl, data.output_url);
   const posterUrl = textValue(data.poster_url, data.posterUrl);
   const logsUrl = textValue(data.logs_url, data.logsUrl);
+  const errorMessage = textValue(data.error, data.system_error, data.message);
+
+  if (isErrorStatus(status, data)) {
+    const detail = buildErrorDetail(data, errorMessage || status);
+    return {
+      job_id: jobId,
+      status: 'error',
+      poster_url: posterUrl,
+      logs_url: logsUrl,
+      summary: `HyperFrames 渲染失败: ${errorMessage || status}。`,
+      raw_response: responseText,
+      error_detail_json: detail,
+      system_error: errorMessage || status
+    };
+  }
 
   return {
     job_id: jobId,
