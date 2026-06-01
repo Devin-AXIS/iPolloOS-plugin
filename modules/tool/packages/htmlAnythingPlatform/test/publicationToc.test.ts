@@ -14,6 +14,9 @@ describe('publication toc injection', () => {
     expect(result).toContain('html-anything-publication-toc-script');
     expect(result).toContain('html-anything-publication-toc-toggle');
     expect(result).toContain('目录');
+    expect(result).toContain('body:has(.html-anything-publication-toc:not([hidden]))');
+    expect(result).toContain('padding-left: 296px');
+    expect(result).toContain('overflow-wrap: anywhere');
     expect(result).toContain('document.querySelectorAll');
     expect(result).toContain('article h1, article h2, article h3');
     expect(result).toContain('bottom: calc(82px + env(safe-area-inset-bottom))');
@@ -33,7 +36,7 @@ describe('publication toc injection', () => {
     expect(result).toBe(html);
   });
 
-  it('does not inject desktop toc into a main-only brief page', () => {
+  it('injects non-overlapping desktop toc into a main-only brief page', () => {
     const template = getHtmlAnythingTemplate('academic-paper');
     expect(template).toBeTruthy();
 
@@ -41,8 +44,9 @@ describe('publication toc injection', () => {
       '<!DOCTYPE html><html><head></head><body><main class="page"><section class="hero"><h1>AI Executive Brief</h1></section><section class="stats"><h2>核心信号</h2></section><section class="grid"><h2>企业家判断矩阵</h2></section></main></body></html>';
     const result = injectPublicationToc(html, template!);
 
-    expect(result).toBe(html);
-    expect(result).not.toContain('html-anything-publication-toc-script');
+    expect(result).toContain('html-anything-publication-toc-script');
+    expect(result).toContain('padding-left: 296px');
+    expect(result).toContain('@media (max-width: 900px)');
   });
 
   it('does not inject duplicate toc controls', () => {

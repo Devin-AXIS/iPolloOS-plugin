@@ -22,7 +22,7 @@ export default defineTool({
     {
       value: '1.2.19',
       description:
-        'Skip publication TOC injection for main-only brief/dashboard pages while preserving real publication TOC runtime, PDF export, and gallery metadata',
+        'Keep publication TOC on desktop without overlapping main content while preserving mobile drawer TOC, PDF export, and gallery metadata',
       inputs: [
         {
           key: 'template_id',
