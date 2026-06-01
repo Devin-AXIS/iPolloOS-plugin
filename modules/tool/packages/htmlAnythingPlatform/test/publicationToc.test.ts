@@ -33,6 +33,18 @@ describe('publication toc injection', () => {
     expect(result).toBe(html);
   });
 
+  it('does not inject desktop toc into a main-only brief page', () => {
+    const template = getHtmlAnythingTemplate('academic-paper');
+    expect(template).toBeTruthy();
+
+    const html =
+      '<!DOCTYPE html><html><head></head><body><main class="page"><section class="hero"><h1>AI Executive Brief</h1></section><section class="stats"><h2>核心信号</h2></section><section class="grid"><h2>企业家判断矩阵</h2></section></main></body></html>';
+    const result = injectPublicationToc(html, template!);
+
+    expect(result).toBe(html);
+    expect(result).not.toContain('html-anything-publication-toc-script');
+  });
+
   it('does not inject duplicate toc controls', () => {
     const template = getHtmlAnythingTemplate('research-report');
     expect(template).toBeTruthy();

@@ -6,6 +6,18 @@ export function shouldInjectPublicationToc(template: HtmlAnythingTemplate): bool
   return PUBLICATION_CATEGORIES.has(template.category);
 }
 
+function hasPublicationTocTarget(html: string): boolean {
+  const text = html.slice(0, 300_000);
+  const headingCount = (text.match(/<h[1-3]\b/gi) || []).length;
+  const hasPublicationShell =
+    /<article\b/i.test(text) ||
+    /\b(academic-paper-shell|paper-page|book-shell|book-page|report-shell|report-page|whitepaper-shell|whitepaper-page|publication)\b/i.test(
+      text
+    );
+
+  return hasPublicationShell && headingCount >= 2;
+}
+
 function buildPublicationTocSnippet(): string {
   return `
 <style id="html-anything-publication-toc-style">
@@ -184,6 +196,7 @@ function buildPublicationTocSnippet(): string {
 export function injectPublicationToc(html: string, template: HtmlAnythingTemplate): string {
   if (!shouldInjectPublicationToc(template)) return html;
   if (html.includes('html-anything-publication-toc-script')) return html;
+  if (!hasPublicationTocTarget(html)) return html;
 
   const snippet = buildPublicationTocSnippet();
   if (/<\/body>/i.test(html)) {

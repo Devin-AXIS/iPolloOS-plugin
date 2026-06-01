@@ -20,9 +20,9 @@ export default defineTool({
     '该工具不调用模型、不生成内容、不需要 ai_app_key。必须先由上游 AI 大脑根据用户需求选择模板类别并生成完整单文件 HTML，然后把完整 HTML 源码放入 content 调用本工具。本工具只负责校验 HTML、按模板类别注入运行层/导出/目录等确定性能力，并发布到 OSS 或返回 raw_html。分类选择必须优先服从用户最终交付形态：PPT/幻灯片/演示文稿/deck 选 slides；电子书/书籍/研究报告/白皮书/论文/深度专题选 publication/book/research；网站/官网/落地页/原型选 web/prototype；数据看板选 dashboard；移动端 App/单屏界面选 mobile；小红书/海报/卡片按 card/poster。content 必须包含真实 <html><head>...</head><body>...</body></html>，不要传原始需求、Markdown 或说明文字。',
   versionList: [
     {
-      value: '1.2.18',
+      value: '1.2.19',
       description:
-        'Publish upstream-AI-generated single-file HTML while preserving template-family routing, publication TOC runtime, scrollable slide pages, PDF export, and gallery metadata',
+        'Skip publication TOC injection for main-only brief/dashboard pages while preserving real publication TOC runtime, PDF export, and gallery metadata',
       inputs: [
         {
           key: 'template_id',
