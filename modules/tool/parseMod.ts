@@ -64,7 +64,7 @@ export const parseMod = async ({
     const toolsetId = rootMod.toolId;
 
     const parentIcon =
-      rootMod.icon || (await resolveIconPath(`${temp ? 'temp/' : ''}${toolsetId}/logo`));
+      (await resolveIconPath(`${temp ? 'temp/' : ''}${toolsetId}/logo`)) || rootMod.icon;
 
     const children = rootMod.children;
 
@@ -75,9 +75,9 @@ export const parseMod = async ({
         : `${toolsetId}/${childToolId}`;
 
       const childIcon =
+        (await resolveIconPath(`${temp ? 'temp/' : ''}${childIconPath}/logo`)) ||
         child.icon ||
-        rootMod.icon ||
-        (await resolveIconPath(`${temp ? 'temp/' : ''}${childIconPath}/logo`));
+        rootMod.icon;
 
       // Generate version for child tool
       const childVersion = generateToolVersion(child.versionList);
@@ -111,7 +111,7 @@ export const parseMod = async ({
     // is not toolset
     const toolId = rootMod.toolId;
 
-    const icon = rootMod.icon || (await resolveIconPath(`${temp ? 'temp/' : ''}${toolId}/logo`));
+    const icon = (await resolveIconPath(`${temp ? 'temp/' : ''}${toolId}/logo`)) || rootMod.icon;
 
     tools.push({
       ...rootMod,
