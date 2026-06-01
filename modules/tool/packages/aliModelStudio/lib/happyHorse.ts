@@ -101,7 +101,7 @@ export async function runHappyHorseVideoTask({
 }: {
   apiKey: string;
   region: HappyHorseRegion;
-  model: 'happyhorse-1.0-t2v' | 'happyhorse-1.0-i2v';
+  model: 'happyhorse-1.0-t2v' | 'happyhorse-1.0-i2v' | 'happyhorse-1.0-video-edit';
   input: Record<string, unknown>;
   parameters: Record<string, unknown>;
   pollIntervalSeconds?: number;

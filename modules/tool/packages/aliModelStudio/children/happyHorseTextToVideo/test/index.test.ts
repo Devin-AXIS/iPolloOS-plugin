@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { tool as runTextToVideo } from '../src';
+import { z } from 'zod';
+import { OutputType, tool as runTextToVideo } from '../src';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -40,7 +41,6 @@ test('creates and polls a HappyHorse text-to-video task', async () => {
     ratio: '16:9',
     duration: 5,
     watermark: false,
-    seed: 123,
     poll_interval_seconds: 0,
     max_poll_attempts: 1
   });
@@ -69,8 +69,11 @@ test('creates and polls a HappyHorse text-to-video task', async () => {
       resolution: '720P',
       ratio: '16:9',
       duration: 5,
-      watermark: false,
-      seed: 123
+      watermark: false
     }
   });
+});
+
+test('exports an output schema that can be converted to JSON schema', () => {
+  expect(() => z.toJSONSchema(OutputType)).not.toThrow();
 });

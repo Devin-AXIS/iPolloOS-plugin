@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { tool as runImageToVideo } from '../src';
+import { z } from 'zod';
+import { OutputType, tool as runImageToVideo } from '../src';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -70,4 +71,8 @@ test('creates and polls a HappyHorse image-to-video task', async () => {
       watermark: true
     }
   });
+});
+
+test('exports an output schema that can be converted to JSON schema', () => {
+  expect(() => z.toJSONSchema(OutputType)).not.toThrow();
 });

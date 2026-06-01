@@ -21,7 +21,6 @@ export const InputType = z.object({
     .default(5)
     .describe('Video duration in seconds'),
   watermark: z.boolean().optional().default(true).describe('Whether to add Happy Horse watermark'),
-  seed: z.number().int().min(0).max(2147483647).optional().describe('Random seed'),
   poll_interval_seconds: z
     .number()
     .min(0)
@@ -44,7 +43,7 @@ export const OutputType = z.object({
   task_id: z.string().describe('DashScope task ID'),
   task_status: z.string().describe('Task status'),
   request_id: z.string().optional().describe('DashScope request ID'),
-  usage: z.record(z.unknown()).optional().describe('Usage information'),
+  usage: z.record(z.string(), z.unknown()).optional().describe('Usage information'),
   raw_response_json: z.string().describe('Raw query response JSON')
 });
 
@@ -56,7 +55,6 @@ export async function tool({
   ratio = '16:9',
   duration = 5,
   watermark = true,
-  seed,
   poll_interval_seconds = 15,
   max_poll_attempts = 40
 }: z.infer<typeof InputType>): Promise<z.infer<typeof OutputType>> {
@@ -69,8 +67,7 @@ export async function tool({
       resolution,
       ratio,
       duration,
-      watermark,
-      ...(seed !== undefined ? { seed } : {})
+      watermark
     },
     pollIntervalSeconds: poll_interval_seconds,
     maxPollAttempts: max_poll_attempts

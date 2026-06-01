@@ -1,21 +1,35 @@
 import { z } from 'zod';
 import { RegionEnum, ResolutionEnum, runHappyHorseVideoTask } from '../../../lib/happyHorse';
 
+const parseReferenceImageUrls = (value?: string) => {
+  if (!value?.trim()) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => String(item).trim()).filter(Boolean);
+    }
+  } catch {
+    // Fall through to delimiter parsing for normal textarea input.
+  }
+
+  return value
+    .split(/[\n,，]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 export const InputType = z.object({
   apiKey: z.string().describe('Alibaba Cloud Model Studio API Key'),
-  image_url: z.string().url().describe('First-frame image URL'),
-  prompt: z.string().optional().describe('Optional text prompt for the video'),
+  video_url: z.string().url().describe('Video URL to edit'),
+  prompt: z.string().min(1).describe('Text instruction for editing the video'),
+  reference_image_urls: z.string().optional().describe('Optional reference image URLs, up to 5'),
   region: RegionEnum.optional().default('beijing').describe('DashScope region'),
   resolution: ResolutionEnum.optional().default('1080P').describe('Video resolution'),
-  duration: z
-    .number()
-    .int()
-    .min(3)
-    .max(15)
-    .optional()
-    .default(5)
-    .describe('Video duration in seconds'),
   watermark: z.boolean().optional().default(true).describe('Whether to add Happy Horse watermark'),
+  audio_setting: z.enum(['auto', 'origin']).optional().default('auto').describe('Audio setting'),
   poll_interval_seconds: z
     .number()
     .min(0)
@@ -44,32 +58,39 @@ export const OutputType = z.object({
 
 export async function tool({
   apiKey,
-  image_url,
+  video_url,
   prompt,
+  reference_image_urls,
   region = 'beijing',
   resolution = '1080P',
-  duration = 5,
   watermark = true,
+  audio_setting = 'auto',
   poll_interval_seconds = 15,
   max_poll_attempts = 40
 }: z.infer<typeof InputType>): Promise<z.infer<typeof OutputType>> {
+  const referenceImages = parseReferenceImageUrls(reference_image_urls).slice(0, 5);
+
   return runHappyHorseVideoTask({
     apiKey,
     region,
-    model: 'happyhorse-1.0-i2v',
+    model: 'happyhorse-1.0-video-edit',
     input: {
-      ...(prompt ? { prompt } : {}),
+      prompt,
       media: [
         {
-          type: 'first_frame',
-          url: image_url
-        }
+          type: 'video',
+          url: video_url
+        },
+        ...referenceImages.map((url) => ({
+          type: 'reference_image',
+          url
+        }))
       ]
     },
     parameters: {
       resolution,
-      duration,
-      watermark
+      watermark,
+      audio_setting
     },
     pollIntervalSeconds: poll_interval_seconds,
     maxPollAttempts: max_poll_attempts

@@ -87,14 +87,6 @@ export default defineTool({
           renderTypeList: [FlowNodeInputTypeEnum.switch],
           valueType: WorkflowIOValueTypeEnum.boolean,
           defaultValue: true
-        },
-        {
-          key: 'seed',
-          label: '随机种子',
-          renderTypeList: [FlowNodeInputTypeEnum.numberInput, FlowNodeInputTypeEnum.reference],
-          valueType: WorkflowIOValueTypeEnum.number,
-          min: 0,
-          max: 2147483647
         }
       ],
       outputs: [

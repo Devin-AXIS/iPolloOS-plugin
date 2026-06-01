@@ -7,32 +7,41 @@ import {
 
 export default defineTool({
   name: {
-    'zh-CN': 'HappyHorse 图生视频',
-    en: 'HappyHorse Image-to-Video'
+    'zh-CN': 'HappyHorse 视频编辑',
+    en: 'HappyHorse Video Edit'
   },
   description: {
-    'zh-CN': '使用阿里云百炼 HappyHorse 1.0，根据首帧图片和可选提示词异步生成视频。',
-    en: 'Generate videos from a first-frame image and optional prompt with Alibaba Cloud Model Studio HappyHorse 1.0.'
+    'zh-CN': '使用阿里云百炼 HappyHorse 1.0，根据文本指令编辑已有视频，可选参考图片。',
+    en: 'Edit an existing video with text instructions and optional reference images using Alibaba Cloud Model Studio HappyHorse 1.0.'
   },
   versionList: [
     {
       value: '0.1.0',
-      description: '接入 happyhorse-1.0-i2v 首帧图生视频',
+      description: '接入 happyhorse-1.0-video-edit 异步视频编辑',
       inputs: [
         {
-          key: 'image_url',
-          label: '首帧图片 URL',
-          description: '支持 HTTP/HTTPS 图片 URL；图片宽高至少 300px，文件不超过 10MB。',
-          toolDescription: 'First-frame image URL. Required.',
+          key: 'video_url',
+          label: '视频 URL',
+          description: '待编辑的视频公网 URL，支持 MP4/MOV，建议 H.264 编码。',
+          toolDescription: 'Public URL of the video to edit. Required.',
           renderTypeList: [FlowNodeInputTypeEnum.input, FlowNodeInputTypeEnum.reference],
           valueType: WorkflowIOValueTypeEnum.string,
           required: true
         },
         {
           key: 'prompt',
-          label: '提示词',
-          description: '可选，用于描述视频运动、镜头或氛围。',
-          toolDescription: 'Optional text prompt for motion or scene direction.',
+          label: '编辑指令',
+          description: '描述要对视频做的风格转换、元素替换或局部修改。',
+          toolDescription: 'Text instruction for the video edit. Required.',
+          renderTypeList: [FlowNodeInputTypeEnum.textarea, FlowNodeInputTypeEnum.reference],
+          valueType: WorkflowIOValueTypeEnum.string,
+          required: true
+        },
+        {
+          key: 'reference_image_urls',
+          label: '参考图片 URL',
+          description: '可选，最多 5 张。多张请用换行、逗号或 JSON 数组分隔。',
+          toolDescription: 'Optional reference image URLs, up to 5.',
           renderTypeList: [FlowNodeInputTypeEnum.textarea, FlowNodeInputTypeEnum.reference],
           valueType: WorkflowIOValueTypeEnum.string
         },
@@ -61,22 +70,23 @@ export default defineTool({
           ]
         },
         {
-          key: 'duration',
-          label: '时长（秒）',
-          description: '3 到 15 秒。',
-          renderTypeList: [FlowNodeInputTypeEnum.numberInput, FlowNodeInputTypeEnum.reference],
-          valueType: WorkflowIOValueTypeEnum.number,
-          defaultValue: 5,
-          min: 3,
-          max: 15
-        },
-        {
           key: 'watermark',
           label: '添加水印',
           description: '是否添加 Happy Horse 水印。',
           renderTypeList: [FlowNodeInputTypeEnum.switch],
           valueType: WorkflowIOValueTypeEnum.boolean,
           defaultValue: true
+        },
+        {
+          key: 'audio_setting',
+          label: '声音控制',
+          renderTypeList: [FlowNodeInputTypeEnum.select],
+          valueType: WorkflowIOValueTypeEnum.string,
+          defaultValue: 'auto',
+          list: [
+            { label: '自动', value: 'auto' },
+            { label: '保留原声', value: 'origin' }
+          ]
         }
       ],
       outputs: [
