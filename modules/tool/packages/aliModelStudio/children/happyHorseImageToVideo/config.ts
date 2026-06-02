@@ -21,11 +21,17 @@ export default defineTool({
       inputs: [
         {
           key: 'image_url',
-          label: '首帧图片 URL',
-          description: '支持 HTTP/HTTPS 图片 URL；图片宽高至少 300px，文件不超过 10MB。',
-          toolDescription: 'First-frame image URL. Required.',
-          renderTypeList: [FlowNodeInputTypeEnum.input, FlowNodeInputTypeEnum.reference],
-          valueType: WorkflowIOValueTypeEnum.string,
+          label: '首帧图片',
+          description:
+            '支持用户上传图片、图片 URL、上游文生图输出的图片数组、Markdown 图片或 data:image；会自动取第一张图。',
+          toolDescription:
+            'First-frame image. Can be an uploaded user image, URL, upstream image array, markdown image, image object, or data:image value. Use the first available image.',
+          renderTypeList: [
+            FlowNodeInputTypeEnum.fileSelect,
+            FlowNodeInputTypeEnum.reference,
+            FlowNodeInputTypeEnum.input
+          ],
+          valueType: WorkflowIOValueTypeEnum.any,
           required: true
         },
         {
