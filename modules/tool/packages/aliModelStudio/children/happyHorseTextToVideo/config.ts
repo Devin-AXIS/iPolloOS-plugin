@@ -55,10 +55,14 @@ export default defineTool({
         {
           key: 'ratio',
           label: '宽高比',
-          renderTypeList: [FlowNodeInputTypeEnum.select],
+          description: '默认交给模型自动选择；手动选择后才会固定比例。',
+          toolDescription:
+            'Video aspect ratio. Use auto unless the user explicitly asks for a fixed aspect ratio.',
+          renderTypeList: [FlowNodeInputTypeEnum.select, FlowNodeInputTypeEnum.reference],
           valueType: WorkflowIOValueTypeEnum.string,
-          defaultValue: '16:9',
+          defaultValue: 'auto',
           list: [
+            { label: 'AI 自动选择', value: 'auto' },
             { label: '16:9', value: '16:9' },
             { label: '9:16', value: '9:16' },
             { label: '1:1', value: '1:1' },
@@ -73,12 +77,19 @@ export default defineTool({
         {
           key: 'duration',
           label: '时长（秒）',
-          description: '3 到 15 秒。',
-          renderTypeList: [FlowNodeInputTypeEnum.numberInput, FlowNodeInputTypeEnum.reference],
-          valueType: WorkflowIOValueTypeEnum.number,
-          defaultValue: 5,
-          min: 3,
-          max: 15
+          description: '默认交给模型自动选择；手动选择后才会固定时长。',
+          toolDescription:
+            'Video duration in seconds. Use auto unless the user explicitly asks for a fixed duration.',
+          renderTypeList: [FlowNodeInputTypeEnum.select, FlowNodeInputTypeEnum.reference],
+          valueType: WorkflowIOValueTypeEnum.string,
+          defaultValue: 'auto',
+          list: [
+            { label: 'AI 自动选择', value: 'auto' },
+            { label: '3 秒', value: '3' },
+            { label: '5 秒', value: '5' },
+            { label: '10 秒', value: '10' },
+            { label: '15 秒', value: '15' }
+          ]
         },
         {
           key: 'watermark',

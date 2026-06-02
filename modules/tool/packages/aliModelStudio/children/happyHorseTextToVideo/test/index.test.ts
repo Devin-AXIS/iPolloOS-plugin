@@ -74,6 +74,52 @@ test('creates and polls a HappyHorse text-to-video task', async () => {
   });
 });
 
+test('omits ratio and duration when text-to-video uses AI auto settings', async () => {
+  const fetchMock = vi
+    .spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          request_id: 'create-request',
+          output: { task_status: 'PENDING', task_id: 'task-auto' }
+        }),
+        { status: 200 }
+      )
+    )
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          request_id: 'query-request',
+          output: {
+            task_id: 'task-auto',
+            task_status: 'SUCCEEDED',
+            video_url: 'https://example.com/auto.mp4'
+          }
+        }),
+        { status: 200 }
+      )
+    );
+
+  await runTextToVideo({
+    apiKey: 'sk-test',
+    prompt: 'A paper city at night',
+    ratio: 'auto',
+    duration: 'auto',
+    poll_interval_seconds: 0,
+    max_poll_attempts: 1
+  });
+
+  const createOptions = fetchMock.mock.calls[0][1] as RequestInit;
+  expect(JSON.parse(createOptions.body as string)).toEqual({
+    model: 'happyhorse-1.0-t2v',
+    input: { prompt: 'A paper city at night' },
+    parameters: {
+      resolution: '1080P',
+      watermark: true
+    }
+  });
+});
+
 test('exports an output schema that can be converted to JSON schema', () => {
   expect(() => z.toJSONSchema(OutputType)).not.toThrow();
 });

@@ -6,20 +6,20 @@ import {
   runHappyHorseVideoTask
 } from '../../../lib/happyHorse';
 
+const AutoRatioEnum = z.union([z.literal('auto'), RatioEnum]);
+const DurationInput = z.union([
+  z.literal('auto'),
+  z.number().int().min(3).max(15),
+  z.string().regex(/^(?:[3-9]|1[0-5])$/)
+]);
+
 export const InputType = z.object({
   apiKey: z.string().describe('Alibaba Cloud Model Studio API Key'),
   prompt: z.string().min(1).describe('Text prompt for the video'),
   region: RegionEnum.optional().default('beijing').describe('DashScope region'),
   resolution: ResolutionEnum.optional().default('1080P').describe('Video resolution'),
-  ratio: RatioEnum.optional().default('16:9').describe('Video aspect ratio'),
-  duration: z
-    .number()
-    .int()
-    .min(3)
-    .max(15)
-    .optional()
-    .default(5)
-    .describe('Video duration in seconds'),
+  ratio: AutoRatioEnum.optional().default('auto').describe('Video aspect ratio'),
+  duration: DurationInput.optional().default('auto').describe('Video duration in seconds'),
   watermark: z.boolean().optional().default(true).describe('Whether to add Happy Horse watermark'),
   poll_interval_seconds: z
     .number()
@@ -52,12 +52,14 @@ export async function tool({
   prompt,
   region = 'beijing',
   resolution = '1080P',
-  ratio = '16:9',
-  duration = 5,
+  ratio = 'auto',
+  duration = 'auto',
   watermark = true,
   poll_interval_seconds = 15,
   max_poll_attempts = 40
 }: z.infer<typeof InputType>): Promise<z.infer<typeof OutputType>> {
+  const manualDuration = duration === 'auto' ? undefined : Number(duration);
+
   return runHappyHorseVideoTask({
     apiKey,
     region,
@@ -65,8 +67,8 @@ export async function tool({
     input: { prompt },
     parameters: {
       resolution,
-      ratio,
-      duration,
+      ...(ratio !== 'auto' ? { ratio } : {}),
+      ...(manualDuration !== undefined ? { duration: manualDuration } : {}),
       watermark
     },
     pollIntervalSeconds: poll_interval_seconds,
