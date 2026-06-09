@@ -171,6 +171,47 @@ export const ToolTagEnum = z.enum([
   'other'
 ]);
 
+// Runtime capability metadata. This is optional and intentionally does not affect
+// the existing one-shot tool execution path.
+export const ToolRuntimeKindEnum = z.enum(['execute', 'trigger']);
+export const ToolExecuteRiskLevelEnum = z.enum(['read', 'write', 'destructive']);
+export const ToolTriggerTypeEnum = z.enum(['polling', 'webhook']);
+
+export const ToolExecuteRuntimeSchema = z.object({
+  riskLevel: ToolExecuteRiskLevelEnum.optional(),
+  requireUserConfirmDefault: z.boolean().optional(),
+  idempotencyKeyInput: z.string().optional()
+});
+
+export const ToolTriggerRuntimeSchema = z.object({
+  type: ToolTriggerTypeEnum,
+  minIntervalSeconds: z.number().int().positive().optional(),
+  defaultIntervalSeconds: z.number().int().positive().optional(),
+  maxBatchEvents: z.number().int().positive().optional(),
+  stateSchemaVersion: z.string().optional(),
+  eventSchemaVersion: z.string().optional(),
+  allowManualRun: z.boolean().optional(),
+  allowAutoRun: z.boolean().optional(),
+  outputEventKey: z.string().optional(),
+  outputStateKey: z.string().optional()
+});
+
+export const ToolRuntimeSchema = z
+  .object({
+    kind: ToolRuntimeKindEnum.optional(),
+    execute: ToolExecuteRuntimeSchema.optional(),
+    trigger: ToolTriggerRuntimeSchema.optional()
+  })
+  .superRefine((runtime, ctx) => {
+    if (runtime.kind === 'trigger' && !runtime.trigger) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['trigger'],
+        message: 'trigger runtime config is required when runtime.kind is trigger'
+      });
+    }
+  });
+
 // Version Item
 export const VersionListItemSchema = z.object({
   value: z.string(),
@@ -192,6 +233,7 @@ export const ToolConfigSchema = z.object({
   avatar: z.string().optional(),
   author: z.string().optional(),
   courseUrl: z.string().optional(),
+  runtime: ToolRuntimeSchema.optional(),
   secretInputConfig: z.array(InputConfigSchema).optional()
 });
 

@@ -3,12 +3,27 @@ import {
   InputConfigSchema,
   ToolTagEnum,
   VersionListItemSchema,
-  ToolConfigSchema
+  ToolConfigSchema,
+  ToolRuntimeKindEnum,
+  ToolExecuteRiskLevelEnum,
+  ToolTriggerTypeEnum,
+  ToolExecuteRuntimeSchema,
+  ToolTriggerRuntimeSchema,
+  ToolRuntimeSchema
 } from '@/validates/tool';
 import { ToolCallbackType } from './req';
 
 // Re-export from validates
-export { VersionListItemSchema, ToolConfigSchema };
+export {
+  VersionListItemSchema,
+  ToolConfigSchema,
+  ToolRuntimeKindEnum,
+  ToolExecuteRiskLevelEnum,
+  ToolTriggerTypeEnum,
+  ToolExecuteRuntimeSchema,
+  ToolTriggerRuntimeSchema,
+  ToolRuntimeSchema
+};
 
 // ==================== Module-specific Schemas (with callback) ====================
 

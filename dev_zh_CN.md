@@ -95,6 +95,123 @@ const foo = () => {
 
 ## 系统工具
 
+### 插件能力类型
+
+iPolloOS 插件按运行方式分为两类：执行型插件和触发型插件。
+
+#### 执行型插件
+
+执行型插件适合一次性调用场景。用户、Agent 或工作流传入参数，插件完成查询、生成、发送、发布、更新或删除等操作，然后返回结构化结果。
+
+常见场景：
+
+- 搜索、网页读取、数据库查询。
+- 文件解析、格式转换、内容生成。
+- 发送消息、创建任务、发布内容。
+- 更新或删除外部系统里的资源。
+
+执行型插件默认不需要声明 `runtime`。如果希望平台识别风险等级，可以在 `config.ts` 中增加可选声明：
+
+```typescript
+export default defineTool({
+  name: {
+    'zh-CN': '发送消息',
+    en: 'Send message'
+  },
+  description: {
+    'zh-CN': '向外部系统发送消息。',
+    en: 'Send a message to an external service.'
+  },
+  runtime: {
+    kind: 'execute',
+    execute: {
+      riskLevel: 'write',
+      requireUserConfirmDefault: true,
+      idempotencyKeyInput: 'requestId'
+    }
+  },
+  versionList: [
+    {
+      value: '1.0.0',
+      inputs: [],
+      outputs: []
+    }
+  ]
+});
+```
+
+风险等级建议：
+
+- `read`：只读查询，不改变外部状态。
+- `write`：创建、发送、更新。
+- `destructive`：删除、取关、撤销等破坏性动作。
+
+#### 触发型插件
+
+触发型插件适合长期监控、定时检查和外部事件接入。它描述“什么时候检查、如何保存状态、如何输出新增事件”，平台可以基于这些元数据创建监控实例并触发后续工作流。
+
+常见场景：
+
+- 定时检查某个账号、关键词、仓库或数据源是否有新内容。
+- 保存 `lastPostId`、`cursor`、`etag` 等状态，只返回增量事件。
+- 接收 Webhook 回调，把外部事件转换成工作流输入。
+- 监控到事件后进入翻译、筛选、推送或审批流程。
+
+触发型插件在 `config.ts` 中声明 `runtime.trigger`：
+
+```typescript
+export default defineTool({
+  name: {
+    'zh-CN': '检查账号新增内容',
+    en: 'Check account updates'
+  },
+  description: {
+    'zh-CN': '按状态检查账号新增内容并返回事件。',
+    en: 'Check account updates by state and return events.'
+  },
+  runtime: {
+    kind: 'trigger',
+    trigger: {
+      type: 'polling',
+      minIntervalSeconds: 60,
+      defaultIntervalSeconds: 300,
+      maxBatchEvents: 50,
+      outputEventKey: 'events_json',
+      outputStateKey: 'next_state_json',
+      allowManualRun: true,
+      allowAutoRun: true
+    }
+  },
+  versionList: [
+    {
+      value: '1.0.0',
+      inputs: [],
+      outputs: [
+        {
+          key: 'events_json',
+          label: '事件 JSON',
+          valueType: WorkflowIOValueTypeEnum.string
+        },
+        {
+          key: 'next_state_json',
+          label: '下一次状态 JSON',
+          valueType: WorkflowIOValueTypeEnum.string
+        }
+      ]
+    }
+  ]
+});
+```
+
+触发型插件推荐输出：
+
+- `events_json`：新增事件数组，事件里应包含稳定的 `dedupeKey`。
+- `next_state_json`：下次运行需要使用的状态。
+- `summary_markdown`：本次检查摘要，可选。
+- `system_error`：错误信息，可选。
+
+平台型插件可以同时包含执行型和触发型子工具。例如一个 X 平台工具集可以包含账号查询、内容搜索、监控检查和发帖/关注等多个子工具。
+
 ### 页面输出和聊天卡片
 
 插件如果会生成一个单页 HTML，可以返回 `page_html`。平台在自动发布或资源中心模式下会写入 `page_url`，聊天端会把它渲染成可打开的页面卡片。
@@ -193,4 +310,3 @@ modules/tool/type/tool.ts 下修改 `ToolTypeMap` 字段来增加类型枚举。
 
 1. modules/model/provider 找到对应模型提供商配置文件
 2. 按 ConfigModelItemSchema 数据类型填写配置即可
-

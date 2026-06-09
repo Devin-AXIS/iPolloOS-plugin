@@ -41,6 +41,123 @@ pnpm link xxxx/iPolloOS-plugin/sdk
 
 This command will not update the package.json file.
 
+## Plugin Capability Types
+
+iPolloOS plugins are organized by runtime behavior into two types: execute plugins and trigger plugins.
+
+### Execute Plugins
+
+Execute plugins are suitable for one-shot calls. A user, Agent, or workflow passes inputs to the plugin; the plugin performs a query, generation, send, publish, update, or delete operation; then it returns structured outputs.
+
+Common scenarios:
+
+- Search, web reading, and database queries.
+- File parsing, format conversion, and content generation.
+- Message sending, task creation, and content publishing.
+- Updating or deleting resources in external systems.
+
+Execute plugins do not need to declare `runtime` by default. To let the platform understand risk level, add optional metadata in `config.ts`:
+
+```typescript
+export default defineTool({
+  name: {
+    'zh-CN': '发送消息',
+    en: 'Send message'
+  },
+  description: {
+    'zh-CN': '向外部系统发送消息。',
+    en: 'Send a message to an external service.'
+  },
+  runtime: {
+    kind: 'execute',
+    execute: {
+      riskLevel: 'write',
+      requireUserConfirmDefault: true,
+      idempotencyKeyInput: 'requestId'
+    }
+  },
+  versionList: [
+    {
+      value: '1.0.0',
+      inputs: [],
+      outputs: []
+    }
+  ]
+});
+```
+
+Recommended risk levels:
+
+- `read`: read-only, does not change external state.
+- `write`: creates, sends, or updates.
+- `destructive`: deletes, unfollows, revokes, or performs other destructive actions.
+
+### Trigger Plugins
+
+Trigger plugins are suitable for long-running monitoring, scheduled checks, and external event intake. They describe when to check, how to persist state, and how to output new events. The platform can use this metadata to create monitoring instances and trigger downstream workflows.
+
+Common scenarios:
+
+- Periodically check whether an account, keyword, repository, or data source has new content.
+- Persist `lastPostId`, `cursor`, `etag`, or similar state and return only incremental events.
+- Receive webhook callbacks and convert external events into workflow inputs.
+- Send monitored events into translation, filtering, notification, or approval workflows.
+
+Trigger plugins declare `runtime.trigger` in `config.ts`:
+
+```typescript
+export default defineTool({
+  name: {
+    'zh-CN': '检查账号新增内容',
+    en: 'Check account updates'
+  },
+  description: {
+    'zh-CN': '按状态检查账号新增内容并返回事件。',
+    en: 'Check account updates by state and return events.'
+  },
+  runtime: {
+    kind: 'trigger',
+    trigger: {
+      type: 'polling',
+      minIntervalSeconds: 60,
+      defaultIntervalSeconds: 300,
+      maxBatchEvents: 50,
+      outputEventKey: 'events_json',
+      outputStateKey: 'next_state_json',
+      allowManualRun: true,
+      allowAutoRun: true
+    }
+  },
+  versionList: [
+    {
+      value: '1.0.0',
+      inputs: [],
+      outputs: [
+        {
+          key: 'events_json',
+          label: 'Events JSON',
+          valueType: WorkflowIOValueTypeEnum.string
+        },
+        {
+          key: 'next_state_json',
+          label: 'Next state JSON',
+          valueType: WorkflowIOValueTypeEnum.string
+        }
+      ]
+    }
+  ]
+});
+```
+
+Recommended trigger outputs:
+
+- `events_json`: an array of new events. Each event should include a stable `dedupeKey`.
+- `next_state_json`: state for the next run.
+- `summary_markdown`: optional run summary.
+- `system_error`: optional error output.
+
+A platform plugin can contain both execute and trigger child tools. For example, an X platform toolset can include account lookup, content search, watch checking, and post/follow actions.
+
 ### Page Outputs and Chat Cards
 
 If a plugin generates a single-page HTML result, return `page_html`. In auto-publish or resource-center mode, the platform writes `page_url`, and the chat client renders it as an openable page card.
