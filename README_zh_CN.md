@@ -44,7 +44,16 @@ iPolloOS 插件按运行方式分为两类：
 - Webhook 事件：例如外部系统主动回调后触发工作流。
 - 事件分发：例如发现新内容后进入翻译、筛选、推送工作流。
 
-触发型插件通过 `runtime.trigger` 声明轮询/Webhook 类型、默认间隔、事件输出字段和状态输出字段。平台可以基于这些元数据创建监控实例、保存状态、去重事件并触发后续工作流。
+触发型插件通过 `runtime.trigger` 声明轮询/Webhook 类型、调度策略、状态输入输出、事件输出、去重字段、失败重试和权限策略。平台可以基于这些元数据创建监控实例、保存状态、去重事件并触发后续工作流。
+
+触发型插件的推荐契约很小：
+
+- `schedule`：多久运行、超时多久、是否加抖动。
+- `state`：从哪个输入读取状态、把下一次状态写到哪个输出。
+- `event`：从哪个输出读取事件、用哪个字段去重、最多返回多少事件。
+- `delivery`：失败怎么重试、并发怎么锁、失败时状态如何处理。
+- `webhook`：Webhook 路径、鉴权和签名字段。
+- `permissions`：是否允许手动运行、是否允许自动运行、是否默认需要用户确认。
 
 一个平台型插件可以同时包含执行型和触发型子工具。例如 X 平台插件可以包含：
 
@@ -95,7 +104,13 @@ xPlatform/manageAccountAction  执行型：发帖、回复、关注、取关
 | `toolDescription` | `defineTool({...})` | Agent 选工具时看到的说明 |
 | `runtime.kind` | `defineTool({...})` | 插件能力类型：`execute` 或 `trigger` |
 | `runtime.execute.riskLevel` | `defineTool({...})` | 执行型插件风险等级：`read`、`write`、`destructive` |
-| `runtime.trigger` | `defineTool({...})` | 触发型插件的轮询/Webhook 元数据 |
+| `runtime.trigger.type` | `defineTool({...})` | 触发类型：`polling` 或 `webhook` |
+| `runtime.trigger.schedule` | `defineTool({...})` | 轮询间隔、超时、抖动 |
+| `runtime.trigger.state` | `defineTool({...})` | 状态输入、状态输出、状态版本 |
+| `runtime.trigger.event` | `defineTool({...})` | 事件输出、去重字段、事件版本 |
+| `runtime.trigger.delivery` | `defineTool({...})` | 重试、并发锁、失败策略 |
+| `runtime.trigger.webhook` | `defineTool({...})` | Webhook 路径、鉴权、签名 |
+| `runtime.trigger.permissions` | `defineTool({...})` | 手动/自动运行权限 |
 | `inputs[].key` | `versionList[].inputs` | 工作流入参字段名 |
 | `outputs[].key` | `versionList[].outputs` | 工作流出参字段名 |
 | `page_html` | 工具返回 | 完整 HTML，由平台发布 |

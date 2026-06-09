@@ -44,7 +44,16 @@ Trigger plugins are designed for long-running monitoring, scheduled checks, and 
 - Webhook events: for example, receiving external callbacks and triggering workflows.
 - Event dispatch: for example, sending new content into translation, filtering, and notification workflows.
 
-Trigger plugins use `runtime.trigger` to declare polling/webhook type, default intervals, event output keys, and state output keys. The platform can use this metadata to create monitoring instances, persist state, deduplicate events, and trigger downstream workflows.
+Trigger plugins use `runtime.trigger` to declare polling/webhook type, schedule policy, state input/output, event output, dedupe keys, failure retry, and permissions. The platform can use this metadata to create monitoring instances, persist state, deduplicate events, and trigger downstream workflows.
+
+The recommended trigger contract stays small:
+
+- `schedule`: run interval, timeout, and jitter.
+- `state`: where to read state and where to write next state.
+- `event`: where to read events, how to dedupe, and max batch size.
+- `delivery`: retry behavior, concurrency lock, and failure policy.
+- `webhook`: path, auth, and signature metadata.
+- `permissions`: whether manual and automatic runs are allowed.
 
 A platform plugin can include both execute and trigger child tools. For example, an X platform plugin can contain:
 
@@ -95,7 +104,13 @@ For example, an X integration should not be one giant tool. It should expose use
 | `toolDescription` | `defineTool({...})` | What the Agent sees when choosing this tool |
 | `runtime.kind` | `defineTool({...})` | Plugin capability type: `execute` or `trigger` |
 | `runtime.execute.riskLevel` | `defineTool({...})` | Execute plugin risk level: `read`, `write`, or `destructive` |
-| `runtime.trigger` | `defineTool({...})` | Polling/webhook metadata for trigger plugins |
+| `runtime.trigger.type` | `defineTool({...})` | Trigger type: `polling` or `webhook` |
+| `runtime.trigger.schedule` | `defineTool({...})` | Polling interval, timeout, and jitter |
+| `runtime.trigger.state` | `defineTool({...})` | State input, state output, and state version |
+| `runtime.trigger.event` | `defineTool({...})` | Event output, dedupe field, and event version |
+| `runtime.trigger.delivery` | `defineTool({...})` | Retry, concurrency lock, and failure policy |
+| `runtime.trigger.webhook` | `defineTool({...})` | Webhook path, auth, and signature metadata |
+| `runtime.trigger.permissions` | `defineTool({...})` | Manual/automatic run permissions |
 | `inputs[].key` | `versionList[].inputs` | Workflow input field names |
 | `outputs[].key` | `versionList[].outputs` | Workflow output field names |
 | `page_html` | Tool return / output | Full HTML; platform publishes it |

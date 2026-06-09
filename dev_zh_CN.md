@@ -173,19 +173,52 @@ export default defineTool({
     kind: 'trigger',
     trigger: {
       type: 'polling',
-      minIntervalSeconds: 60,
-      defaultIntervalSeconds: 300,
-      maxBatchEvents: 50,
-      outputEventKey: 'events_json',
-      outputStateKey: 'next_state_json',
-      allowManualRun: true,
-      allowAutoRun: true
+      schedule: {
+        minIntervalSeconds: 60,
+        defaultIntervalSeconds: 300,
+        maxIntervalSeconds: 3600,
+        timeoutSeconds: 60,
+        jitterSeconds: 15
+      },
+      state: {
+        inputKey: 'state_json',
+        outputKey: 'next_state_json',
+        schemaVersion: 'x-watch-state.v1',
+        cursorKey: 'lastPostId',
+        resettable: true
+      },
+      event: {
+        outputKey: 'events_json',
+        schemaVersion: 'x-watch-event.v1',
+        dedupeKey: 'dedupeKey',
+        occurredAtKey: 'postedAt',
+        maxBatchEvents: 50
+      },
+      delivery: {
+        retryMaxAttempts: 3,
+        retryBackoff: 'exponential',
+        failurePolicy: 'keep_state',
+        concurrencyKeyInput: 'watchId',
+        lockTtlSeconds: 120
+      },
+      permissions: {
+        allowManualRun: true,
+        allowAutoRun: true
+      }
     }
   },
   versionList: [
     {
       value: '1.0.0',
-      inputs: [],
+      inputs: [
+        {
+          key: 'state_json',
+          label: '状态 JSON',
+          renderTypeList: [FlowNodeInputTypeEnum.hidden],
+          valueType: WorkflowIOValueTypeEnum.string,
+          required: false
+        }
+      ],
       outputs: [
         {
           key: 'events_json',
@@ -203,12 +236,40 @@ export default defineTool({
 });
 ```
 
+`minIntervalSeconds`、`defaultIntervalSeconds`、`maxBatchEvents`、`outputEventKey`、`outputStateKey`、`allowManualRun`、`allowAutoRun` 这些简化字段也仍然支持；新插件建议优先使用 `schedule`、`state`、`event`、`delivery`、`webhook`、`permissions`，更利于平台后续做实例管理、重试和去重。
+
 触发型插件推荐输出：
 
-- `events_json`：新增事件数组，事件里应包含稳定的 `dedupeKey`。
-- `next_state_json`：下次运行需要使用的状态。
+- `events_json`：新增事件数组，事件里应包含稳定的 `dedupeKey` 和事件时间字段。
+- `next_state_json`：下次运行需要使用的状态，例如 `lastPostId`、`cursor`、`etag`。
 - `summary_markdown`：本次检查摘要，可选。
 - `system_error`：错误信息，可选。
+
+触发型插件只描述能力，不保存用户的监控实例。平台负责保存输入参数、启停状态、上次状态、下次运行时间、失败次数和去重记录。
+
+Webhook 触发器使用同一套事件输出契约，只是在 `trigger.webhook` 中声明入口和鉴权：
+
+```typescript
+runtime: {
+  kind: 'trigger',
+  trigger: {
+    type: 'webhook',
+    webhook: {
+      method: 'POST',
+      path: '/webhooks/x',
+      auth: 'signature',
+      secretInputKey: 'webhookSecret',
+      signatureHeader: 'X-Signature',
+      timestampHeader: 'X-Timestamp',
+      toleranceSeconds: 300
+    },
+    event: {
+      outputKey: 'events_json',
+      dedupeKey: 'eventId'
+    }
+  }
+}
+```
 
 平台型插件可以同时包含执行型和触发型子工具。例如一个 X 平台工具集可以包含账号查询、内容搜索、监控检查和发帖/关注等多个子工具。
 

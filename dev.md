@@ -119,19 +119,52 @@ export default defineTool({
     kind: 'trigger',
     trigger: {
       type: 'polling',
-      minIntervalSeconds: 60,
-      defaultIntervalSeconds: 300,
-      maxBatchEvents: 50,
-      outputEventKey: 'events_json',
-      outputStateKey: 'next_state_json',
-      allowManualRun: true,
-      allowAutoRun: true
+      schedule: {
+        minIntervalSeconds: 60,
+        defaultIntervalSeconds: 300,
+        maxIntervalSeconds: 3600,
+        timeoutSeconds: 60,
+        jitterSeconds: 15
+      },
+      state: {
+        inputKey: 'state_json',
+        outputKey: 'next_state_json',
+        schemaVersion: 'x-watch-state.v1',
+        cursorKey: 'lastPostId',
+        resettable: true
+      },
+      event: {
+        outputKey: 'events_json',
+        schemaVersion: 'x-watch-event.v1',
+        dedupeKey: 'dedupeKey',
+        occurredAtKey: 'postedAt',
+        maxBatchEvents: 50
+      },
+      delivery: {
+        retryMaxAttempts: 3,
+        retryBackoff: 'exponential',
+        failurePolicy: 'keep_state',
+        concurrencyKeyInput: 'watchId',
+        lockTtlSeconds: 120
+      },
+      permissions: {
+        allowManualRun: true,
+        allowAutoRun: true
+      }
     }
   },
   versionList: [
     {
       value: '1.0.0',
-      inputs: [],
+      inputs: [
+        {
+          key: 'state_json',
+          label: 'State JSON',
+          renderTypeList: [FlowNodeInputTypeEnum.hidden],
+          valueType: WorkflowIOValueTypeEnum.string,
+          required: false
+        }
+      ],
       outputs: [
         {
           key: 'events_json',
@@ -149,12 +182,40 @@ export default defineTool({
 });
 ```
 
+The simplified fields `minIntervalSeconds`, `defaultIntervalSeconds`, `maxBatchEvents`, `outputEventKey`, `outputStateKey`, `allowManualRun`, and `allowAutoRun` are still supported. New plugins should prefer `schedule`, `state`, `event`, `delivery`, `webhook`, and `permissions` because those fields are easier for the platform to use for instance management, retry, and dedupe.
+
 Recommended trigger outputs:
 
-- `events_json`: an array of new events. Each event should include a stable `dedupeKey`.
-- `next_state_json`: state for the next run.
+- `events_json`: an array of new events. Each event should include a stable `dedupeKey` and an event time field.
+- `next_state_json`: state for the next run, such as `lastPostId`, `cursor`, or `etag`.
 - `summary_markdown`: optional run summary.
 - `system_error`: optional error output.
+
+Trigger plugins describe capabilities; they do not store user monitoring instances. The platform owns instance inputs, enabled state, previous state, next run time, failure count, and dedupe records.
+
+Webhook triggers use the same event output contract and declare entry/security metadata under `trigger.webhook`:
+
+```typescript
+runtime: {
+  kind: 'trigger',
+  trigger: {
+    type: 'webhook',
+    webhook: {
+      method: 'POST',
+      path: '/webhooks/x',
+      auth: 'signature',
+      secretInputKey: 'webhookSecret',
+      signatureHeader: 'X-Signature',
+      timestampHeader: 'X-Timestamp',
+      toleranceSeconds: 300
+    },
+    event: {
+      outputKey: 'events_json',
+      dedupeKey: 'eventId'
+    }
+  }
+}
+```
 
 A platform plugin can contain both execute and trigger child tools. For example, an X platform toolset can include account lookup, content search, watch checking, and post/follow actions.
 
