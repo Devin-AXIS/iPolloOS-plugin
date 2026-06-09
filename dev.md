@@ -158,6 +158,19 @@ Recommended trigger outputs:
 
 A platform plugin can contain both execute and trigger child tools. For example, an X platform toolset can include account lookup, content search, watch checking, and post/follow actions.
 
+### Platform Plugin Split
+
+When one external platform has many capabilities, split it by user workflow instead of by API endpoint. Keep credentials, clients, rate-limit handling, shared parsers, translation helpers, and state storage in shared package code.
+
+Recommended split:
+
+- Common/query child tools: account lookup, content detail, timeline/history search, keyword search, and reusable normalization.
+- Trigger child tools: scheduled watch checks, webhook event intake, cursor/state updates, dedupe, and event batch output.
+- Action child tools: post, reply, delete, follow, unfollow, create task, send message, and other operations that change external state.
+- Presentation child tools when needed: HTML reports, review pages, interactive forms, and result cards.
+
+For an X platform plugin, this keeps the user-facing surface clear: search and historical lookup are execute/read tools, monitoring is a trigger tool, and post/reply/follow/delete are execute tools with `write` or `destructive` risk levels.
+
 ### Page Outputs and Chat Cards
 
 If a plugin generates a single-page HTML result, return `page_html`. In auto-publish or resource-center mode, the platform writes `page_url`, and the chat client renders it as an openable page card.

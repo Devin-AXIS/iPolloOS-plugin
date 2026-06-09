@@ -1,23 +1,24 @@
-<div align="center">
-<a href="https://ipolloos.ai/"><img src="https://github.com/labring/iPolloOS/raw/main/.github/imgs/logo.svg" width="120" height="120" alt="ipolloos logo"></a>
-
 # iPolloOS-plugin
 
-<p align="center">
-  <a href="./README_zh_CN.md">简体中文</a> |
-  <a href="./README.md">English</a>
-</p>
+Plugin runtime for [iPolloOS](https://github.com/Devin-AXIS/iPolloOS). The main app calls this service over HTTP; plugins run here as versioned packages with typed inputs/outputs.
 
-[iPolloOS](https://github.com/labring/iPolloOS) is a knowledge-based platform built on the LLMs, offers a comprehensive suite of out-of-the-box capabilities such as data processing, RAG retrieval, and visual AI workflow orchestration, letting you easily develop and deploy complex question-answering systems without the need for extensive setup or configuration.
+**Not** a prompt pack (Skill) or a thin protocol bridge (MCP). Plugins are **TypeScript + Zod + optional Worker threads**: call APIs and databases directly, return workflow fields the next node can use, or ship HTML pages the platform publishes.
 
-iPolloOS-plugin is the plugin framework and plugin repository for iPolloOS. It connects external services, internal system capabilities, and long-running monitoring capabilities to iPolloOS Agents and workflows.
+## Why use a plugin instead of Skill or MCP
 
-Deeply **modularize** iPolloOS to achieve maximum **extensibility**.
-</div>
+| | Skill | MCP | iPolloOS-plugin |
+| --- | --- | --- | --- |
+| Runs as | Model reads instructions each turn | Remote tool over MCP wire | **Your code** in this runtime |
+| Speed | Extra tokens + interpretation | Network + schema round-trips | **Direct execution**; heavy work in `worker_threads` |
+| I/O | None enforced | Tool-defined | **`config.ts` inputs/outputs** wired to workflow nodes |
+| Delivery | Text in chat | Usually JSON | JSON **and** `page_html` → `page_url`, interactive form → JSON back |
+| Ops | Edit markdown | Run MCP server | **Build, version, install** a package; isolate from main app |
+
+Skill teaches *when* and *how* to think. MCP connects an existing tool. A plugin **does the work**: fewer model round-trips, predictable latency, access to Mongo/Redis/OSS helpers in `lib/`.
 
 ## Plugin Capability Model
 
-iPolloOS plugins are organized into two capability types:
+iPolloOS plugins are organized into two runtime capability types:
 
 ### Execute Plugins
 
@@ -36,7 +37,7 @@ Execute plugins can declare risk levels for confirmation, auditing, and permissi
 
 ### Trigger Plugins
 
-Trigger plugins are designed for long-running monitoring, scheduled checks, and external events. Instead of only running once, they describe capabilities that the platform can schedule or wake up from events:
+Trigger plugins are designed for long-running monitoring, scheduled checks, and external events. They describe capabilities that the platform can schedule or wake up from events:
 
 - Scheduled polling: for example, checking an X account every 5 minutes for new posts.
 - Stateful monitoring: for example, storing `lastPostId` or `cursor` and returning only new events.
@@ -54,28 +55,105 @@ xPlatform/checkWatch           trigger: check new content
 xPlatform/manageAccountAction  execute: post, reply, follow, unfollow
 ```
 
-## Expansion Modules
+## Capability scope
 
-- [x] System Tools
-- [x] App templates
-- [ ] RAG Algorithm
-- [ ] Agent Strategy
-- [ ] Third-party Integration
+The runtime is designed for platform plugins that may include several child tools while sharing credentials, clients, state, and common parsers.
 
-## System Tool Features
+- Common/query tools: account lookup, historical search, content detail, user/profile lookup, and reusable normalization.
+- Trigger tools: scheduled polling, cursor-based monitoring, webhook intake, dedupe, and event handoff to workflows.
+- Action tools: post, reply, delete, follow, unfollow, create task, send message, and other write operations.
+- Presentation tools: HTML page output, page cards, interactive forms, and workflow result pages.
 
-- [x] Independent tool execution
-- [ ] Hot-swappable plugins
-- [ ] Secure and elegant secret configuration
-- [ ] Visual debugging support
-- [ ] Reverse invocation of iPolloOS
-- [ ] Plugin version management
-- [ ] SSE streaming response support
-- [x] Execute/trigger plugin capability metadata
-- [ ] Enhanced security policies
+For example, an X integration should not be one giant tool. It should expose user-friendly child tools for lookup/search, monitoring, and actions, while keeping OAuth/API clients, rate-limit handling, state storage, and translation/push handoff as shared package code.
 
-## Documentation & Development Guides
+## Configuration keys
 
-- [Plugin design document](https://doc.ipolloos.ai/docs/introduction/development/design/design_plugin)
+### iPolloOS main app
+
+| Key | Meaning |
+| --- | --- |
+| `PLUGIN_BASE_URL` | URL of this service (default dev: `http://127.0.0.1:3004`) |
+| `PLUGIN_TOKEN` | Bearer token sent to the plugin runtime |
+
+### Plugin runtime (`runtime/.env.local`, copy from `runtime/.env.template`)
+
+| Key | Meaning |
+| --- | --- |
+| `PORT` | Listen port (default `3004`) |
+| `HOSTNAME` | Bind address |
+| `AUTH_TOKEN` | Must equal main app `PLUGIN_TOKEN` |
+| `IPOLLOOS_BASE_URL` | Main app URL for callbacks from published pages |
+| `MONGODB_URI` | Mongo when plugins need persistence |
+| `REDIS_URL` | Redis cache prefix `ipolloos:` |
+| `PAGE_RESOURCE_CENTER_PUBLISH_URL` | Page publish API (optional in local dev) |
+| `PAGE_RESOURCE_CENTER_TOKEN` | Token for publish API |
+
+### Plugin package (`config.ts` / tool outputs)
+
+| Key | Where | Meaning |
+| --- | --- | --- |
+| `toolDescription` | `defineTool({...})` | What the Agent sees when choosing this tool |
+| `runtime.kind` | `defineTool({...})` | Plugin capability type: `execute` or `trigger` |
+| `runtime.execute.riskLevel` | `defineTool({...})` | Execute plugin risk level: `read`, `write`, or `destructive` |
+| `runtime.trigger` | `defineTool({...})` | Polling/webhook metadata for trigger plugins |
+| `inputs[].key` | `versionList[].inputs` | Workflow input field names |
+| `outputs[].key` | `versionList[].outputs` | Workflow output field names |
+| `page_html` | Tool return / output | Full HTML; platform publishes it |
+| `page_url` | Output (often empty from tool) | Filled by platform after publish |
+| `page_cover` | Output optional | JSON string for chat card metadata |
+| `interactive_html_result` | Interactive plugins | User form JSON returned to workflow |
+| `system_error` | `FlowNodeOutputTypeEnum.error` | Structured error channel |
+
+Workflow input types (`FlowNodeInputTypeEnum`) include `selectDataset`, `selectApp`, `selectLLMModel`, etc. — same contract as iPolloOS workflow nodes.
+
+## Repo layout
+
+| Path | Role |
+| --- | --- |
+| `runtime/` | HTTP service: auth, load plugins, execute |
+| `lib/` | Mongo, Redis, S3/OSS, HTTP, logging |
+| `sdk/` | Types for plugin authors |
+| `modules/tool/` | Loader, builder, packager |
+| `modules/tool/packages/` | Example plugins (`helloPage`, `htmlKitPlatform`, …) |
+| `modules/tool/worker/` | CPU-heavy tasks off the main thread |
+
+## Runtime features
+
+- Independent tool execution
+- Hot-swappable plugin packages
+- Plugin version management
+- SSE streaming responses
+- Execute/trigger capability metadata
+- HTML page publishing and chat cards
+- Shared Mongo, Redis, object storage, HTTP, and logging helpers
+
+## Quick start
+
+```bash
+bun install
+cp runtime/.env.template runtime/.env.local
+# set AUTH_TOKEN in runtime/.env.local
+bun run dev
+```
+
+In iPolloOS:
+
+```env
+PLUGIN_BASE_URL=http://127.0.0.1:3004
+PLUGIN_TOKEN=<same as runtime AUTH_TOKEN>
+```
+
+## First plugin
+
+1. Copy `modules/tool/packages/helloPage`.
+2. Edit `config.ts` — `name`, `description`, `inputs`, `outputs`, `toolDescription`.
+3. Implement `src/index.ts`; validate with Zod.
+4. Return `page_html` for pages; see `htmlKitPlatform` for interactive flows.
+
+## Docs
+
+- [中文 README](./README_zh_CN.md)
+- [Development specifications](./dev.md)
+- [中文开发规范](./dev_zh_CN.md)
 - [System tool development guide](https://doc.ipolloos.ai/docs/introduction/guide/plugins/dev_system_tool)
-- [Development Specifications](./dev.md)
+- [Plugin design document](https://doc.ipolloos.ai/docs/introduction/development/design/design_plugin)
