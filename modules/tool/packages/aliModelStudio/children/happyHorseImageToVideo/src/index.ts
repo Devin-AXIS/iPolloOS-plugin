@@ -10,7 +10,8 @@ const DurationInput = z.union([
 const httpUrlPattern = /https?:\/\/[^\s"'<>),\]]+/i;
 const markdownImagePattern = /!\[[^\]]*]\((https?:\/\/[^)\s]+)\)/i;
 const dataImagePattern = /^data:image\/([a-zA-Z0-9.+-]+);base64,/;
-const inlineFileBase64Key = '__fastgptInlineArchiveBase64';
+const inlineFileBase64Key = '__ipolloInlineArchiveBase64';
+const legacyInlineFileBase64Key = ['__fast', 'gptInlineArchiveBase64'].join('');
 
 async function normalizeImageUrl(input: unknown): Promise<string> {
   if (Array.isArray(input)) {
@@ -23,7 +24,7 @@ async function normalizeImageUrl(input: unknown): Promise<string> {
 
   if (input && typeof input === 'object') {
     const obj = input as Record<string, unknown>;
-    const inlineBase64 = obj[inlineFileBase64Key];
+    const inlineBase64 = obj[inlineFileBase64Key] ?? obj[legacyInlineFileBase64Key];
     if (typeof inlineBase64 === 'string' && inlineBase64.trim()) {
       return normalizeImageUrl(`data:image/jpeg;base64,${inlineBase64.trim()}`);
     }

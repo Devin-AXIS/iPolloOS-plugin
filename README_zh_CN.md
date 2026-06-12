@@ -75,6 +75,8 @@ xPlatform/manageAccountAction  执行型：发帖、回复、关注、取关
 
 ## 文档
 
+- [更新日志](./CHANGELOG.md)
+- [2026 年 6 月插件升级指南](./docs/plugin-upgrade-guide-2026-06.md)
 - [系统工具开发指南](https://doc.ipolloos.ai/docs/introduction/guide/plugins/dev_system_tool)
 - [设计文档](https://doc.ipolloos.ai/docs/introduction/development/design/design_plugin)
 - [开发规范](./dev_zh_CN.md)

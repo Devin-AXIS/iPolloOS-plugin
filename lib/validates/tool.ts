@@ -187,6 +187,48 @@ export const ToolTriggerRuntimeSchema = z.object({
   type: ToolTriggerTypeEnum,
   minIntervalSeconds: z.number().int().positive().optional(),
   defaultIntervalSeconds: z.number().int().positive().optional(),
+  schedule: z
+    .object({
+      minIntervalSeconds: z.number().int().positive().optional(),
+      defaultIntervalSeconds: z.number().int().positive().optional(),
+      maxIntervalSeconds: z.number().int().positive().optional(),
+      timeoutSeconds: z.number().int().positive().optional(),
+      jitterSeconds: z.number().int().nonnegative().optional()
+    })
+    .optional(),
+  state: z
+    .object({
+      inputKey: z.string().optional(),
+      outputKey: z.string().optional(),
+      schemaVersion: z.string().optional(),
+      cursorKey: z.string().optional(),
+      resettable: z.boolean().optional()
+    })
+    .optional(),
+  event: z
+    .object({
+      outputKey: z.string().optional(),
+      schemaVersion: z.string().optional(),
+      dedupeKey: z.string().optional(),
+      occurredAtKey: z.string().optional(),
+      maxBatchEvents: z.number().int().positive().optional()
+    })
+    .optional(),
+  delivery: z
+    .object({
+      retryMaxAttempts: z.number().int().nonnegative().optional(),
+      retryBackoff: z.enum(['fixed', 'linear', 'exponential']).optional(),
+      failurePolicy: z.enum(['keep_state', 'advance_state', 'disable']).optional(),
+      concurrencyKeyInput: z.string().optional(),
+      lockTtlSeconds: z.number().int().positive().optional()
+    })
+    .optional(),
+  permissions: z
+    .object({
+      allowManualRun: z.boolean().optional(),
+      allowAutoRun: z.boolean().optional()
+    })
+    .optional(),
   maxBatchEvents: z.number().int().positive().optional(),
   stateSchemaVersion: z.string().optional(),
   eventSchemaVersion: z.string().optional(),
@@ -244,7 +286,8 @@ export const ToolSchema = ToolConfigSchema.extend({
   icon: z.string(),
   parentId: z.string().optional(),
   toolFilename: z.string().optional(),
-  version: z.string().optional()
+  version: z.string().optional(),
+  versionLabel: z.string().optional()
 });
 
 // Tool Detail (for API response)

@@ -75,8 +75,13 @@ export class iPolloOSPluginClient {
     }>(`/api/tools/upload/presign-tool-put-url?filename=${filename}`);
   }
 
-  async confirmToolUpload(toolIds: string[]) {
-    return this.request<{ message: string }>('/api/tools/upload/confirm', {
+  async confirmToolUpload(
+    toolIds: Array<string | { pluginId: string; version?: string; etag?: string }>
+  ) {
+    return this.request<{
+      message: string;
+      tools?: Array<{ pluginId: string; version?: string; etag?: string }>;
+    }>('/api/tools/upload/confirm', {
       method: 'POST',
       body: JSON.stringify({ toolIds })
     });

@@ -12,16 +12,15 @@ export default defineTool({
   },
   description: {
     'zh-CN':
-      '发布上游 AI 大脑生成的移动端优先 AI 服务 HTML，可用于短片/视频、测算、小游戏、互动表单等非纯对话应用。',
-    en: 'Publish an upstream-AI-generated mobile-first AI service HTML app, suitable for short-video/video tools, divination, mini games, interactive forms, and non-chat-only experiences.'
+      '根据用户描述生成移动端优先的 AI 服务 HTML，可用于短片/视频、测算、小游戏、互动表单等非纯对话应用。',
+    en: 'Generate a mobile-first AI service HTML app from user intent, suitable for short-video/video tools, divination, mini games, interactive forms, and non-chat-only experiences.'
   },
   toolDescription:
-    '当用户想做一个移动端 AI 应用/服务时，上游 AI 大脑应先完成需求理解、页面设计、交互逻辑和完整单文件 HTML 生成，再调用本工具。插件本身不调用 AI、不需要 ai_app_key；generated_html 必须是真实完整 HTML，不能传原始需求或 Markdown。工具只校验 HTML、注入 iPolloOS Runtime 调用桥，并返回 page_html 供平台发布 page_url。',
+    '当用户想做一个移动端 AI 应用/服务时优先调用。必填 user_requirement、service_language、background。默认只给移动端和风格倾向，具体交互形态、页面结构和服务流程由 AI 根据应用目标自行判断。输出完整单文件 HTML，返回 page_html 后平台会自动发布 page_url。',
   versionList: [
     {
-      value: '4.0.0',
-      description:
-        '上游 AI 大脑生成 + iPolloOS Runtime 版：插件不调用模型，只校验完整 HTML 并注入运行时调用桥',
+      value: '3.1.0',
+      description: '短输出稳定版：降低上游 HTML 截断概率，强制完整闭合',
       inputs: [
         {
           key: 'user_requirement',
@@ -30,16 +29,7 @@ export default defineTool({
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
           required: true,
           toolDescription:
-            '用户原始需求摘要，用于页面标题、封面和追踪；真正的完整 HTML 必须由上游 AI 大脑放入 generated_html'
-        },
-        {
-          key: 'generated_html',
-          label: '完整移动端 HTML',
-          valueType: WorkflowIOValueTypeEnum.string,
-          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
-          required: true,
-          toolDescription:
-            '上游 AI 大脑已经生成完成的完整单文件 HTML。必须包含 <!DOCTYPE html> 或 <html>、移动端 viewport meta、<body> 和 </html>。不要传原始需求、Markdown 或“请生成页面”的说明文字。'
+            '用户想做的 AI 服务/应用，例如短片生成器、视频脚本工具、测算应用、小游戏等'
         },
         {
           key: 'service_language',
@@ -71,9 +61,8 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
           defaultValue:
-            '移动端优先；可参考朦胧、磨砂、弥散渐变、轻微景深等质感；最终风格由上游 AI 大脑根据应用目标自行取舍。',
-          toolDescription:
-            '兼容字段。用于记录上游 AI 大脑生成 HTML 时采用的整体风格倾向；工具不会据此再调用 AI。'
+            '移动端优先；可参考朦胧、磨砂、弥散渐变、轻微景深等质感；最终风格由 AI 根据应用目标自行取舍。',
+          toolDescription: '整体风格倾向，不是硬限制；可留默认，也可写品牌色、风格、材质、动效等'
         },
         {
           key: 'interaction_mode',
@@ -89,7 +78,7 @@ export default defineTool({
             { label: '视频/短片', value: 'video' },
             { label: '表单/收集', value: 'form' }
           ],
-          toolDescription: '不确定时选 auto，让上游 AI 大脑按需求自行决定'
+          toolDescription: '不确定时选 auto，让 AI 按需求自行决定'
         },
         {
           key: 'page_output_mode',
@@ -127,21 +116,6 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'full_html',
           label: '完整 HTML 文档（兼容旧字段）'
-        },
-        {
-          valueType: WorkflowIOValueTypeEnum.boolean,
-          key: 'interactive_html',
-          label: '运行时交互页标记'
-        },
-        {
-          valueType: WorkflowIOValueTypeEnum.string,
-          key: 'interactive_title',
-          label: '运行时交互标题'
-        },
-        {
-          valueType: WorkflowIOValueTypeEnum.string,
-          key: 'interactive_description',
-          label: '运行时交互说明'
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,

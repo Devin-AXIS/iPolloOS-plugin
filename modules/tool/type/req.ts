@@ -8,7 +8,11 @@ export const SystemVarSchema = z.object({
     membername: z.string(),
     teamName: z.string(),
     teamId: z.string(),
-    name: z.string()
+    name: z.string(),
+    appUserId: z.string().optional(),
+    appUserName: z.string().optional(),
+    lumiUserId: z.string().optional(),
+    appAuthToken: z.string().optional()
   }),
   app: z.object({
     id: z.string(),

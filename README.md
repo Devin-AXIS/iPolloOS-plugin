@@ -76,6 +76,8 @@ xPlatform/manageAccountAction  execute: post, reply, follow, unfollow
 
 ## Documentation & Development Guides
 
+- [Changelog](./CHANGELOG.md)
+- [June 2026 plugin upgrade guide](./docs/plugin-upgrade-guide-2026-06.md)
 - [Plugin design document](https://doc.ipolloos.ai/docs/introduction/development/design/design_plugin)
 - [System tool development guide](https://doc.ipolloos.ai/docs/introduction/guide/plugins/dev_system_tool)
 - [Development Specifications](./dev.md)

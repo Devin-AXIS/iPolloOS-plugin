@@ -43,6 +43,7 @@ export const ToolSchema = ToolConfigWithCbSchema.extend({
   toolFilename: z.string(),
 
   version: z.string().describe('The version hash of the tool'),
+  versionLabel: z.string().optional().describe('The human-readable version of the tool'),
   // ToolSet Parent
   secretInputConfig: z
     .array(InputConfigSchema)

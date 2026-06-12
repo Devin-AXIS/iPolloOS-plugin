@@ -1,6 +1,6 @@
 # HTML Anything 生成器
 
-该插件内置 `nexu-io/html-anything` 的模板分类与运行增强能力。HTML 的生成由 FastGPT AI 大脑 / Agent完成，`html_anything_page` 工具只接收已经生成好的完整单文件 HTML，做校验、运行层注入和发布。
+该插件内置 `nexu-io/html-anything` 的模板分类与运行增强能力。HTML 的生成由 iPolloOS AI 大脑 / Agent 完成，`html_anything_page` 工具只接收已经生成好的完整单文件 HTML，做校验、运行层注入和发布。
 
 默认 `page_output_mode=auto_publish`，工具在插件能力层把 `content` 中的完整 HTML 发布到 OSS 公网域名并返回 `page_url`，不会把大段 `page_html/full_html` 回传到聊天和运行预览里。只有 `raw_html` 模式会返回完整源码。
 

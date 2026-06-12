@@ -198,6 +198,12 @@ export class S3Service {
     logger.debug(`MinIO file deleted successfully: ${this.bucketName}/${objectName}`);
   }
 
+  async checkFileExists(_objectName: string) {
+    const objectName = _objectName.startsWith('/') ? _objectName.slice(1) : _objectName;
+    const { exists } = await this.client.checkObjectExists({ key: objectName });
+    return exists;
+  }
+
   /**
    * Get the file's digest, which is called ETag in Minio and in fact it is MD5
    */

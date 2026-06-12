@@ -8,6 +8,7 @@ import {
   ObjectNameQuerySchema,
   ToolIdQuerySchema,
   ConfirmUploadBodySchema,
+  ConfirmUploadResponseSchema,
   InstallToolBodySchema,
   RunStreamBodySchema
 } from './common';
@@ -129,11 +130,7 @@ export const confirmUploadRoute = createRoute({
       description: 'Upload confirmed',
       content: {
         'application/json': {
-          schema: createResponseSchema(
-            z.object({
-              message: z.string()
-            })
-          )
+          schema: createResponseSchema(ConfirmUploadResponseSchema)
         }
       }
     },
@@ -165,7 +162,16 @@ export const deleteToolRoute = createRoute({
         'application/json': {
           schema: createResponseSchema(
             z.object({
-              message: z.string()
+              message: z.string(),
+              tools: z
+                .array(
+                  z.object({
+                    pluginId: z.string(),
+                    version: z.string().optional(),
+                    etag: z.string().optional()
+                  })
+                )
+                .optional()
             })
           )
         }

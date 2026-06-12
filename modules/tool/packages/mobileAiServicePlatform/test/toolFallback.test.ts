@@ -1,25 +1,40 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tool } from '../children/mobile_ai_html_app/src';
 
-describe('mobile AI service HTML app tool', () => {
-  it('accepts upstream AI generated html without ai_app_key', async () => {
+describe('tool fallback behavior', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns fallback html when the AI app returns empty content', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            responseData: [],
+            choices: [{ message: { role: 'assistant', content: '' }, finish_reason: 'stop' }]
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }) as unknown as typeof fetch
+    );
+
     const result = await tool({
+      ai_app_key: 'test-key',
+      ai_app_url: 'http://example.com/api',
       user_requirement: 'AI 日历',
-      generated_html:
-        '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>AI 日历</title></head><body><main>AI 日历</main></body></html>',
       service_language: 'zh-CN',
       background: '个人效率管理',
       visual_prompt: '移动端',
       interaction_mode: 'auto',
-      available_capabilities: '',
+      available_capabilities: '表单、日历、清单、提醒',
       page_output_mode: 'auto_publish'
     });
 
     expect(result.system_error).toBeUndefined();
     expect(result.page_html).toContain('<!DOCTYPE html>');
-    expect(result.page_html).toContain('window.iPolloOSAI');
+    expect(result.page_html).toContain('NO_EMPTY_OUTPUT');
     expect(result.full_html).toBe(result.page_html);
-    expect(result.summary).toContain('上游 AI 大脑');
-    expect(result.interactive_html).toBe(true);
+    expect(result.summary).toContain('NO_EMPTY_OUTPUT');
   });
 });

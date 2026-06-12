@@ -71,10 +71,39 @@ export const ToolIdQuerySchema = z.object({
 
 // ==================== Request Bodies ====================
 
-export const ConfirmUploadBodySchema = z.object({
-  toolIds: z.array(z.string()).openapi({
-    example: ['tool1', 'tool2']
+export const ConfirmUploadToolItemSchema = z.union([
+  z.string(),
+  z.object({
+    pluginId: z.string(),
+    version: z.string().optional(),
+    versionLabel: z.string().optional(),
+    etag: z.string().optional()
   })
+]);
+
+export const ConfirmUploadBodySchema = z.object({
+  toolIds: z.array(ConfirmUploadToolItemSchema).openapi({
+    example: [
+      'legacy-tool',
+      {
+        pluginId: 'tool1',
+        version: '1a2b3c4d',
+        etag: 'optional-etag'
+      }
+    ]
+  })
+});
+
+export const ConfirmUploadResponseSchema = z.object({
+  message: z.string(),
+  tools: z.array(
+    z.object({
+      pluginId: z.string(),
+      version: z.string().optional(),
+      versionLabel: z.string().optional(),
+      etag: z.string().optional()
+    })
+  )
 });
 
 export const InstallToolBodySchema = z.object({

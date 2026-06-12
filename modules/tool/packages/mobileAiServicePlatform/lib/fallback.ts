@@ -38,7 +38,7 @@ body{overflow-x:hidden}.app{width:min(100%,480px);margin:0 auto;min-height:100vh
   <section class="top"><div class="badge">AI Service</div><div class="badge">${escapeHtml(props.interactionMode)}</div></section>
   <section class="panel">
     <h1>${safeTitle}</h1>
-    <p>这是一个移动端功能应用工作台。上游 ApolloOS 应用本次没有返回可发布 HTML，页面已自动降级为可操作版本，避免交付中断。</p>
+    <p>NO_EMPTY_OUTPUT：这是一个移动端功能应用工作台。上游 iPolloOS 应用本次没有返回可发布 HTML，页面已自动降级为可操作版本，避免交付中断。</p>
   </section>
   <section class="panel warn">
     <strong>上游生成状态</strong>
@@ -84,7 +84,7 @@ run.addEventListener('click',()=>{
     '<div class="step"><span class="dot"></span><span>选择 '+mode.value+' 能力路径</span></div>',
     '<div class="step"><span class="dot"></span><span>组织输入、任务状态和结果区</span></div>'
   ].join('');
-  result.textContent='应用目标：'+value+'\\n\\n推荐交互：移动端工作台 + 分步骤任务流\\n\\n核心输入：用户目标、时间/素材/偏好、补充限制\\n\\n能力调用：根据任务自动选择搜索、深图、深视频或工具调用\\n\\n结果区：生成结果、可复制提示词、下一步优化建议、历史任务状态\\n\\n当前说明：ApolloOS 上游返回失败，本页面为本地降级版本。修复上游 403 后，可由 AI 自动生成更贴合需求的完整应用。';
+  result.textContent='应用目标：'+value+'\\n\\n推荐交互：移动端工作台 + 分步骤任务流\\n\\n核心输入：用户目标、时间/素材/偏好、补充限制\\n\\n能力调用：根据任务自动选择搜索、深图、深视频或工具调用\\n\\n结果区：生成结果、可复制提示词、下一步优化建议、历史任务状态\\n\\n当前说明：iPolloOS 上游返回失败，本页面为本地降级版本。修复上游 403 后，可由 AI 自动生成更贴合需求的完整应用。';
 });
 </script>
 </body>

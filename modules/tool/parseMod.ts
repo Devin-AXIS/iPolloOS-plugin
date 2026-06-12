@@ -4,6 +4,16 @@ import type { ToolSetType, ToolType } from './type';
 import { generateToolVersion, generateToolSetVersion } from './utils/tool';
 import { publicS3Server } from '@/s3';
 
+const getToolVersionLabel = (versionList?: Array<{ value: string }>) =>
+  versionList?.[0]?.value || '';
+
+const getToolSetVersionLabel = (children: ToolType[]) => {
+  const labels = Array.from(
+    new Set(children.map((child) => getToolVersionLabel(child.versionList)).filter(Boolean))
+  );
+  return labels.join('/');
+};
+
 const getPublicBaseUrl = () =>
   (process.env.STORAGE_PUBLIC_BASE_URL || process.env.STORAGE_EXTERNAL_ENDPOINT || '').replace(
     /\/+$/,
@@ -29,6 +39,7 @@ export const resolveIconPath = async (name: string) => {
   try {
     const files = await publicS3Server.getFiles(dir);
     const iconFile = files.find((file) => {
+      if (file.split('/').slice(0, -1).join('/') !== dir) return false;
       const fileBase = basename(file);
       const dotIndex = fileBase.lastIndexOf('.');
       return (dotIndex > -1 ? fileBase.slice(0, dotIndex) : fileBase) === expectedName;
@@ -91,7 +102,8 @@ export const parseMod = async ({
         icon: childIcon,
         avatar: childIcon,
         toolFilename: filename,
-        version: childVersion
+        version: childVersion,
+        versionLabel: getToolVersionLabel(child.versionList)
       });
     }
 
@@ -105,7 +117,8 @@ export const parseMod = async ({
       toolFilename: `${filename}`,
       cb: () => Promise.resolve({}),
       versionList: [],
-      version: generateToolSetVersion(children) || ''
+      version: generateToolSetVersion(children) || '',
+      versionLabel: getToolSetVersionLabel(children)
     });
   } else {
     // is not toolset
@@ -120,7 +133,8 @@ export const parseMod = async ({
       avatar: icon,
       toolId,
       toolFilename: filename,
-      version: generateToolVersion(rootMod.versionList)
+      version: generateToolVersion(rootMod.versionList),
+      versionLabel: getToolVersionLabel(rootMod.versionList)
     });
   }
   return tools;

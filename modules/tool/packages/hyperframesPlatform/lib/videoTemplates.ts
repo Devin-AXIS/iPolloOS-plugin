@@ -11,7 +11,7 @@ export const VIDEO_PURPOSES = [
     zhName: '资讯解读',
     enName: 'News briefing',
     description: 'AI 新闻周报、行业动态、模型更新、融资/产品事件解读。',
-    structure: ['Hook', '事件列表', '关键变化', '影响判断', 'iPollo/Apollo 建议', '结论']
+    structure: ['Hook', '事件列表', '关键变化', '影响判断', 'iPolloOS 建议', '结论']
   },
   {
     id: 'research-briefing',

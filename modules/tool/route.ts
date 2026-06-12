@@ -37,17 +37,34 @@ import {
 
 const tools = createOpenAPIHono().basePath('/tools');
 
+const redactToolRunBody = (body: Record<string, any>) => {
+  const clone = JSON.parse(JSON.stringify(body)) as Record<string, any>;
+  const redact = (value: unknown) => {
+    if (!value || typeof value !== 'object') return;
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      if (/token|secret|authorization/i.test(key)) {
+        (value as Record<string, unknown>)[key] = '[redacted]';
+      } else {
+        redact(child);
+      }
+    }
+  };
+  redact(clone);
+  return clone;
+};
+
 const rebuildSystemToolCache = async (logger = getLogger(mod.tool)) => {
   await refreshVersionKey(SystemCacheKeyEnum.systemTool);
 
   const rebuild = getCachedData(SystemCacheKeyEnum.systemTool).catch((error) => {
     logger.warn('[tools] Rebuild system tool cache failed after mutation', { error: `${error}` });
+    return undefined;
   });
 
-  await Promise.race([
+  return await Promise.race([
     rebuild,
     new Promise((resolve) => {
-      setTimeout(resolve, 5000);
+      setTimeout(resolve, 15000);
     })
   ]);
 };
@@ -119,7 +136,28 @@ tools.openapi(getPresignedUploadUrlRoute, async (c) => {
 tools.openapi(confirmUploadRoute, async (c) => {
   const logger = getLogger(mod.tool);
   const { toolIds: _toolIds } = c.req.valid('json');
-  const toolIds = [...new Set(_toolIds)];
+  const toolMap = new Map<
+    string,
+    { pluginId: string; version?: string; versionLabel?: string; etag?: string }
+  >();
+
+  for (const item of _toolIds) {
+    const normalized =
+      typeof item === 'string'
+        ? { pluginId: item, version: undefined, versionLabel: undefined, etag: undefined }
+        : {
+            pluginId: item.pluginId,
+            version: item.version || undefined,
+            versionLabel: item.versionLabel || undefined,
+            etag: item.etag || undefined
+          };
+
+    if (normalized.pluginId) {
+      toolMap.set(normalized.pluginId, normalized);
+    }
+  }
+
+  const toolIds = [...toolMap.keys()];
 
   logger.debug(`Confirming uploaded tools: ${toolIds}`);
 
@@ -131,10 +169,21 @@ tools.openapi(confirmUploadRoute, async (c) => {
         `${UploadToolsS3Path}/temp/${toolId}`,
         `${UploadToolsS3Path}/${toolId}`
       );
-      await privateS3Server.moveFile(
-        `${UploadToolsS3Path}/temp/${toolId}.js`,
-        `${UploadToolsS3Path}/${toolId}.js`
-      );
+      const tempEntryFile = `${UploadToolsS3Path}/temp/${toolId}.js`;
+      const entryFile = `${UploadToolsS3Path}/${toolId}.js`;
+      try {
+        await privateS3Server.moveFile(tempEntryFile, entryFile);
+      } catch (error) {
+        const entryFileExists = await privateS3Server.checkFileExists(entryFile).catch(() => false);
+        if (!entryFileExists) {
+          throw error;
+        }
+        logger.warn('[confirmUpload] Temp entry file missing but final entry exists, skip move', {
+          toolId,
+          tempEntryFile,
+          entryFile
+        });
+      }
     } catch (error) {
       failedToolIds.push({
         toolId,
@@ -155,29 +204,44 @@ tools.openapi(confirmUploadRoute, async (c) => {
   }
 
   await mongoSessionRun(async (session) => {
-    const allToolsInstalled = (
-      await MongoSystemPlugin.find({ type: pluginTypeEnum.enum.tool }).lean()
-    ).map((tool) => tool.toolId);
-    const newTools = toolIds
-      .filter((toolId) => !allToolsInstalled.includes(toolId))
-      .map((toolId) => ({
-        toolId,
-        type: pluginTypeEnum.enum.tool
-      }));
-
-    if (newTools.length > 0) {
-      await MongoSystemPlugin.create(newTools, {
-        session,
-        ordered: true
-      });
-    }
+    await MongoSystemPlugin.bulkWrite(
+      toolIds.map((toolId) => {
+        const item = toolMap.get(toolId);
+        return {
+          updateOne: {
+            filter: { type: pluginTypeEnum.enum.tool, toolId },
+            update: {
+              $set: {
+                toolId,
+                type: pluginTypeEnum.enum.tool,
+                version: item?.version,
+                etag: item?.etag
+              }
+            },
+            upsert: true
+          }
+        };
+      }),
+      { session, ordered: true }
+    );
   });
 
-  await rebuildSystemToolCache(logger);
+  const rebuiltTools = await rebuildSystemToolCache(logger);
+  const confirmedTools = toolIds.map((toolId) => {
+    const parsedTool = rebuiltTools instanceof Map ? rebuiltTools.get(toolId) : undefined;
+    const requestedTool = toolMap.get(toolId);
+
+    return {
+      pluginId: toolId,
+      version: parsedTool?.version || requestedTool?.version || '',
+      versionLabel: parsedTool?.versionLabel || requestedTool?.versionLabel || '',
+      etag: requestedTool?.etag || ''
+    };
+  });
 
   logger.debug(`Confirmed uploaded tools: ${toolIds}`);
 
-  return c.json(R.success({ message: 'ok' }), 200 as const);
+  return c.json(R.success({ message: 'ok', tools: confirmedTools }), 200 as const);
 });
 
 /**
@@ -231,33 +295,51 @@ tools.openapi(installToolRoute, async (c) => {
 
     const tools = await parsePkg(pkgSavePath, false);
     const tool = tools.find((item) => !item.parentId);
-    return tool?.toolId;
+    return tool
+      ? {
+          pluginId: tool.toolId,
+          version: tool.version || ''
+        }
+      : undefined;
   });
 
-  const toolIds = (await batch(5, downloadFunctions)).filter(
+  const installedTools = (await batch(5, downloadFunctions)).filter(
     <T>(item: T): item is NonNullable<T> => !!item
   );
+  const toolIds = installedTools.map((tool) => tool.pluginId);
 
-  const allToolsInstalled = (
-    await MongoSystemPlugin.find({ type: pluginTypeEnum.enum.tool }).lean()
-  ).map((tool) => tool.toolId);
-  // create all that not exists
-  await MongoSystemPlugin.create(
-    toolIds
-      .filter((toolId) => !allToolsInstalled.includes(toolId))
-      .map((toolId) => ({
-        toolId,
-        type: pluginTypeEnum.enum.tool
+  if (installedTools.length > 0) {
+    await MongoSystemPlugin.bulkWrite(
+      installedTools.map((tool) => ({
+        updateOne: {
+          filter: { type: pluginTypeEnum.enum.tool, toolId: tool.pluginId },
+          update: {
+            $set: {
+              toolId: tool.pluginId,
+              type: pluginTypeEnum.enum.tool,
+              version: tool.version
+            }
+          },
+          upsert: true
+        }
       })),
-    {
-      ordered: true
-    }
-  );
+      { ordered: true }
+    );
+  }
 
-  await rebuildSystemToolCache(logger);
+  const rebuiltTools = await rebuildSystemToolCache(logger);
+  const confirmedTools = toolIds.map((toolId) => {
+    const parsedTool = rebuiltTools instanceof Map ? rebuiltTools.get(toolId) : undefined;
+    const installedTool = installedTools.find((tool) => tool.pluginId === toolId);
+
+    return {
+      pluginId: toolId,
+      version: parsedTool?.version || installedTool?.version || ''
+    };
+  });
   logger.info(`Success installed tools: ${toolIds}`);
 
-  return c.json(R.success({ message: 'ok' }), 200);
+  return c.json(R.success({ message: 'ok', tools: confirmedTools }), 200);
 });
 
 /**
@@ -307,7 +389,9 @@ tools.openapi(runStreamRoute, async (c) => {
 
       let result: ToolCallbackReturnSchemaType;
       if (tool.isWorkerRun === true) {
-        logger.debug('Run tool start in worker', { body: { toolId, inputs, systemVar } });
+        logger.debug('Run tool start in worker', {
+          body: redactToolRunBody({ toolId, inputs, systemVar })
+        });
         result = await dispatchWithNewWorker({
           toolId,
           inputs,
@@ -315,7 +399,9 @@ tools.openapi(runStreamRoute, async (c) => {
           onMessage: handleSend
         });
       } else {
-        logger.debug('Run tool start in main thread', { body: { toolId, inputs, systemVar } });
+        logger.debug('Run tool start in main thread', {
+          body: redactToolRunBody({ toolId, inputs, systemVar })
+        });
         const context = { prefix: systemVar?.tool?.prefix };
         const executor = () => tool.cb(inputs, { systemVar, streamResponse: handleSend });
         result = await runWithToolContext(context, executor);

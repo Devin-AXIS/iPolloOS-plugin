@@ -19,8 +19,11 @@ describe('prompt builder', () => {
     expect(prompt).toContain('不要生成一个与这些能力脱节的普通静态页面');
     expect(prompt).toContain('必须开发功能性应用');
     expect(prompt).toContain('不是展示性页面');
-    expect(prompt).toContain('控件可用');
+    expect(prompt).toContain('控件必须可用');
     expect(prompt).toContain('page_html');
+    expect(prompt).toContain('短输出稳定版');
+    expect(prompt).toContain('输出必须以 </html> 结束');
+    expect(prompt).toContain('CSS 控制在约 180 行以内');
     expect(prompt).toContain('具体交互形态');
     expect(prompt).toContain('不要默认只能聊天');
   });
