@@ -1,7 +1,7 @@
 import { cors } from 'hono/cors';
 import models from '@model/route';
 import workflow from '@workflow/route';
-import tool from '@tool/route';
+import tool, { legacyTool } from '@tool/route';
 import { createResponseSchema, R, createOpenAPIHono } from '@/utils/http';
 import { bearerAuth } from '@/middlewares/auth';
 import { HTTPException } from 'hono/http-exception';
@@ -84,6 +84,7 @@ app.openapi(
 app.route('/api', models);
 app.route('/api', workflow);
 app.route('/api', tool);
+app.route('/api', legacyTool);
 // #endregion
 
 app.onError((error, c) => {

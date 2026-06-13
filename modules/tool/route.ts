@@ -1,6 +1,6 @@
 import { getCachedData, refreshVersionKey } from '@/cache';
 import { SystemCacheKeyEnum } from '@/cache/type';
-import { ToolDetailSchema, type ToolDetailType } from './schemas/common';
+import { RunStreamBodySchema, ToolDetailSchema, type ToolDetailType } from './schemas/common';
 import { getTool, getToolTags } from '@tool/controller';
 import { privateS3Server, publicS3Server } from '@/s3';
 import { UploadToolsS3Path, tempPkgDir } from '@tool/constants';
@@ -36,6 +36,7 @@ import {
 } from './schemas/routes';
 
 const tools = createOpenAPIHono().basePath('/tools');
+export const legacyTool = createOpenAPIHono().basePath('/tool');
 
 const redactToolRunBody = (body: Record<string, any>) => {
   const clone = JSON.parse(JSON.stringify(body)) as Record<string, any>;
@@ -358,9 +359,12 @@ tools.openapi(parseUploadedToolRoute, async (c) => {
 /**
  * Run tool stream
  */
-tools.openapi(runStreamRoute, async (c) => {
+const runToolStream = async (
+  c: any,
+  body: { toolId: string; inputs: Record<string, any>; systemVar?: Record<string, any> }
+) => {
   const logger = getLogger(mod.tool);
-  const { toolId, inputs, systemVar } = c.req.valid('json');
+  const { toolId, inputs, systemVar } = body;
 
   const tool = await getTool(toolId);
 
@@ -420,6 +424,19 @@ tools.openapi(runStreamRoute, async (c) => {
       await handleSendError(error, stream);
     }
   );
+};
+
+tools.openapi(runStreamRoute, async (c) => runToolStream(c, c.req.valid('json')));
+
+legacyTool.post('/runStream', async (c) => {
+  const json = await c.req.json().catch(() => undefined);
+  const parsed = RunStreamBodySchema.safeParse(json);
+
+  if (!parsed.success) {
+    return c.json(R.error(400, 'Invalid parameters'), 400);
+  }
+
+  return runToolStream(c, parsed.data);
 });
 
 export default tools;
