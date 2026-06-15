@@ -43,7 +43,6 @@ export const OutputType = z.object({
   page_html: z.string(),
   page_url: z.string(),
   page_cover: z.string(),
-  full_html: z.string(),
   summary: z.string(),
   system_error: z.string().optional()
 });
@@ -56,7 +55,6 @@ function empty(system_error: string): Out {
     page_html: '',
     page_url: '',
     page_cover: '',
-    full_html: '',
     summary: '',
     system_error
   };
@@ -66,12 +64,11 @@ export async function tool(props: In): Promise<Out> {
   try {
     const input = InputType.parse(props);
     const report = normalizeFutureInsightReport(input);
-    const fullHtml = renderFutureInsightHtml(report);
+    const pageHtml = renderFutureInsightHtml(report);
     return {
-      page_html: fullHtml,
+      page_html: pageHtml,
       page_url: '',
       page_cover: buildFutureInsightPageCover(report),
-      full_html: fullHtml,
       summary: `已生成 ${report.input.industry} 的未来洞察系统报告，包含新闻墙、关键信号、趋势雷达、影响判断和 7 天行动清单。`
     };
   } catch (error: unknown) {

@@ -12,8 +12,6 @@ export default defineToolSet({
       '**GPT-Image-2**（Azure / Foundry）：**文生图** + **图生图/改图**（参考图与可选遮罩）。资源配置只保留三项普通输入：终结点、部署名、API Key；无需再填 api-version / Bearer。',
     en: '**GPT-Image-2** on Azure / Foundry: **text-to-image** plus **image edit / img2img** (reference images + optional mask). Three plain resource fields only: endpoint, deployment name, API key.'
   },
-  toolDescription:
-    '子工具：①文生图 ②图生图-edits。内置 api-version=2025-04-01-preview。密钥用普通输入框存储（按你的要求不做「隐藏字段」样式）。',
   courseUrl: 'https://ai.azure.com/catalog/models/gpt-image-2',
   secretInputConfig: [
     {

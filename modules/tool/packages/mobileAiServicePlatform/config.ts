@@ -9,7 +9,7 @@ export default defineToolSet({
   },
   description: {
     'zh-CN':
-      '基于可配置的 iPolloOS/OpenAI 兼容应用接口，把用户描述生成移动端优先的 AI 服务 HTML：短片、视频工具、测算、小游戏、表单和体验式应用均可。',
+      '基于可配置的 iPolloOS/OpenAI 风格应用接口，把用户描述生成移动端优先的 AI 服务 HTML：短片、视频工具、测算、小游戏、表单和体验式应用均可。',
     en: 'Generate mobile-first AI service HTML from a configurable iPolloOS/OpenAI-compatible app endpoint: short-video concepts, video tools, divination apps, mini games, forms, and interactive experiences.'
   },
   toolDescription:

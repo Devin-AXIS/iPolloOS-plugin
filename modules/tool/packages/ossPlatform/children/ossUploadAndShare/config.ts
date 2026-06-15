@@ -102,7 +102,6 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.select, FlowNodeInputTypeEnum.reference],
           defaultValue: 'auto',
-          enum: 'auto\nbrowse\ndownload',
           list: [
             { label: '自动', value: 'auto' },
             { label: '预览/在线打开 (browse)', value: 'browse' },
@@ -117,7 +116,6 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.select, FlowNodeInputTypeEnum.reference],
           defaultValue: 'auto',
-          enum: 'auto\nbrowse\ndownload',
           list: [
             { label: '自动', value: 'auto' },
             { label: '预览/在线打开 (browse)', value: 'browse' },

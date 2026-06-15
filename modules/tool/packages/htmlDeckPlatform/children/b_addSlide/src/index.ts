@@ -103,6 +103,8 @@ export async function tool(props: In): Promise<Out> {
         theme_id: state.meta.theme_id ?? 'huashu_editorial',
         theme_label: '',
         summary: '',
+        image_requests_json: '[]',
+        pending_image_count: 0,
         system_error: '已达 80 页上限。'
       };
     }

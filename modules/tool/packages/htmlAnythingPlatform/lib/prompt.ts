@@ -164,12 +164,12 @@ export function buildEditPrompt(props: {
 【硬性规则】
 1. 仅输出完整的、修改后的 HTML。
 2. 保留原 HTML 的 head、字体、配色、布局、组件结构和动画。
-3. 仅根据旧内容与新内容的差异替换或调整对应文字、数据和 DOM。
+3. 仅根据原内容与新内容的差异替换或调整对应文字、数据和 DOM。
 4. 如果新内容增加条目，沿用原有卡片、行、slide 或章节结构添加。
 5. 如果删除条目，移除对应元素。
 6. 不要捏造数据。
 ${props.extraRequirements?.trim() ? `\n【额外要求】:\n${props.extraRequirements.trim()}\n` : ''}
-【旧内容】:
+【原内容】:
 ${props.oldContent.trim()}
 
 【新内容】:

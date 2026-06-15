@@ -90,12 +90,6 @@ export default defineTool({
         { valueType: WorkflowIOValueTypeEnum.string, key: 'page_url', label: '页面公开链接' },
         {
           valueType: WorkflowIOValueTypeEnum.string,
-          key: 'html_document',
-          label: '完整 HTML（兼容字段）'
-        },
-        { valueType: WorkflowIOValueTypeEnum.string, key: 'full_html', label: '完整 HTML' },
-        {
-          valueType: WorkflowIOValueTypeEnum.string,
           key: 'deck_state',
           label: 'deck_state（高级精修用）'
         },

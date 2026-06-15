@@ -15,8 +15,6 @@ export default defineTool({
       '基于 **images/edits**：用 1～8 张参考图按提示词合成或修改画面；可选 **mask** 指定大致编辑区域（模型仅作引导，未必严格贴边）。输出与文生图相同（Markdown + data URL）。',
     en: 'Uses **images/edits** with 1–8 reference images and a prompt; optional **mask** guides the edit region. Same outputs as text-to-image.'
   },
-  toolDescription:
-    '每行一张参考图：可访问 HTTPS、data:image;base64、或纯 base64。mask 可选（PNG 常见）。尺寸/质量/格式与文生图一致。需与文生图同一套资源配置（终结点+部署+密钥）。',
   versionList: [
     {
       value: '1.0.0',
@@ -28,7 +26,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
           required: true,
-          toolDescription: '说明要如何改图或如何融合多张参考图。'
+          description: '说明要如何改图或如何融合多张参考图。'
         },
         {
           key: 'image_inputs',
@@ -36,7 +34,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
           required: true,
-          toolDescription:
+          description:
             '1～8 行。每行：图片 HTTPS 直链，或 data:image/png;base64,...，或不含前缀的纯 base64。'
         },
         {
@@ -44,7 +42,7 @@ export default defineTool({
           label: '遮罩图（可选）',
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
-          toolDescription:
+          description:
             '与官方一致：多参考图时 mask 作用于**第一张**。透明/灰度语义以模型为准；可留空。'
         },
         {
@@ -65,7 +63,7 @@ export default defineTool({
             { label: '2160 × 3840（4K 竖）', value: '2160x3840' },
             { label: '自定义 WxH', value: 'custom' }
           ],
-          toolDescription: '与文生图相同的尺寸选项与自定义校验。'
+          description: '与文生图相同的尺寸选项与自定义校验。'
         },
         {
           key: 'size_custom',
@@ -73,7 +71,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.input, FlowNodeInputTypeEnum.reference],
           placeholder: '如 1920x1080',
-          toolDescription: '仅当尺寸选「自定义」时必填。'
+          description: '仅当尺寸选「自定义」时必填。'
         },
         {
           key: 'n',
@@ -116,7 +114,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.number,
           renderTypeList: [FlowNodeInputTypeEnum.numberInput, FlowNodeInputTypeEnum.reference],
           defaultValue: 90,
-          toolDescription: '仅 jpeg/webp 生效。'
+          description: '仅 jpeg/webp 生效。'
         }
       ],
       outputs: [
@@ -124,43 +122,43 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'markdown_image',
           label: 'Markdown 图片（可多张）',
-          toolDescription: '同文生图'
+          description: '同文生图'
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'image_data_url',
           label: '首张 Data URL 或 URL',
-          toolDescription: '同文生图'
+          description: '同文生图'
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'all_image_data_urls_json',
           label: '全部图片 JSON 数组',
-          toolDescription: '同文生图'
+          description: '同文生图'
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'mime_type',
           label: '首张 MIME',
-          toolDescription: '同文生图'
+          description: '同文生图'
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'raw_b64',
           label: '首张纯 Base64',
-          toolDescription: '同文生图'
+          description: '同文生图'
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'image_url',
           label: '首张 HTTPS 链',
-          toolDescription: '同文生图'
+          description: '同文生图'
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'minimal_json',
           label: '元数据 JSON',
-          toolDescription: '含 endpoint_kind=edits、ref_image_count 等'
+          description: '含 endpoint_kind=edits、ref_image_count 等'
         },
         {
           type: FlowNodeOutputTypeEnum.error,

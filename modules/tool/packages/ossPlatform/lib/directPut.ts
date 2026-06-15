@@ -30,7 +30,7 @@ export async function putObjectViaPresignedFetch(
   const res = await fetch(url, {
     method: 'PUT',
     headers,
-    body
+    body: new Uint8Array(body)
   });
 
   if (!res.ok) {

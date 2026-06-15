@@ -39,7 +39,6 @@ export const OutputType = z.object({
   page_html: z.string(),
   page_url: z.string(),
   interactive_html_result: z.record(z.string(), z.any()),
-  full_html: z.string(),
   interactive_html: z.boolean(),
   interactive_title: z.string(),
   interactive_description: z.string(),
@@ -147,7 +146,7 @@ export async function tool(props: In): Promise<Out> {
     const surface = inp.color_surface ?? '#f8fafc';
     const text = inp.color_text ?? '#0f172a';
 
-    const full_html = injectBridge(
+    const pageHtml = injectBridge(
       buildThemedSingleFileHtml({
         lang: inp.lang,
         page_title: title,
@@ -162,10 +161,9 @@ export async function tool(props: In): Promise<Out> {
     );
 
     return {
-      page_html: full_html,
+      page_html: pageHtml,
       page_url: '',
       interactive_html_result: {},
-      full_html,
       interactive_html: true,
       interactive_title: interactiveTitle,
       interactive_description: inp.interactive_description?.trim() || '',
@@ -180,7 +178,6 @@ export async function tool(props: In): Promise<Out> {
       page_html: '',
       page_url: '',
       interactive_html_result: {},
-      full_html: '',
       interactive_html: false,
       interactive_title: '',
       interactive_description: '',

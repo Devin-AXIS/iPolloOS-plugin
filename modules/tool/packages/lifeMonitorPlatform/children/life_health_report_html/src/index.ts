@@ -59,7 +59,6 @@ export const OutputType = z.object({
   page_html: z.string(),
   page_url: z.string(),
   page_cover: z.string(),
-  full_html: z.string(),
   summary: z.string(),
   system_error: z.string().optional()
 });
@@ -103,7 +102,6 @@ export async function tool(props: In): Promise<Out> {
       page_html: '',
       page_url: '',
       page_cover: '',
-      full_html: '',
       summary: '',
       system_error: msg
     };

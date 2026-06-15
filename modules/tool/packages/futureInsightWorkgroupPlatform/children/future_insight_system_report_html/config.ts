@@ -109,11 +109,6 @@ export default defineTool({
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,
-          key: 'full_html',
-          label: '完整 HTML 文档'
-        },
-        {
-          valueType: WorkflowIOValueTypeEnum.string,
           key: 'summary',
           label: '摘要'
         },

@@ -22,7 +22,7 @@ export default defineTool({
     {
       value: '1.2.19',
       description:
-        'Keep publication TOC on desktop without overlapping main content while preserving mobile drawer TOC, PDF export, and gallery metadata',
+        'Use page_html/page_url as the clean HTML page contract with template validation, PDF export, TOC, and gallery metadata',
       inputs: [
         {
           key: 'template_id',
@@ -68,7 +68,7 @@ export default defineTool({
             { label: 'sql', value: 'sql' },
             { label: 'html', value: 'html' }
           ],
-          toolDescription: '兼容字段。当前工具不调用 AI；建议传 html。'
+          toolDescription: '当前工具只接收上游 AI 大脑已经完成的 HTML，固定传 html。'
         },
         {
           key: 'language',
@@ -90,23 +90,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
           toolDescription:
-            '兼容字段。建议写入原始用户意图、选择模板的理由、最终交付形态和关键约束，便于工具做模板类别兜底校验；当前工具不会据此再调用 AI。不要在这里填写密钥。'
-        },
-        {
-          key: 'edit_from_html',
-          label: '已有 HTML（可选）',
-          valueType: WorkflowIOValueTypeEnum.string,
-          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
-          toolDescription:
-            '兼容字段。编辑也应由上游 AI 大脑先完成，content 传最终 HTML。填写时必须同时填写 edit_from_content。'
-        },
-        {
-          key: 'edit_from_content',
-          label: '旧内容（可选）',
-          valueType: WorkflowIOValueTypeEnum.string,
-          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
-          toolDescription:
-            '兼容字段。已有 HTML 对应的旧内容。填写时必须同时填写 edit_from_html；工具不会再调用 AI 做编辑。'
+            '原始用户意图、选择模板的理由、最终交付形态和关键约束，用于模板类别校验。不要在这里填写密钥。'
         },
         {
           key: 'page_output_mode',
@@ -136,11 +120,6 @@ export default defineTool({
           key: 'page_url',
           label: '页面公开链接',
           description: 'auto_publish 后由平台写入。'
-        },
-        {
-          valueType: WorkflowIOValueTypeEnum.string,
-          key: 'full_html',
-          label: '完整 HTML 文档（兼容字段，仅 raw_html 模式返回）'
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,

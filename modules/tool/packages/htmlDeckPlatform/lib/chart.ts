@@ -135,7 +135,7 @@ export function parseChartData(raw: string | undefined): ChartPoint[] {
     const parsed = JSON.parse(text) as unknown;
     if (Array.isArray(parsed)) {
       return parsed
-        .map((item, index) => {
+        .map((item, index): ChartPoint | undefined => {
           if (typeof item === 'number') return { name: `Item ${index + 1}`, value: item };
           if (Array.isArray(item)) {
             return {
@@ -161,7 +161,7 @@ export function parseChartData(raw: string | undefined): ChartPoint[] {
   }
   return text
     .split(/\r?\n/)
-    .map((line, index) => {
+    .map((line, index): ChartPoint | undefined => {
       const parts = line
         .split(/[,，|\t]/)
         .map((part) => part.trim())

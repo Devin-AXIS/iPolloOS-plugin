@@ -10,7 +10,7 @@ export function parseDeckState(raw: string): DeckState {
     throw new Error('deck_state 不是合法 JSON。请原样复制工具返回的 deck_state。');
   }
   if (typeof j === 'object' && j !== null && (j as { v?: number }).v === 1) {
-    throw new Error('deck_state 为旧版 v1，请重新执行「幻灯片 · 初始化（花叔 grammar）」生成 v2。');
+    throw new Error('deck_state 不是当前 v2 结构，请重新执行「幻灯片 · 生成整套」。');
   }
   const r = DeckStateSchema.safeParse(j);
   if (!r.success) {

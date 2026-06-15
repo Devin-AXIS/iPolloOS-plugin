@@ -161,7 +161,9 @@ function stringList(field: string) {
   return z.preprocess(emptyToUndef, z.unknown().optional()).transform((value, ctx) => {
     if (value === undefined) return [] as string[];
     if (Array.isArray(value)) {
-      return value.filter((item): item is string => typeof item === 'string' && item.trim());
+      return value.filter(
+        (item): item is string => typeof item === 'string' && item.trim().length > 0
+      );
     }
     if (typeof value !== 'string') {
       ctx.addIssue({ code: 'custom', message: `${field} 必须是字符串或字符串数组` });
@@ -171,7 +173,9 @@ function stringList(field: string) {
     const trimmed = value.trim();
     const parsed = tryParseJson(trimmed);
     if (parsed.ok && Array.isArray(parsed.value)) {
-      return parsed.value.filter((item): item is string => typeof item === 'string' && item.trim());
+      return parsed.value.filter(
+        (item): item is string => typeof item === 'string' && item.trim().length > 0
+      );
     }
 
     return trimmed

@@ -68,12 +68,6 @@ export default defineTool({
           label: '页面公开链接',
           description: '自动发布或资源中心模式下由平台写入；raw_html 时为空。'
         },
-        {
-          valueType: WorkflowIOValueTypeEnum.string,
-          key: 'html_document',
-          label: '完整 HTML（兼容字段）',
-          description: '与 page_html 相同，保留给旧工作流引用。'
-        },
         { valueType: WorkflowIOValueTypeEnum.number, key: 'slide_count', label: '总页数' },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'summary', label: '摘要' },
         {

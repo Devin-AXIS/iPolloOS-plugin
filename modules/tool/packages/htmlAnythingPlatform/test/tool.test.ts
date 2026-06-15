@@ -20,8 +20,8 @@ describe('html_anything_page tool', () => {
 
     expect(result.system_error).toBeUndefined();
     expect(result.template_id).toBe('saas-landing');
-    expect(result.full_html).toContain('<html>');
-    expect(result.full_html).toContain('Test');
+    expect(result.page_html).toContain('<html>');
+    expect(result.page_html).toContain('Test');
     expect(result.summary).toContain('上游 AI 大脑');
   });
 
@@ -35,8 +35,8 @@ describe('html_anything_page tool', () => {
     });
 
     expect(result.template_id).toBe('book-editorial');
-    expect(result.full_html).toContain('html-anything-publication-toc-script');
-    expect(result.full_html).toContain('html-anything-pdf-export-script');
+    expect(result.page_html).toContain('html-anything-publication-toc-script');
+    expect(result.page_html).toContain('html-anything-pdf-export-script');
   });
 
   it('auto-detects publication template from generated html before injecting runtimes', async () => {
@@ -49,7 +49,7 @@ describe('html_anything_page tool', () => {
     });
 
     expect(result.template_id).toBe('book-editorial');
-    expect(result.full_html).toContain('html-anything-publication-toc-script');
+    expect(result.page_html).toContain('html-anything-publication-toc-script');
   });
 
   it('rejects mixed slide template with non-slide long page html', async () => {
@@ -65,7 +65,7 @@ describe('html_anything_page tool', () => {
     expect(result.system_error).toContain('ppt-keynote');
     expect(result.system_error).toContain('research-report');
     expect(result.page_url).toBe('');
-    expect(result.full_html).toBe('');
+    expect(result.page_html).toBe('');
   });
 
   it('rejects publication templates that contain fixed poster html', async () => {
@@ -80,7 +80,7 @@ describe('html_anything_page tool', () => {
     expect(result.system_error).toContain('模板类别是出版物');
     expect(result.system_error).toContain('不能生成固定 16:9 海报');
     expect(result.page_url).toBe('');
-    expect(result.full_html).toBe('');
+    expect(result.page_html).toBe('');
   });
 
   it('asks upstream AI brain to regenerate when content is not complete HTML', async () => {

@@ -478,13 +478,17 @@ function normalizeReportCandidate(report: AnyRecord): AnyRecord {
   next.cover = asRecord(next.cover);
   next.verdict = asRecord(next.verdict);
   next.input = asRecord(next.input);
+  const cover = next.cover as AnyRecord;
+  const input = next.input as AnyRecord;
+  const verdict = next.verdict as AnyRecord;
+  const radar = next.radar as AnyRecord;
 
-  next.cover = normalizeSectionAliases(next.cover, [
-    ['headline', next.cover.title || next.cover.name],
-    ['deck', next.cover.subtitle || next.cover.summary || next.cover.description]
+  next.cover = normalizeSectionAliases(cover, [
+    ['headline', cover.title || cover.name],
+    ['deck', cover.subtitle || cover.summary || cover.description]
   ]);
-  const coverVisual = asRecord(next.cover.visual);
-  next.cover.visual = normalizeSectionAliases(coverVisual, [
+  const coverVisual = asRecord(cover.visual);
+  cover.visual = normalizeSectionAliases(coverVisual, [
     [
       'imageUrl',
       coverVisual.imageUrl ||
@@ -492,14 +496,14 @@ function normalizeReportCandidate(report: AnyRecord): AnyRecord {
         coverVisual.url ||
         coverVisual.src ||
         coverVisual.image ||
-        next.cover.imageUrl ||
-        next.cover.image_url ||
-        next.cover.backgroundImageUrl ||
-        next.cover.background_image_url ||
-        next.cover.coverImageUrl ||
-        next.cover.cover_image_url ||
-        next.cover.visualImageUrl ||
-        next.cover.visual_image_url ||
+        cover.imageUrl ||
+        cover.image_url ||
+        cover.backgroundImageUrl ||
+        cover.background_image_url ||
+        cover.coverImageUrl ||
+        cover.cover_image_url ||
+        cover.visualImageUrl ||
+        cover.visual_image_url ||
         next.cover_background_image_url ||
         next.coverBackgroundImageUrl ||
         next.cover_image_url ||
@@ -510,65 +514,58 @@ function normalizeReportCandidate(report: AnyRecord): AnyRecord {
       coverVisual.caption ||
         coverVisual.alt ||
         coverVisual.description ||
-        next.cover.visualCaption ||
-        next.cover.visual_caption ||
-        next.cover.caption
+        cover.visualCaption ||
+        cover.visual_caption ||
+        cover.caption
     ],
-    [
-      'prompt',
-      coverVisual.prompt || next.cover.visualPrompt || next.cover.visual_prompt || next.cover.prompt
-    ]
+    ['prompt', coverVisual.prompt || cover.visualPrompt || cover.visual_prompt || cover.prompt]
   ]);
-  if (!Array.isArray(next.cover.metrics) && next.cover.tags) {
-    const tags = normalizeList(next.cover.tags, 4);
+  if (!Array.isArray(cover.metrics) && cover.tags) {
+    const tags = normalizeList(cover.tags, 4);
     if (tags.length) {
-      next.cover.metrics = tags.map((tag) => ({ value: tag, label: 'tag' }));
+      cover.metrics = tags.map((tag) => ({ value: tag, label: 'tag' }));
     }
   }
 
-  next.input = normalizeSectionAliases(next.input, [
-    ['preparedFor', next.input.prepared_for || next.prepared_for || next.preparedFor],
-    ['companyOrProduct', next.input.company_or_product || next.company_or_product],
-    ['competitors', next.input.competitors || next.competitors],
-    ['regions', next.input.regions || next.regions]
+  next.input = normalizeSectionAliases(input, [
+    ['preparedFor', input.prepared_for || next.prepared_for || next.preparedFor],
+    ['companyOrProduct', input.company_or_product || next.company_or_product],
+    ['competitors', input.competitors || next.competitors],
+    ['regions', input.regions || next.regions]
   ]);
 
-  const verdictBullets = normalizeList(
-    next.verdict.bullets || next.verdict.points || next.verdict.items,
-    6,
-    260
-  );
-  next.verdict = normalizeSectionAliases(next.verdict, [
-    ['title', next.verdict.headline || next.verdict.name],
+  const verdictBullets = normalizeList(verdict.bullets || verdict.points || verdict.items, 6, 260);
+  next.verdict = normalizeSectionAliases(verdict, [
+    ['title', verdict.headline || verdict.name],
     [
       'body',
-      next.verdict.summary ||
-        next.verdict.description ||
-        next.verdict.conclusion ||
-        next.verdict.judgement ||
-        next.verdict.judgment
+      verdict.summary ||
+        verdict.description ||
+        verdict.conclusion ||
+        verdict.judgement ||
+        verdict.judgment
     ]
   ]);
   if (verdictBullets.length) {
-    next.verdict.bullets = verdictBullets;
+    verdict.bullets = verdictBullets;
   }
 
-  next.radar = normalizeSectionAliases(next.radar, [
-    ['title', next.radar.trend || next.radar.headline || next.radar.name],
-    ['verdict', next.radar.judgement || next.radar.judgment || next.radar.summary]
+  next.radar = normalizeSectionAliases(radar, [
+    ['title', radar.trend || radar.headline || radar.name],
+    ['verdict', radar.judgement || radar.judgment || radar.summary]
   ]);
-  const radarVisual = asRecord(next.radar.visual);
-  next.radar.visual = normalizeSectionAliases(radarVisual, [
+  const radarVisual = asRecord(radar.visual);
+  radar.visual = normalizeSectionAliases(radarVisual, [
     [
       'imageUrl',
       radarVisual.image_url ||
         radarVisual.url ||
         radarVisual.src ||
         radarVisual.image ||
-        next.radar.imageUrl ||
-        next.radar.image_url ||
-        next.radar.visualImageUrl ||
-        next.radar.visual_image_url ||
+        radar.imageUrl ||
+        radar.image_url ||
+        radar.visualImageUrl ||
+        radar.visual_image_url ||
         next.visualImageUrl ||
         next.visual_image_url
     ],
@@ -577,29 +574,26 @@ function normalizeReportCandidate(report: AnyRecord): AnyRecord {
       radarVisual.caption ||
         radarVisual.alt ||
         radarVisual.description ||
-        next.radar.visualCaption ||
-        next.radar.visual_caption ||
+        radar.visualCaption ||
+        radar.visual_caption ||
         next.visualCaption ||
         next.visual_caption
     ],
     [
       'prompt',
       radarVisual.prompt ||
-        next.radar.visualPrompt ||
-        next.radar.visual_prompt ||
+        radar.visualPrompt ||
+        radar.visual_prompt ||
         next.visualPrompt ||
         next.visual_prompt
     ]
   ]);
-  if (!Array.isArray(next.radar.body)) {
-    const bodyItems = normalizeList(
-      next.radar.body || next.radar.description || next.radar.details,
-      4
-    );
-    if (bodyItems.length) next.radar.body = bodyItems;
+  if (!Array.isArray(radar.body)) {
+    const bodyItems = normalizeList(radar.body || radar.description || radar.details, 4);
+    if (bodyItems.length) radar.body = bodyItems;
   }
-  if (!Array.isArray(next.radar.points) && Array.isArray(next.radar.items)) {
-    next.radar.points = next.radar.items;
+  if (!Array.isArray(radar.points) && Array.isArray(radar.items)) {
+    radar.points = radar.items;
   }
 
   return next;
@@ -660,7 +654,8 @@ export function normalizeFutureInsightReport(
       : buildNewsColumns({ industry, regions }, directNewsItems);
 
   const sourceItems = buildSources(newsColumns, asRecord(reportCandidate.sources).items);
-  const dateLabel = getZhDate(raw.report_date || asRecord(reportCandidate.publication).dateLabel);
+  const dateLabelSource = raw.report_date || asRecord(reportCandidate.publication).dateLabel;
+  const dateLabel = getZhDate(typeof dateLabelSource === 'string' ? dateLabelSource : undefined);
   const recipient = preparedFor || companyOrProduct[0] || industry;
   const competitorText = competitors.length ? competitors.join('、') : '重点竞品';
   const visualPanelItems = normalizeVisualPanelItems(reportCandidate);

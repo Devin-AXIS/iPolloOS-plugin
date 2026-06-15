@@ -2,7 +2,7 @@
   "name": "@ipolloos-plugin/modules-tool",
   "scripts": {
     "build": "bun run ./build/index.ts",
-    "build:marketplace": "bun run ./build/build-json.ts"
+    "build:marketplace": "bun run ./build/index.ts"
   },
   "devDependencies": {
     "@babel/preset-typescript": "^7.27.1",

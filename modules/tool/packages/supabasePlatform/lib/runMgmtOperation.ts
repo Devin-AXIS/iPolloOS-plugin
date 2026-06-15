@@ -54,20 +54,22 @@ export async function runManagementOperation(
   const def = MANAGEMENT_OPERATIONS[operation];
   const base = normalizeMgmtBase(props.managementBaseUrl);
   const vars: Record<string, string> = {};
-  for (const key of def.pathVars ?? []) {
+  const pathVars = 'pathVars' in def ? def.pathVars : [];
+  for (const key of pathVars) {
     const val = resolveVar(key, props);
     if (!val) throw new Error(`operation ${operation} 需要参数: ${key}`);
     vars[key] = val;
   }
   const path = buildPath(def.path, vars);
 
-  const query: Record<string, string | undefined> | undefined = def.queryKeys?.length
+  const queryKeys = 'queryKeys' in def ? def.queryKeys : [];
+  const query: Record<string, string | undefined> | undefined = queryKeys.length
     ? Object.fromEntries(
-        def.queryKeys.map((k) => [k, props[k as keyof MgmtOpBaseProps] as string | undefined])
+        queryKeys.map((k) => [k, props[k as keyof MgmtOpBaseProps] as string | undefined])
       )
     : undefined;
 
-  const body = bodyFor(def.body, props.bodyJson);
+  const body = bodyFor('body' in def ? def.body : undefined, props.bodyJson);
   const init: { query?: Record<string, string | undefined>; body?: unknown } = {};
   if (query && Object.keys(query).length) init.query = query;
   if (body !== undefined) init.body = body;

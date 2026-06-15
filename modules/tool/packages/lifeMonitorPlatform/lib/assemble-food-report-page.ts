@@ -17,7 +17,6 @@ export type AssembleFoodReportIn = {
 export type AssembleFoodReportOut = {
   page_html: string;
   page_url: string;
-  full_html: string;
   summary: string;
 };
 
@@ -46,7 +45,6 @@ export function assembleFoodReportPage(inp: AssembleFoodReportIn): AssembleFoodR
   return {
     page_html: full,
     page_url: '',
-    full_html: full,
     summary:
       lang === 'en'
         ? 'AINO-style food report page (photo card + optional progress).'

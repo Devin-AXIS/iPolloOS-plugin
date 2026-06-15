@@ -46,7 +46,6 @@ export const OutputType = z.object({
   page_html: z.string(),
   page_url: z.string(),
   page_cover: z.string(),
-  full_html: z.string(),
   summary: z.string(),
   system_error: z.string().optional()
 });
@@ -106,7 +105,6 @@ export async function tool(props: In): Promise<Out> {
         mode: input.interaction_mode,
         language: input.service_language
       }),
-      full_html: fullHtml,
       summary:
         'NO_EMPTY_OUTPUT：已生成移动端 AI 服务 HTML；若上游 iPolloOS AI 应用空返回或报错，本结果会自动使用本地降级功能页面，平台自动发布时会写入 page_url。'
     };
@@ -116,7 +114,6 @@ export async function tool(props: In): Promise<Out> {
       page_html: '',
       page_url: '',
       page_cover: '',
-      full_html: '',
       summary: '',
       system_error: message
     };

@@ -1,4 +1,3 @@
-import { SafeSearchType, search as duckSearch } from 'duck-duck-scrape';
 import { SearchResultSchema, type InvestorAnalysisConfig, type SearchResult } from './schemas';
 
 type SerperOrganic = {
@@ -40,28 +39,7 @@ function normalizeResult(input: {
 }
 
 async function searchWithDuckDuckGo(query: string, maxResults: number): Promise<SearchResult[]> {
-  try {
-    const data = await duckSearch(query, {
-      safeSearch: SafeSearchType.MODERATE
-    });
-
-    const parsed = data.results
-      .map((item) =>
-        normalizeResult({
-          title: item.title,
-          url: item.url,
-          snippet: item.description,
-          source: 'duckduckgo',
-          query
-        })
-      )
-      .filter((item): item is SearchResult => Boolean(item))
-      .slice(0, maxResults);
-    if (parsed.length) return parsed;
-    return searchWithDuckDuckGoHtml(query, maxResults);
-  } catch {
-    return searchWithDuckDuckGoHtml(query, maxResults);
-  }
+  return searchWithDuckDuckGoHtml(query, maxResults);
 }
 
 function decodeHtml(value: string): string {

@@ -15,13 +15,13 @@ describe('official website visual assets', () => {
     });
 
     expect(result.system_error).toBeUndefined();
-    expect(result.full_html).toContain('class="official-hero-media"');
-    expect(result.full_html).toContain(
+    expect(result.page_html).toContain('class="official-hero-media"');
+    expect(result.page_html).toContain(
       '<img src="https://os.ipollo.net/chat/a/b/hero.png" alt="首屏汽车图"/>'
     );
-    expect(result.full_html).toContain('https://os.ipollo.net/chat/a/b/suv.png');
-    expect(result.full_html).not.toContain('ipollo-plugin-pages-prod.oss-cn-beijing.aliyuncs.com');
-    expect(result.full_html).not.toContain('可用视觉素材');
+    expect(result.page_html).toContain('https://os.ipollo.net/chat/a/b/suv.png');
+    expect(result.page_html).not.toContain('ipollo-plugin-pages-prod.oss-cn-beijing.aliyuncs.com');
+    expect(result.page_html).not.toContain('可用视觉素材');
   });
 
   test('accepts explicit visual_assets input', async () => {
@@ -35,10 +35,10 @@ describe('official website visual assets', () => {
     });
 
     expect(result.system_error).toBeUndefined();
-    expect(result.full_html).toContain(
+    expect(result.page_html).toContain(
       '<img src="https://os.ipollo.net/chat/demo/hero.webp" alt="Hero"/>'
     );
-    expect(result.full_html).toContain('https://os.ipollo.net/chat/demo/detail.jpg');
-    expect(result.full_html).not.toContain('ipollo-plugin-pages-prod.oss-cn-beijing.aliyuncs.com');
+    expect(result.page_html).toContain('https://os.ipollo.net/chat/demo/detail.jpg');
+    expect(result.page_html).not.toContain('ipollo-plugin-pages-prod.oss-cn-beijing.aliyuncs.com');
   });
 });

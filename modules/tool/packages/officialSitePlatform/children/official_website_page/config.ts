@@ -16,7 +16,7 @@ export default defineTool({
     en: 'Generate official websites with mobile-first header, logo, hamburger menu, Chinese/EN switch, CTA, footer and template styles.'
   },
   toolDescription:
-    '【官网需求优先调用 official_website_page】用于公司官网、品牌官网、产品官网、门店官网、项目官网、作品集官网。调用时只收集核心信息：品牌/公司名、公司简介、语言、导航和官网主题。主题是核心：它内置颜色组、背景效果和风格描述；不要再要求用户逐项填写主色、背景色、按钮、CTA、首屏标题、正文分区、页脚、favicon 等长尾内容。工具会围绕品牌信息、导航和主题自动生成首屏、正文分区、联系区、页脚、移动端导航和语言切换。默认单页官网，只有用户明确要求复杂多页面时才走旧版 sub_pages_json 兼容字段。默认移动端优先：手机端顶部栏是汉堡菜单；Logo/品牌名固定左侧；中英双语时语言切换固定在顶部栏。',
+    '【官网需求优先调用 official_website_page】用于公司官网、品牌官网、产品官网、门店官网、项目官网、作品集官网。调用时只收集核心信息：品牌/公司名、公司简介、语言、导航和官网主题。主题是核心：它内置颜色组、背景效果和风格描述；不要再要求用户逐项填写主色、背景色、按钮、CTA、首屏标题、正文分区、页脚、favicon 等长尾内容。工具会围绕品牌信息、导航和主题自动生成首屏、正文分区、联系区、页脚、移动端导航和语言切换。默认单页官网，用户明确要求复杂多页面时使用 additional_pages_json。默认移动端优先：手机端顶部栏是汉堡菜单；Logo/品牌名固定左侧；中英双语时语言切换固定在顶部栏。',
   versionList: [
     {
       value: '1.1.0',
@@ -153,11 +153,6 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'page_url',
           label: '页面公开链接'
-        },
-        {
-          valueType: WorkflowIOValueTypeEnum.string,
-          key: 'full_html',
-          label: '完整 HTML 文档'
         },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'summary', label: '摘要' },
         {

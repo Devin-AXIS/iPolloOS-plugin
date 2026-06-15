@@ -43,7 +43,6 @@ export const InputType = z
   });
 
 export const OutputType = z.object({
-  full_html: z.string(),
   page_html: z.string(),
   page_url: z.string(),
   summary: z.string(),
@@ -70,7 +69,7 @@ export async function tool(props: In): Promise<Out> {
             : '在此处替换为您的内容；也可使用 merge_fragments 合并多块 HTML。'
         )}</p>`;
 
-    const full_html = buildThemedSingleFileHtml({
+    const pageHtml = buildThemedSingleFileHtml({
       lang: inp.lang,
       page_title: title,
       heading_h1: h1,
@@ -85,8 +84,7 @@ export async function tool(props: In): Promise<Out> {
     });
 
     return {
-      full_html,
-      page_html: full_html,
+      page_html: pageHtml,
       page_url: '',
       summary:
         inp.lang === 'en'
@@ -95,6 +93,6 @@ export async function tool(props: In): Promise<Out> {
     };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { full_html: '', page_html: '', page_url: '', summary: '', system_error: msg };
+    return { page_html: '', page_url: '', summary: '', system_error: msg };
   }
 }

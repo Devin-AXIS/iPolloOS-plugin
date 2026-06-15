@@ -9,8 +9,8 @@ export default defineToolSet({
   },
   description: {
     'zh-CN':
-      '仅包含**一个节点**「上传到 OSS 并获取链接」：URL 或文本上传、自动目录隔离、默认生成 24h 临时链便于私桶分享，大文件给 PUT 预签名。资源配置只需 AK/SK、Region、Bucket；可选填自定义访问域名。若界面仍出现多颗旧 OSS 节点，请用本仓库打出的新 `ossPlatform.pkg` 覆盖导入。',
-    en: 'Single tool: upload + share links, 24h presigned URL by default, large-file PUT. Configure AK/SK, region, bucket, optional public base URL. Re-import ossPlatform.pkg if you still see legacy OSS nodes.'
+      '仅包含**一个节点**「上传到 OSS 并获取链接」：URL 或文本上传、自动目录隔离、默认生成 24h 临时链便于私桶分享，大文件给 PUT 预签名。资源配置只需 AK/SK、Region、Bucket；可选填自定义访问域名。若界面未更新为单节点 OSS 工具，请用本仓库打出的新 `ossPlatform.pkg` 覆盖导入。',
+    en: 'Single tool: upload + share links, 24h presigned URL by default, large-file PUT. Configure AK/SK, region, bucket, optional public base URL. Re-import ossPlatform.pkg if the UI has not refreshed to the single-node OSS tool.'
   },
   toolDescription:
     'Bind RAM once. Wire appId, userId, chatId from system variables. Keys are prefixed ipolloos/{appId}/{userId}/{chatId}/{sites|files}/…',

@@ -11,12 +11,26 @@ export const SystemVarSchema = z.object({
     name: z.string(),
     appUserId: z.string().optional(),
     appUserName: z.string().optional(),
-    lumiUserId: z.string().optional(),
-    appAuthToken: z.string().optional()
+    ipolloAppUserId: z.string().optional(),
+    appAuthToken: z.string().optional(),
+    ainoApplicationId: z.string().optional(),
+    iPolloApplicationId: z.string().optional(),
+    ipolloApplicationId: z.string().optional(),
+    appApplicationId: z.string().optional(),
+    lumiApplicationId: z.string().optional()
   }),
   app: z.object({
     id: z.string(),
-    name: z.string()
+    name: z.string(),
+    applicationId: z.string().optional(),
+    ainoApplicationId: z.string().optional(),
+    iPolloApplicationId: z.string().optional(),
+    ipolloApplicationId: z.string().optional(),
+    appApplicationId: z.string().optional(),
+    lumiApplicationId: z.string().optional(),
+    agentId: z.string().optional(),
+    appBotId: z.string().optional(),
+    upstreamAppId: z.string().optional()
     // version: z.string()
   }),
   tool: z.object({

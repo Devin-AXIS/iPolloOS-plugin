@@ -112,7 +112,6 @@ export default defineTool({
           description:
             '用户在交互页提交后的 JSON 对象。首次生成页面时为空；用户提交后继续执行时写入。'
         },
-        { valueType: WorkflowIOValueTypeEnum.string, key: 'full_html', label: '完整 HTML 文档' },
         {
           valueType: WorkflowIOValueTypeEnum.boolean,
           key: 'interactive_html',

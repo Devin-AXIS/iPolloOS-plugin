@@ -167,9 +167,9 @@ describe('ipollo app schedule schema', () => {
     expect(identity.identitySource).toBe('runtime_app_user');
   });
 
-  it('prefers the iPollo application id environment over the legacy app id', () => {
-    const oldAinoApplicationId = process.env.AINO_APPLICATION_ID;
-    process.env.AINO_APPLICATION_ID = 'aino-app-1';
+  it('ignores removed application id environment and uses the runtime app id', () => {
+    const oldRemovedApplicationId = process.env.AINO_APPLICATION_ID;
+    process.env.AINO_APPLICATION_ID = 'removed-app-1';
 
     try {
       const identity = resolveRuntimeIdentity(
@@ -191,13 +191,13 @@ describe('ipollo app schedule schema', () => {
         }
       );
 
-      expect(identity.applicationId).toBe('aino-app-1');
+      expect(identity.applicationId).toBe('ipolloos-app-1');
       expect(identity.userId).toBe('ipollo-user-1');
     } finally {
-      if (oldAinoApplicationId === undefined) {
+      if (oldRemovedApplicationId === undefined) {
         delete process.env.AINO_APPLICATION_ID;
       } else {
-        process.env.AINO_APPLICATION_ID = oldAinoApplicationId;
+        process.env.AINO_APPLICATION_ID = oldRemovedApplicationId;
       }
     }
   });
@@ -230,12 +230,12 @@ describe('ipollo app schedule schema', () => {
     ).toThrow('缺少可信 iPollo 用户 ID');
   });
 
-  it('uses systemVar.user.id only as a local test fallback', () => {
+  it('uses systemVar.user.id for local test runs', () => {
     const identity = resolveRuntimeIdentity(
       { applicationId: 'ipollo-app-1', dispatchChannel: 'local' },
       {
         user: {
-          id: 'ipollo-user-from-legacy-runtime',
+          id: 'ipollo-user-from-runtime-context',
           username: '',
           contact: '',
           membername: '',
@@ -251,7 +251,7 @@ describe('ipollo app schedule schema', () => {
 
     expect(identity).toEqual({
       applicationId: 'ipollo-app-1',
-      userId: 'ipollo-user-from-legacy-runtime',
+      userId: 'ipollo-user-from-runtime-context',
       authToken: undefined,
       identitySource: 'local_system_user'
     });
@@ -274,9 +274,9 @@ describe('ipollo app schedule schema', () => {
       'MOBILE_AI_SERVICE_AI_APP_URL',
       'FE_DOMAIN',
       'NEXT_PUBLIC_BASE_URL',
-      'LUMI_APP_DATA_CONTEXT_URL',
-      'LUMI_APP_BOT_CONTEXT_URL',
-      'LUMI_APP_BOT_REGISTER_URL'
+      'IPOLLO_APP_DATA_CONTEXT_URL',
+      'IPOLLO_APP_CONTEXT_URL',
+      'IPOLLO_APP_REGISTER_URL'
     ];
     const previous = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
     const oldNodeEnv = process.env.NODE_ENV;
@@ -314,9 +314,9 @@ describe('ipollo app schedule schema', () => {
       'MOBILE_AI_SERVICE_AI_APP_URL',
       'FE_DOMAIN',
       'NEXT_PUBLIC_BASE_URL',
-      'LUMI_APP_DATA_CONTEXT_URL',
-      'LUMI_APP_BOT_CONTEXT_URL',
-      'LUMI_APP_BOT_REGISTER_URL'
+      'IPOLLO_APP_DATA_CONTEXT_URL',
+      'IPOLLO_APP_CONTEXT_URL',
+      'IPOLLO_APP_REGISTER_URL'
     ];
     const previous = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
     const oldNodeEnv = process.env.NODE_ENV;
@@ -360,9 +360,9 @@ describe('ipollo app schedule schema', () => {
       'MOBILE_AI_SERVICE_AI_APP_URL',
       'FE_DOMAIN',
       'NEXT_PUBLIC_BASE_URL',
-      'LUMI_APP_DATA_CONTEXT_URL',
-      'LUMI_APP_BOT_CONTEXT_URL',
-      'LUMI_APP_BOT_REGISTER_URL'
+      'IPOLLO_APP_DATA_CONTEXT_URL',
+      'IPOLLO_APP_CONTEXT_URL',
+      'IPOLLO_APP_REGISTER_URL'
     ];
     const previous = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
     const oldNodeEnv = process.env.NODE_ENV;

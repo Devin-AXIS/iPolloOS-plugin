@@ -53,7 +53,6 @@ export function parseChatContent(data: unknown): string {
           }
           if (typeof record.content === 'string') return record.content;
           if (typeof record.page_html === 'string') return record.page_html;
-          if (typeof record.full_html === 'string') return record.full_html;
           return '';
         })
         .filter(Boolean)
@@ -63,7 +62,6 @@ export function parseChatContent(data: unknown): string {
       const record = value as Record<string, unknown>;
       for (const key of [
         'page_html',
-        'full_html',
         'answer',
         'answerText',
         'text',

@@ -7,6 +7,7 @@ import RDSClient from '@alicloud/rds20140815';
 import type { ResolvedAuth } from './baseSchema';
 
 export type CloudAuth = ResolvedAuth;
+type AliyunRuntimeClient = Record<string, (...args: any[]) => Promise<{ body?: unknown }>>;
 
 function mkConfig(auth: CloudAuth, region: string, subdomain: string) {
   return new Config({
@@ -17,18 +18,18 @@ function mkConfig(auth: CloudAuth, region: string, subdomain: string) {
   });
 }
 
-export function ecsClient(auth: CloudAuth, region: string) {
-  return new ECSClient(mkConfig(auth, region, 'ecs'));
+export function ecsClient(auth: CloudAuth, region: string): AliyunRuntimeClient {
+  return new ECSClient(mkConfig(auth, region, 'ecs')) as unknown as AliyunRuntimeClient;
 }
 
-export function swasClient(auth: CloudAuth, region: string) {
-  return new SWASClient(mkConfig(auth, region, 'swas'));
+export function swasClient(auth: CloudAuth, region: string): AliyunRuntimeClient {
+  return new SWASClient(mkConfig(auth, region, 'swas')) as unknown as AliyunRuntimeClient;
 }
 
-export function vpcClient(auth: CloudAuth, region: string) {
-  return new VPCClient(mkConfig(auth, region, 'vpc'));
+export function vpcClient(auth: CloudAuth, region: string): AliyunRuntimeClient {
+  return new VPCClient(mkConfig(auth, region, 'vpc')) as unknown as AliyunRuntimeClient;
 }
 
-export function rdsClient(auth: CloudAuth, region: string) {
-  return new RDSClient(mkConfig(auth, region, 'rds'));
+export function rdsClient(auth: CloudAuth, region: string): AliyunRuntimeClient {
+  return new RDSClient(mkConfig(auth, region, 'rds')) as unknown as AliyunRuntimeClient;
 }

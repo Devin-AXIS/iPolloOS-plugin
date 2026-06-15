@@ -125,11 +125,6 @@ export default defineTool({
           label: '页面卡片',
           description: 'JSON 字符串。聊天端用它渲染健康报告的封面、摘要和营养字段预览。'
         },
-        {
-          valueType: WorkflowIOValueTypeEnum.string,
-          key: 'full_html',
-          label: '完整 HTML（兼容字段）'
-        },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'summary', label: '摘要' },
         {
           type: FlowNodeOutputTypeEnum.error,

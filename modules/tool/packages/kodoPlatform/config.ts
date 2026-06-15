@@ -41,7 +41,7 @@ export default defineToolSet({
       key: 'qiniuPublicBaseUrl',
       label: '访问域名（HTTPS）',
       description:
-        '已在七牛「域名管理」绑定到该空间的 HTTPS 访问域名；可只填主机名（自动补 https）。切勿填 *.qiniucs.com（S3 兼容域），否则无法生成可访问的 final_public_url。',
+        '已在七牛「域名管理」绑定到该空间的 HTTPS 访问域名；可只填主机名（自动补 https）。切勿填 *.qiniucs.com（S3 API 域名），否则无法生成可访问的 final_public_url。',
       required: true,
       inputType: 'input'
     }

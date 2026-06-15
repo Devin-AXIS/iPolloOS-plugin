@@ -48,7 +48,7 @@ The state stores per-account cursors:
 - `accounts.{username}.newestPostId`
 - `accounts.{username}.checkedAt`
 
-Single-account legacy state is still accepted.
+Single-account state is stored in the same per-account cursor shape.
 
 Events use `dedupeKey = x:post:{id}` so the platform can deduplicate notifications.
 

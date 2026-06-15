@@ -47,7 +47,7 @@ export function publicHostnameOnly(normalizedBaseUrl: string): string {
   }
 }
 
-/** 七牛 S3 兼容上传/存储域，不能当作对外「网站/下载」访问域名 */
+/** 七牛 S3 API 上传/存储域，不能当作对外「网站/下载」访问域名 */
 export function isQiniuS3CompatInternalHost(hostname: string): boolean {
   return /\.qiniucs\.com$/i.test(hostname.trim());
 }
@@ -80,7 +80,7 @@ export function validatePublicBaseUrlForKodoTool(raw: string): ValidatedPublicBa
     return {
       ok: false,
       message:
-        '资源配置「访问域名」不能填 *.qiniucs.com（S3 兼容域，浏览器无法作为站点域名使用）。请在七牛控制台为该空间绑定 HTTPS 访问域名，并把该域名填进插件配置；final_public_url 将为 https://绑定域名/ipolloos/应用ID/用户ID/会话ID/用途/您的路径 。'
+        '资源配置「访问域名」不能填 *.qiniucs.com（S3 API 域名，浏览器无法作为站点域名使用）。请在七牛控制台为该空间绑定 HTTPS 访问域名，并把该域名填进插件配置；final_public_url 将为 https://绑定域名/ipolloos/应用ID/用户ID/会话ID/用途/您的路径 。'
     };
   }
   return { ok: true, normalized, host };

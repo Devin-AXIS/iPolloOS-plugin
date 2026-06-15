@@ -117,7 +117,6 @@ export default defineTool({
         { valueType: WorkflowIOValueTypeEnum.string, key: 'page_html', label: '页面 HTML' },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'page_url', label: '页面公开链接' },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'page_cover', label: '页面卡片' },
-        { valueType: WorkflowIOValueTypeEnum.string, key: 'full_html', label: '完整 HTML 文档' },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'summary', label: '摘要' },
         {
           type: FlowNodeOutputTypeEnum.error,

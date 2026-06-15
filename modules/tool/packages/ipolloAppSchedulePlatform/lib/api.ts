@@ -56,8 +56,7 @@ function deriveBaseFromKnownUrl(raw: string): string {
     .replace(/\/api\/app\/app-data\/context\/?$/, '')
     .replace(/\/app-data\/context\/?$/, '')
     .replace(/\/api\/app-publish-callback\/?$/, '')
-    .replace(/\/app-publish-callback\/?$/, '')
-    .replace(/\/lumi-publish-callback\/?$/, '');
+    .replace(/\/app-publish-callback\/?$/, '');
   url.search = '';
   url.hash = '';
   return url.toString().replace(/\/+$/, '');
@@ -121,9 +120,9 @@ export function resolveScheduleApiBaseUrls(): string[] {
   if (direct) return uniqueUrls([direct]);
 
   const knownUrl = firstNonEmpty(
-    readEnv('LUMI_APP_DATA_CONTEXT_URL'),
-    readEnv('LUMI_APP_BOT_CONTEXT_URL'),
-    readEnv('LUMI_APP_BOT_REGISTER_URL')
+    readEnv('IPOLLO_APP_DATA_CONTEXT_URL'),
+    readEnv('IPOLLO_APP_CONTEXT_URL'),
+    readEnv('IPOLLO_APP_REGISTER_URL')
   );
   if (knownUrl) return uniqueUrls([deriveBaseFromKnownUrl(knownUrl)]);
 
@@ -147,9 +146,8 @@ export function resolveScheduleApiSecret(): string {
     readEnv('IPOLLO_APP_SCHEDULE_API_SECRET'),
     readEnv('APP_TASKS_SECRET'),
     readEnv('APP_DATA_CONTEXT_SECRET'),
-    readEnv('LUMI_APP_DATA_CONTEXT_SECRET'),
-    readEnv('APP_BOT_REGISTER_SECRET'),
-    readEnv('LUMI_APP_BOT_REGISTER_SECRET')
+    readEnv('IPOLLO_APP_DATA_CONTEXT_SECRET'),
+    readEnv('IPOLLO_APP_REGISTER_SECRET')
   );
 }
 

@@ -495,12 +495,12 @@ describe('future_insight_system_report_html', () => {
       regions: '全球，中国',
       report_json: JSON.stringify({
         input: {
-          companyOrProduct: ['iPolloOS', 'Lumi']
+          companyOrProduct: ['iPolloOS', 'iPollo APP']
         }
       })
     });
 
-    expect(report.input.companyOrProduct).toEqual(['iPolloOS', 'Lumi']);
+    expect(report.input.companyOrProduct).toEqual(['iPolloOS', 'iPollo APP']);
     expect(report.input.competitors).toEqual(['A 公司', 'B 公司']);
     expect(report.input.regions).toEqual(['全球', '中国']);
   });

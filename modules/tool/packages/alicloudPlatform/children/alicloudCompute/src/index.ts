@@ -155,7 +155,7 @@ export async function tool(props: In): Promise<Out> {
       const merged = mergeExtraJson(base, props.ecsRunExtraJson);
       const res = await ecs.runInstances(merged as never);
       payload = res.body;
-    } else if (props.action.startsWith('ecs_') && props.action !== 'ecs_run_instances') {
+    } else if (props.action.startsWith('ecs_')) {
       const ecs = ecsClient(auth, region);
       const id = props.instanceId!.trim();
       switch (props.action) {

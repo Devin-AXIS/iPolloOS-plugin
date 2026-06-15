@@ -1,0 +1,92 @@
+import type { RunToolSecondParamsType } from '@tool/type/req';
+
+type RuntimeContextInput = {
+  requireUser?: boolean;
+};
+
+const firstNonEmpty = (...values: unknown[]): string | undefined => {
+  for (const value of values) {
+    const text = String(value ?? '').trim();
+    if (text) return text;
+  }
+};
+
+const envString = (key: string) => String(process.env[key] ?? '').trim() || undefined;
+
+export function resolveDynamicTableRuntimeContext(
+  input: RuntimeContextInput,
+  systemVar?: RunToolSecondParamsType['systemVar']
+) {
+  const runtimeApp = systemVar?.app as RunToolSecondParamsType['systemVar']['app'] & {
+    applicationId?: string;
+    ainoApplicationId?: string;
+    iPolloApplicationId?: string;
+    ipolloApplicationId?: string;
+    appApplicationId?: string;
+    lumiApplicationId?: string;
+    agentId?: string;
+    appBotId?: string;
+    upstreamAppId?: string;
+  };
+  const runtimeUser = systemVar?.user as RunToolSecondParamsType['systemVar']['user'] & {
+    app_user_id?: string;
+    app用户id?: string;
+    iPolloAppUserId?: string;
+    ipolloAppUserId?: string;
+    appAuthToken?: string;
+    __ipolloAppAuthToken?: string;
+    ainoApplicationId?: string;
+    iPolloApplicationId?: string;
+    ipolloApplicationId?: string;
+    appApplicationId?: string;
+    lumiApplicationId?: string;
+  };
+
+  const applicationId = firstNonEmpty(
+    runtimeApp?.applicationId,
+    runtimeApp?.iPolloApplicationId,
+    runtimeApp?.ipolloApplicationId,
+    runtimeApp?.ainoApplicationId,
+    runtimeApp?.appApplicationId,
+    runtimeApp?.lumiApplicationId,
+    runtimeUser?.iPolloApplicationId,
+    runtimeUser?.ipolloApplicationId,
+    runtimeUser?.ainoApplicationId,
+    runtimeUser?.appApplicationId,
+    runtimeUser?.lumiApplicationId,
+    envString('IPOLLO_APP_APPLICATION_ID'),
+    envString('AINO_APPLICATION_ID'),
+    systemVar?.app?.id
+  );
+
+  const userId = firstNonEmpty(
+    systemVar?.user?.appUserId,
+    runtimeUser?.iPolloAppUserId,
+    runtimeUser?.ipolloAppUserId,
+    runtimeUser?.app_user_id,
+    runtimeUser?.['app用户id'],
+    systemVar?.user?.id
+  );
+  const authToken = firstNonEmpty(runtimeUser?.appAuthToken, runtimeUser?.__ipolloAppAuthToken);
+  const agentId = firstNonEmpty(
+    runtimeApp?.appBotId,
+    runtimeApp?.agentId,
+    runtimeApp?.upstreamAppId,
+    systemVar?.app?.id
+  );
+
+  if (!applicationId) {
+    throw new Error('缺少运行时 iPollo App 信息，无法定位当前应用。');
+  }
+  if (input.requireUser && !userId) {
+    throw new Error('缺少运行时 iPollo 用户信息，无法管理动态表记录。');
+  }
+
+  return {
+    applicationId,
+    userId,
+    authToken,
+    agentId,
+    identitySource: authToken ? 'runtime_token' : 'runtime_context'
+  };
+}

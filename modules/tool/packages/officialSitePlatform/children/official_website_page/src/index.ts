@@ -358,7 +358,7 @@ export const InputType = z.object({
   visual_assets: looseString(50_000),
   main_sections_html: looseString(900_000),
   main_sections_html_en: looseString(900_000),
-  sub_pages_json: looseString(900_000),
+  additional_pages_json: looseString(900_000),
   footer_note: looseString(160),
   footer_note_en: looseString(160),
   template_style: z
@@ -386,7 +386,6 @@ export const InputType = z.object({
 export const OutputType = z.object({
   page_html: z.string(),
   page_url: z.string(),
-  full_html: z.string(),
   summary: z.string(),
   system_error: z.string().optional()
 });
@@ -397,7 +396,7 @@ type Out = z.infer<typeof OutputType>;
 export async function tool(props: In): Promise<Out> {
   try {
     const inp = InputType.parse(props);
-    const subPages = parseSubPagesJSON(inp.sub_pages_json);
+    const subPages = parseSubPagesJSON(inp.additional_pages_json);
     const theme = themePresets[inp.theme_id];
     const visualAssets = extractVisualAssets([
       inp.visual_assets,
@@ -466,7 +465,7 @@ export async function tool(props: In): Promise<Out> {
     const logoUrl = sanitizeHttpUrl(rewritePublicAssetUrls(inp.logo_url ?? '')) || undefined;
     const faviconUrl = sanitizeHttpUrl(rewritePublicAssetUrls(inp.favicon_url ?? '')) || undefined;
     const faviconMode = inp.favicon_mode === 'url' && !faviconUrl ? 'none' : inp.favicon_mode;
-    const full_html = buildOfficialWebsiteHtml({
+    const pageHtml = buildOfficialWebsiteHtml({
       lang: englishOnly ? 'en' : inp.lang,
       page_title: englishOnly ? `${brandNameEn} official site` : pageTitle,
       page_title_en:
@@ -521,9 +520,8 @@ export async function tool(props: In): Promise<Out> {
     });
 
     return {
-      page_html: full_html,
+      page_html: pageHtml,
       page_url: '',
-      full_html,
       summary:
         inp.lang === 'en'
           ? 'Official website HTML generated. Default: auto-upload; chat shows page_url when published.'
@@ -531,6 +529,6 @@ export async function tool(props: In): Promise<Out> {
     };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { page_html: '', page_url: '', full_html: '', summary: '', system_error: msg };
+    return { page_html: '', page_url: '', summary: '', system_error: msg };
   }
 }

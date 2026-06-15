@@ -19,6 +19,7 @@ import { dispatchWithNewWorker } from 'lib/worker';
 import { getErrText } from '@tool/utils/err';
 import {
   StreamMessageTypeEnum,
+  SystemVarSchema,
   type StreamDataType,
   type ToolCallbackReturnSchemaType
 } from '@tool/type/req';
@@ -365,6 +366,13 @@ const runToolStream = async (
 ) => {
   const logger = getLogger(mod.tool);
   const { toolId, inputs, systemVar } = body;
+  const parsedSystemVar = SystemVarSchema.safeParse(systemVar);
+
+  if (!parsedSystemVar.success) {
+    return c.json(R.error(400, 'systemVar is required'), 400);
+  }
+
+  const safeSystemVar = parsedSystemVar.data;
 
   const tool = await getTool(toolId);
 
@@ -399,15 +407,16 @@ const runToolStream = async (
         result = await dispatchWithNewWorker({
           toolId,
           inputs,
-          systemVar,
+          systemVar: safeSystemVar,
           onMessage: handleSend
         });
       } else {
         logger.debug('Run tool start in main thread', {
           body: redactToolRunBody({ toolId, inputs, systemVar })
         });
-        const context = { prefix: systemVar?.tool?.prefix };
-        const executor = () => tool.cb(inputs, { systemVar, streamResponse: handleSend });
+        const context = { prefix: safeSystemVar.tool.prefix };
+        const executor = () =>
+          tool.cb(inputs, { systemVar: safeSystemVar, streamResponse: handleSend });
         result = await runWithToolContext(context, executor);
       }
 

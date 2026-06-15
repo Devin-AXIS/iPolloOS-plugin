@@ -22,8 +22,6 @@ export function resolveRuntimeIdentity(
   const runtimeApp = systemVar?.app as RunToolSecondParamsType['systemVar']['app'] & {
     applicationId?: string;
     appApplicationId?: string;
-    lumiApplicationId?: string;
-    ainoApplicationId?: string;
     iPolloApplicationId?: string;
     ipolloApplicationId?: string;
   };
@@ -35,8 +33,6 @@ export function resolveRuntimeIdentity(
     appAuthToken?: string;
     __ipolloAppAuthToken?: string;
     appApplicationId?: string;
-    lumiApplicationId?: string;
-    ainoApplicationId?: string;
     iPolloApplicationId?: string;
     ipolloApplicationId?: string;
   };
@@ -46,16 +42,10 @@ export function resolveRuntimeIdentity(
     runtimeApp?.iPolloApplicationId,
     runtimeApp?.ipolloApplicationId,
     runtimeApp?.appApplicationId,
-    runtimeApp?.lumiApplicationId,
-    runtimeApp?.ainoApplicationId,
     runtimeUser?.iPolloApplicationId,
     runtimeUser?.ipolloApplicationId,
     runtimeUser?.appApplicationId,
-    runtimeUser?.lumiApplicationId,
-    runtimeUser?.ainoApplicationId,
-    envString('LUMI_APP_BOT_APPLICATION_ID'),
-    envString('LUMI_APPLICATION_ID'),
-    envString('AINO_APPLICATION_ID'),
+    envString('IPOLLO_APP_APPLICATION_ID'),
     systemVar?.app?.id
   );
   const trustedAppUserId = firstNonEmpty(
@@ -63,8 +53,7 @@ export function resolveRuntimeIdentity(
     runtimeUser?.iPolloAppUserId,
     runtimeUser?.ipolloAppUserId,
     runtimeUser?.app_user_id,
-    runtimeUser?.['app用户id'],
-    systemVar?.user?.lumiUserId
+    runtimeUser?.['app用户id']
   );
   const userId = firstNonEmpty(input.userId, trustedAppUserId);
   const authToken = firstNonEmpty(runtimeUser?.appAuthToken, runtimeUser?.__ipolloAppAuthToken);
@@ -93,6 +82,6 @@ export function resolveRuntimeIdentity(
     applicationId,
     userId,
     authToken,
-    identitySource: trustedAppUserId ? 'runtime_app_user' : 'legacy_system_user_id'
+    identitySource: trustedAppUserId ? 'runtime_app_user' : 'system_user_id'
   };
 }

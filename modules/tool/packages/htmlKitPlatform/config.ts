@@ -13,5 +13,5 @@ export default defineToolSet({
     en: 'Single-page / card / landing helpers: HTML5 scaffold with theme CSS variables and favicon; normal display pages and interactive pages that submit JSON back to the workflow; preset SVG snippets; merge fragments.'
   },
   toolDescription:
-    '五工具——展示型页面优先用 fast_html_page；需要用户填写并把 JSON 回传给 AI/工作流时用 interactive_html_page。两者都返回 page_html/full_html，默认自动上传平台存储生成 page_url。仅要空骨架用 page_init；图标用 icon_snippet；多分块用 merge_fragments。'
+    '五工具——展示型页面优先用 fast_html_page；需要用户填写并把 JSON 回传给 AI/工作流时用 interactive_html_page。HTML 页面统一返回 page_html，默认自动上传平台存储生成 page_url。仅要空骨架用 page_init；图标用 icon_snippet；多分块用 merge_fragments。'
 });

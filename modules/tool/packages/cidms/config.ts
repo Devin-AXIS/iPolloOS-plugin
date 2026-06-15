@@ -25,13 +25,6 @@ export default defineToolSet({
       inputType: 'secret'
     },
     {
-      key: 'cidms_api_key',
-      label: 'CIDMS API Key（兼容旧字段）',
-      description: '旧配置字段；未填写 Seedance API Key 时作为兼容兜底使用。',
-      required: false,
-      inputType: 'secret'
-    },
-    {
       key: 'cidms_base_url',
       label: 'CIDMS Base URL',
       description:

@@ -48,7 +48,6 @@ export const InputType = z
   });
 
 export const OutputType = z.object({
-  full_html: z.string(),
   page_html: z.string(),
   page_url: z.string(),
   summary: z.string(),
@@ -81,10 +80,9 @@ export async function tool(props: In): Promise<Out> {
     const sep = v.between_separator?.trim() ?? '';
 
     if (parts.length === 1 && isLikelyFullHtml(parts[0])) {
-      const full_html = parts[0].trim();
+      const pageHtml = parts[0].trim();
       return {
-        full_html,
-        page_html: full_html,
+        page_html: pageHtml,
         page_url: '',
         summary:
           '单段已为完整 HTML，已原样输出。默认自动上传至平台存储，完成后对话中可打开 page_url。'
@@ -94,10 +92,9 @@ export async function tool(props: In): Promise<Out> {
     const joined =
       sep.length === 0 ? parts.join('\n') : parts.join(sep.includes('<') ? sep : `\n${sep}\n`);
 
-    const full_html = wrapBody(v.lang, (v.page_title ?? '').trim() || 'Page', joined);
+    const pageHtml = wrapBody(v.lang, (v.page_title ?? '').trim() || 'Page', joined);
     return {
-      full_html,
-      page_html: full_html,
+      page_html: pageHtml,
       page_url: '',
       summary:
         parts.length === 1
@@ -106,6 +103,6 @@ export async function tool(props: In): Promise<Out> {
     };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { full_html: '', page_html: '', page_url: '', summary: '', system_error: msg };
+    return { page_html: '', page_url: '', summary: '', system_error: msg };
   }
 }

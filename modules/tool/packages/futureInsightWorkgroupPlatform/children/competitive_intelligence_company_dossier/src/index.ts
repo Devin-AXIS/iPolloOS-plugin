@@ -84,7 +84,6 @@ export const OutputType = z.object({
   page_html: z.string(),
   page_url: z.string(),
   page_cover: z.string(),
-  full_html: z.string(),
   summary: z.string(),
   system_error: z.string().optional()
 });

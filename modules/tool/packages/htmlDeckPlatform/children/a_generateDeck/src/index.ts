@@ -24,8 +24,6 @@ export const InputType = z.object({
 export const OutputType = z.object({
   page_html: z.string(),
   page_url: z.string(),
-  html_document: z.string(),
-  full_html: z.string(),
   deck_state: z.string(),
   slide_count: z.number(),
   theme_id: z.string(),
@@ -244,17 +242,15 @@ export async function tool(props: In): Promise<Out> {
   try {
     const input = InputType.parse(props);
     const state = buildState(input);
-    const html_document = buildSingleFileHtml(state, { embedMermaid: input.embed_mermaid });
+    const pageHtml = buildSingleFileHtml(state, { embedMermaid: input.embed_mermaid });
     const deck_state = stringifyDeckState(state);
     const themeId = state.meta.theme_id ?? 'huashu_editorial';
     const themeLabel = resolveDeckTheme(themeId).label;
     const imageRequests = collectDeckImageRequests(state);
 
     return {
-      page_html: html_document,
+      page_html: pageHtml,
       page_url: '',
-      html_document,
-      full_html: html_document,
       deck_state,
       slide_count: state.slides.length,
       theme_id: themeId,
@@ -268,8 +264,6 @@ export async function tool(props: In): Promise<Out> {
     return {
       page_html: '',
       page_url: '',
-      html_document: '',
-      full_html: '',
       deck_state: '',
       slide_count: 0,
       theme_id: '',

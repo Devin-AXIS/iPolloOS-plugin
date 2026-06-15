@@ -52,7 +52,6 @@ export const InputType = z
 export const OutputType = z.object({
   page_html: z.string(),
   page_url: z.string(),
-  full_html: z.string(),
   summary: z.string(),
   system_error: z.string().optional()
 });
@@ -71,7 +70,7 @@ export async function tool(props: In): Promise<Out> {
     const surface = inp.color_surface ?? '#f8fafc';
     const text = inp.color_text ?? '#0f172a';
 
-    const full_html = buildThemedSingleFileHtml({
+    const pageHtml = buildThemedSingleFileHtml({
       lang: inp.lang,
       page_title: title,
       heading_h1: h1,
@@ -89,9 +88,8 @@ export async function tool(props: In): Promise<Out> {
     });
 
     return {
-      page_html: full_html,
+      page_html: pageHtml,
       page_url: '',
-      full_html,
       summary:
         inp.lang === 'en'
           ? 'One-shot themed HTML file. Default: auto-upload; chat shows page_url when published.'
@@ -99,6 +97,6 @@ export async function tool(props: In): Promise<Out> {
     };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { page_html: '', page_url: '', full_html: '', summary: '', system_error: msg };
+    return { page_html: '', page_url: '', summary: '', system_error: msg };
   }
 }

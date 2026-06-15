@@ -97,7 +97,7 @@ export async function tool(raw: z.infer<typeof InputType>): Promise<Out> {
     return {
       image_url: accessUrl,
       mime_type: image.mimeType,
-      text: 'text' in image ? image.text : '',
+      text: 'text' in image && typeof image.text === 'string' ? image.text : '',
       detail_json: safeJson(data)
     };
   } catch (e: unknown) {

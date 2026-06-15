@@ -23,22 +23,13 @@ describe('cidms client helpers', () => {
     ).toBe('CIDMS HTTP 401 unauthorized: API Key 缺失或无效 (Authorization)');
   });
 
-  it('prefers Seedance API key and keeps legacy CIDMS key as fallback', () => {
+  it('uses Seedance API key as the only configured gateway credential', () => {
     expect(
       cidmsApiKey({
         seedance_api_key: ' seedance-key ',
-        cidms_api_key: 'cidms-key',
         cidms_base_url: 'https://example.com'
       })
     ).toBe('seedance-key');
-
-    expect(
-      cidmsApiKey({
-        seedance_api_key: '',
-        cidms_api_key: ' cidms-key ',
-        cidms_base_url: 'https://example.com'
-      })
-    ).toBe('cidms-key');
   });
 });
 

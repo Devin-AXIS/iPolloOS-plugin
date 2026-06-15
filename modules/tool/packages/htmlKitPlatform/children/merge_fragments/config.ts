@@ -100,7 +100,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'page_html',
           label: '页面 HTML',
-          description: '与 full_html 相同；供平台自动发布使用。'
+          description: '完整单文件 HTML；供平台自动发布使用。'
         },
         {
           valueType: WorkflowIOValueTypeEnum.string,
@@ -108,7 +108,6 @@ export default defineTool({
           label: '页面公开链接',
           description: '自动发布或资源中心模式下由平台写入；raw_html 时为空。'
         },
-        { valueType: WorkflowIOValueTypeEnum.string, key: 'full_html', label: '完整 HTML' },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'summary', label: '摘要' },
         {
           type: FlowNodeOutputTypeEnum.error,

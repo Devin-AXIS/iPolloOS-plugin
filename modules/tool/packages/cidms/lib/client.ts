@@ -10,7 +10,7 @@ export function cidmsUrl(auth: CidmsAuth, path: string): string {
 }
 
 export function cidmsApiKey(auth: CidmsAuth): string {
-  return (auth.seedance_api_key || auth.cidms_api_key).trim();
+  return auth.seedance_api_key.trim();
 }
 
 export async function cidmsJsonRequest<T>({

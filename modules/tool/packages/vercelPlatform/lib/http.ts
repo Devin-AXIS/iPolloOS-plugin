@@ -67,7 +67,7 @@ export async function vercelUploadFile(opts: {
       'x-vercel-digest': opts.digestSha1Hex,
       'Content-Length': String(opts.bytes.length)
     },
-    body: opts.bytes
+    body: new Uint8Array(opts.bytes)
   });
   const text = await res.text();
   let json: unknown = null;

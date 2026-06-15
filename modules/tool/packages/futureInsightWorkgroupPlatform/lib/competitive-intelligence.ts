@@ -47,7 +47,6 @@ export type CompetitiveIntelligenceOutput = {
   page_html: string;
   page_url: string;
   page_cover: string;
-  full_html: string;
   summary: string;
   system_error?: string;
 };
@@ -692,8 +691,9 @@ export function normalizeCompetitiveIntelligenceDossier(
     `${subjectName} 的${kindLabel[kind]}已生成。上游未提供更多摘要内容。`,
     520
   );
+  const rawCover = asRecord(rawDossier.cover);
   const rawTags = normalizeList(
-    rawDossier.tags || rawDossier.cover?.tags || rawDossier.keyTags || rawDossier.key_tags,
+    rawDossier.tags || rawCover.tags || rawDossier.keyTags || rawDossier.key_tags,
     8,
     32
   );
@@ -979,10 +979,6 @@ function renderRelationOverview(dossier: CompetitiveIntelligenceDossier): string
         ${
           relationStrengthBars.length
             ? renderBars({
-                label: 'Relation',
-                title: '关系强度',
-                body: '',
-                bullets: [],
                 bars: relationStrengthBars.map((edge, index) => ({
                   label: edge.label,
                   value: edge.strength,
@@ -1374,7 +1370,6 @@ export function runCompetitiveIntelligenceTool(
     page_html: fullHtml,
     page_url: '',
     page_cover: buildCompetitiveIntelligencePageCover(dossier),
-    full_html: fullHtml,
     summary: `已生成 ${dossier.subjectName} 的竞争情报系统${dossier.templateName}，包含核心指标、证据图表、来源与下一步核验。`
   };
 }
@@ -1386,7 +1381,6 @@ export function emptyCompetitiveIntelligenceOutput(
     page_html: '',
     page_url: '',
     page_cover: '',
-    full_html: '',
     summary: '',
     system_error
   };

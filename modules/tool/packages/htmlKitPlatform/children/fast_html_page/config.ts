@@ -16,7 +16,7 @@ export default defineTool({
     en: 'Preferred default: one tool call returns a complete mobile-first responsive HTML page with optional Chinese / English switching.'
   },
   toolDescription:
-    '【优先调用本函数 fast_html_page】一次调用拿 page_html/full_html。默认必须按移动端优先设计：先保证 360-430px 手机宽度可读、按钮可点、内容不横向溢出，再兼容平板和桌面。必填：page_title、main_inner_html。默认同时提供英文版：填写 page_title_en、heading_h1_en、main_inner_html_en，插件会生成中文 / EN 切换；除非用户明确只要单语言。page_html 是页面输出约定字段；默认自动发布为 page_url，也可切到 raw_html 后由下游 OSS 节点处理。full_html 为兼容旧工作流保留。main_inner_html=H1 下方全部正文（section/div/列表等），勿包整页外壳；禁 <script>。可选 heading_h1、lang、三色、favicon。勿拆成 page_init→merge 除非正文超长。',
+    '【优先调用本函数 fast_html_page】一次调用拿 page_html。默认必须按移动端优先设计：先保证 360-430px 手机宽度可读、按钮可点、内容不横向溢出，再适配平板和桌面。必填：page_title、main_inner_html。默认同时提供英文版：填写 page_title_en、heading_h1_en、main_inner_html_en，插件会生成中文 / EN 切换；除非用户明确只要单语言。page_html 是页面输出约定字段；默认自动发布为 page_url，也可切到 raw_html 后由下游 OSS 节点处理。main_inner_html=H1 下方全部正文（section/div/列表等），勿包整页外壳；禁 <script>。可选 heading_h1、lang、三色、favicon。勿拆成 page_init→merge 除非正文超长。',
   versionList: [
     {
       value: '1.0.0',
@@ -168,11 +168,6 @@ export default defineTool({
           key: 'page_url',
           label: '页面公开链接',
           description: '自动发布或资源中心模式下由平台写入；raw_html 时为空。'
-        },
-        {
-          valueType: WorkflowIOValueTypeEnum.string,
-          key: 'full_html',
-          label: '完整 HTML 文档（兼容旧字段）'
         },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'summary', label: '摘要' },
         {

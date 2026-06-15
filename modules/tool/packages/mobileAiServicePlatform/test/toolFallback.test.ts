@@ -34,7 +34,6 @@ describe('tool fallback behavior', () => {
     expect(result.system_error).toBeUndefined();
     expect(result.page_html).toContain('<!DOCTYPE html>');
     expect(result.page_html).toContain('NO_EMPTY_OUTPUT');
-    expect(result.full_html).toBe(result.page_html);
     expect(result.summary).toContain('NO_EMPTY_OUTPUT');
   });
 });
