@@ -14,9 +14,19 @@ describe('X platform schemas', () => {
     });
 
     expect(config.baseUrl).toBe('https://api.x.com');
+    expect(config.proxyUrl).toBeUndefined();
     expect(config.timeoutMs).toBe(15000);
     expect(config.defaultMaxResults).toBe(10);
     expect(cleanUsername('@xdevelopers')).toBe('xdevelopers');
+  });
+
+  test('accepts optional proxy URL for restricted network environments', () => {
+    const config = XConfigSchema.parse({
+      bearerToken: 'xox_test_bearer_token',
+      proxyUrl: 'http://127.0.0.1:7890'
+    });
+
+    expect(config.proxyUrl).toBe('http://127.0.0.1:7890');
   });
 
   test('keeps read and action tokens separated by capability', () => {

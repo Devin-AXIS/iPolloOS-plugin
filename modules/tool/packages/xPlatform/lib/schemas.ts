@@ -17,6 +17,7 @@ export const XConfigSchema = z.object({
     emptyToUndefined,
     z.string().url().max(2048).optional().default('https://api.x.com')
   ),
+  proxyUrl: z.preprocess(emptyToUndefined, z.string().url().max(2048).optional()),
   timeoutMs: z.preprocess(
     emptyToUndefined,
     z.coerce.number().int().min(1000).max(60_000).optional().default(15_000)

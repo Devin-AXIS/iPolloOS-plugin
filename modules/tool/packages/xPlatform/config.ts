@@ -30,6 +30,22 @@ export default defineToolSet({
         '用于发帖、评论、删除、点赞、转发、关注和取关的 OAuth 2.0 User Context Token。需要按动作授予 tweet.write、like.write、follows.write、users.read 等权限。',
       required: false,
       inputType: 'secret'
+    },
+    {
+      key: 'baseUrl',
+      label: 'X API Base URL',
+      description: '默认 https://api.x.com。仅在使用自建 X API 反向代理时修改。',
+      required: false,
+      inputType: 'input',
+      defaultValue: 'https://api.x.com'
+    },
+    {
+      key: 'proxyUrl',
+      label: 'X API 代理地址',
+      description:
+        '服务器不能直连 X 时填写 HTTP/HTTPS 代理，例如 http://host:port。留空时读取 X_API_PROXY_URL、HTTPS_PROXY、HTTP_PROXY 或 ALL_PROXY。',
+      required: false,
+      inputType: 'input'
     }
   ]
 });

@@ -18,6 +18,7 @@ import {
   type XTrendsResponse,
   type XUser
 } from './schemas';
+import { ProxyAgent, type Dispatcher } from 'undici';
 
 const DEFAULT_TWEET_FIELDS = [
   'id',
@@ -47,6 +48,13 @@ export class XApiHttpError extends Error {
   ) {
     super(message);
     this.name = 'XApiHttpError';
+  }
+}
+
+export class XApiNetworkError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'XApiNetworkError';
   }
 }
 
@@ -86,6 +94,55 @@ function resolveToken(config: XConfig, auth: RequestAuthMode): string {
   return token;
 }
 
+const proxyAgents = new Map<string, Dispatcher>();
+
+function getEnvProxyUrl(): string | undefined {
+  const env = typeof process === 'undefined' ? undefined : process.env;
+  return (
+    env?.X_API_PROXY_URL ||
+    env?.X_PROXY_URL ||
+    env?.HTTPS_PROXY ||
+    env?.https_proxy ||
+    env?.HTTP_PROXY ||
+    env?.http_proxy ||
+    env?.ALL_PROXY ||
+    env?.all_proxy ||
+    undefined
+  );
+}
+
+function getProxyUrl(config: XConfig): string | undefined {
+  return config.proxyUrl || getEnvProxyUrl();
+}
+
+function getProxyDispatcher(proxyUrl: string): Dispatcher {
+  const cached = proxyAgents.get(proxyUrl);
+  if (cached) return cached;
+  const agent = new ProxyAgent(proxyUrl);
+  proxyAgents.set(proxyUrl, agent);
+  return agent;
+}
+
+function describeFetchFailure(error: unknown, url: string, proxyUrl?: string): string {
+  const err = error instanceof Error ? error : new Error(String(error));
+  const cause = (err as Error & { cause?: unknown }).cause;
+  const causeRecord =
+    cause && typeof cause === 'object' ? (cause as Record<string, unknown>) : undefined;
+  const code = causeRecord?.code || causeRecord?.errno;
+  const causeMessage = causeRecord?.message;
+  const parts = [
+    `X API request failed before HTTP response`,
+    `url=${url}`,
+    `error=${err.name}: ${err.message}`
+  ];
+
+  if (code) parts.push(`causeCode=${String(code)}`);
+  if (causeMessage) parts.push(`cause=${String(causeMessage)}`);
+  parts.push(`proxy=${proxyUrl ? 'enabled' : 'disabled'}`);
+
+  return parts.join('; ');
+}
+
 async function requestJson(
   path: string,
   rawConfig: unknown,
@@ -105,12 +162,24 @@ async function requestJson(
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(url, {
+  const proxyUrl = getProxyUrl(config);
+  const requestInit: RequestInit & { dispatcher?: Dispatcher } = {
     method: options.method ?? 'GET',
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: withTimeout(config.timeoutMs)
-  });
+  };
+
+  if (proxyUrl) {
+    requestInit.dispatcher = getProxyDispatcher(proxyUrl);
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(url, requestInit);
+  } catch (error) {
+    throw new XApiNetworkError(describeFetchFailure(error, url, proxyUrl));
+  }
 
   const text = await res.text();
   let data: unknown = null;

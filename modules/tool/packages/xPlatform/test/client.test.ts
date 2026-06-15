@@ -26,6 +26,8 @@ const config = {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  delete process.env.X_API_PROXY_URL;
+  delete process.env.X_PROXY_URL;
 });
 
 describe('X platform client', () => {
@@ -45,6 +47,41 @@ describe('X platform client', () => {
     expect(user.id).toBe('2244994945');
     expect(capturedUrl).toContain('/2/users/by/username/xdevelopers?');
     expect(capturedAuth).toBe('Bearer test_bearer_token_123');
+  });
+
+  test('attaches a proxy dispatcher when proxy URL is configured', async () => {
+    let hasDispatcher = false;
+    globalThis.fetch = (async (_url: FetchInput, init?: FetchInit & { dispatcher?: unknown }) => {
+      hasDispatcher = !!init?.dispatcher;
+      return new Response(JSON.stringify({ data: { id: '2244994945', username: 'xdevelopers' } }), {
+        status: 200
+      });
+    }) as unknown as typeof fetch;
+
+    await lookupUserByUsername(
+      {
+        ...config,
+        proxyUrl: 'http://127.0.0.1:7890'
+      },
+      'xdevelopers'
+    );
+
+    expect(hasDispatcher).toBe(true);
+  });
+
+  test('reports network failure details without exposing auth headers', async () => {
+    const error = new TypeError('fetch failed') as TypeError & {
+      cause?: { code: string; message: string };
+    };
+    error.cause = { code: 'ETIMEDOUT', message: 'connect timed out' };
+    globalThis.fetch = (async () => {
+      throw error;
+    }) as unknown as typeof fetch;
+
+    await expect(lookupUserByUsername(config, 'xdevelopers')).rejects.toThrow(
+      /causeCode=ETIMEDOUT/
+    );
+    await expect(lookupUserByUsername(config, 'xdevelopers')).rejects.toThrow(/proxy=disabled/);
   });
 
   test('requests user posts with since id and exclude flags', async () => {
