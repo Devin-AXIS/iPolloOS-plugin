@@ -140,7 +140,9 @@ const buildToolsJson = async (storage: IStorage) => {
 
   const basePath = process.cwd();
   const dir = join(basePath, 'modules', 'tool', 'packages');
-  const dirs = (await readdir(dir)).filter((filename) => !filterToolList.includes(filename));
+  const dirs = (await readdir(dir, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory() && !filterToolList.includes(entry.name))
+    .map((entry) => entry.name);
   const devTools = (
     await Promise.all(
       dirs.map(async (filename) => {
