@@ -422,7 +422,7 @@ export function buildDynamicTablesManifest(params: {
         i18n: { name: { zh: moduleName, en: 'Agent data tables' } }
       }
     },
-    directories: params.tables.map((table, index) => {
+    directories: params.tables.map((table) => {
       const tableKey = getTableKey(table);
       return {
         name: table.name,
