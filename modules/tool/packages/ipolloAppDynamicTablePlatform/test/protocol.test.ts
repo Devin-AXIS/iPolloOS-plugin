@@ -2,7 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import dynamicTableConfig from '../config';
 import createTablesConfig from '../children/create_dynamic_tables/config';
 import manageRecordsConfig from '../children/manage_dynamic_table_records/config';
-import { buildDynamicTablesManifest, resolveDynamicTableDirectory } from '../lib/api';
+import { tool as createDynamicTablesTool } from '../children/create_dynamic_tables/src';
+import { tool as manageDynamicTableRecordsTool } from '../children/manage_dynamic_table_records/src';
+import {
+  buildDynamicTablesManifest,
+  resolveDynamicTableApiBaseUrls,
+  resolveDynamicTableDirectory
+} from '../lib/api';
 import { resolveDynamicTableRuntimeContext } from '../lib/runtime';
 import { normalizeDynamicTablesPlan } from '../lib/schema';
 
@@ -24,6 +30,13 @@ const hiddenRuntimeKeys = [
 function inputKeys(config: { versionList: Array<{ inputs: Array<{ key: string }> }> }) {
   return config.versionList.flatMap((version) => version.inputs.map((input) => input.key));
 }
+
+const jsonResponse = (body: unknown, init?: { ok?: boolean; status?: number }) =>
+  ({
+    ok: init?.ok ?? true,
+    status: init?.status ?? 200,
+    text: vi.fn().mockResolvedValue(JSON.stringify(body))
+  }) as unknown as Response;
 
 describe('iPollo App dynamic table plugin', () => {
   afterEach(() => {
@@ -110,6 +123,44 @@ describe('iPollo App dynamic table plugin', () => {
     expect(context.authToken).toBe('token-1');
   });
 
+  it('uses applicationId from register URL before falling back to FastGPT app id', () => {
+    vi.stubEnv(
+      'IPOLLO_APP_REGISTER_URL',
+      'https://register.test/api/app-publish-callback?applicationId=aino-app-from-url'
+    );
+
+    const context = resolveDynamicTableRuntimeContext(
+      {},
+      {
+        user: {
+          id: 'fastgpt-user-1',
+          username: '',
+          contact: '',
+          membername: '',
+          teamName: '',
+          teamId: '',
+          name: ''
+        },
+        app: {
+          id: 'fastgpt-agent-1',
+          name: '健身助手'
+        },
+        tool: { id: 'create_dynamic_tables', version: '1.0.0' },
+        time: '2026-06-14 12:00:00'
+      }
+    );
+
+    expect(context.applicationId).toBe('aino-app-from-url');
+    expect(context.agentId).toBe('fastgpt-agent-1');
+  });
+
+  it('derives dynamic table API base from APP callback URLs', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('IPOLLO_APP_DATA_CONTEXT_URL', 'http://172.17.0.1:3017/api/app/app-data/context');
+
+    expect(resolveDynamicTableApiBaseUrls()).toEqual(['http://172.17.0.1:3017']);
+  });
+
   it('resolves same-key runtime tables only for the current Agent', async () => {
     vi.stubEnv('IPOLLO_APP_DYNAMIC_TABLE_API_BASE_URL', 'https://aino.test');
     vi.stubGlobal(
@@ -155,5 +206,122 @@ describe('iPollo App dynamic table plugin', () => {
     ).resolves.toMatchObject({
       id: 'current-directory'
     });
+  });
+
+  it('runs create and query tools against the derived APP API context', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('IPOLLO_APP_DATA_CONTEXT_URL', 'http://172.17.0.1:3017/api/app/app-data/context');
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: { directories: [] } }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { moduleId: 'module-1' } }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            directories: [
+              {
+                id: 'fitness-directory',
+                slug: 'fitness_profile',
+                config: {
+                  agentId: 'fastgpt-agent-1',
+                  agentDataTableKey: 'fitness_profile'
+                }
+              }
+            ]
+          }
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            records: [
+              {
+                id: 'record-1',
+                props: {
+                  goal: '减脂'
+                }
+              }
+            ]
+          }
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const runtime = {
+      systemVar: {
+        user: {
+          id: 'fastgpt-user-1',
+          username: '',
+          contact: '',
+          membername: '',
+          teamName: '',
+          teamId: '',
+          name: '',
+          appUserId: 'app-user-1',
+          iPolloApplicationId: 'aino-app-1'
+        },
+        app: {
+          id: 'fastgpt-agent-1',
+          name: '健身助手',
+          iPolloApplicationId: 'aino-app-1',
+          agentId: 'fastgpt-agent-1'
+        },
+        tool: { id: 'ipolloAppDynamicTablePlatform/create_dynamic_tables', version: '1.0.0' },
+        time: '2026-06-14 12:00:00'
+      },
+      streamResponse: vi.fn()
+    };
+
+    const createResult = await createDynamicTablesTool(
+      {
+        table_plan: JSON.stringify({
+          tables: [
+            {
+              key: 'fitness_profile',
+              name: '健身档案',
+              fields: [{ key: 'goal', label: '目标', type: 'text' }]
+            }
+          ]
+        })
+      },
+      runtime
+    );
+    const queryResult = await manageDynamicTableRecordsTool(
+      {
+        action: 'query',
+        table: 'fitness_profile',
+        limit: 10
+      },
+      runtime
+    );
+
+    expect(createResult.ok).toBe(true);
+    expect(JSON.parse(createResult.action_json)).toEqual(
+      expect.objectContaining({
+        applicationId: 'aino-app-1',
+        agentId: 'fastgpt-agent-1',
+        createdTableKeys: ['fitness_profile']
+      })
+    );
+    expect(queryResult).toEqual(
+      expect.objectContaining({
+        ok: true,
+        operation: 'query',
+        count: 1
+      })
+    );
+    expect(JSON.parse(queryResult.records_json)).toEqual([
+      { id: 'record-1', props: { goal: '减脂' } }
+    ]);
+
+    const urls = fetchMock.mock.calls.map((call) => new URL(call[0] as string));
+    expect(urls.map((url) => `${url.origin}${url.pathname}`)).toEqual([
+      'http://172.17.0.1:3017/api/directories',
+      'http://172.17.0.1:3017/api/module-import',
+      'http://172.17.0.1:3017/api/directories',
+      'http://172.17.0.1:3017/api/records/fitness-directory'
+    ]);
+    expect(urls.every((url) => url.searchParams.get('applicationId') === 'aino-app-1')).toBe(true);
   });
 });

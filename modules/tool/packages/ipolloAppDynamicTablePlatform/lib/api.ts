@@ -42,6 +42,23 @@ function normalizeBaseUrl(raw: string): string {
   return url.toString().replace(/\/+$/, '');
 }
 
+function deriveBaseUrlFromApiUrl(raw: string): string {
+  if (!raw.trim()) return '';
+
+  try {
+    const url = new URL(raw.trim());
+    const pathname = url.pathname.replace(/\/+$/, '');
+    const apiSegmentIndex = pathname.indexOf('/api/');
+    url.search = '';
+    url.hash = '';
+    url.pathname =
+      apiSegmentIndex >= 0 ? pathname.slice(0, apiSegmentIndex) : pathname === '/api' ? '' : '';
+    return normalizeBaseUrl(url.toString());
+  } catch {
+    return '';
+  }
+}
+
 const isLocalUrl = (raw: string): boolean => {
   const text = raw.trim().toLowerCase();
   return (
@@ -85,13 +102,20 @@ function uniqueUrls(urls: string[]): string[] {
 }
 
 export function resolveDynamicTableApiBaseUrls(): string[] {
+  const derivedUrls = uniqueUrls([
+    deriveBaseUrlFromApiUrl(readEnv('IPOLLO_APP_DATA_CONTEXT_URL')),
+    deriveBaseUrlFromApiUrl(readEnv('APP_DATA_CONTEXT_URL')),
+    deriveBaseUrlFromApiUrl(readEnv('LUMI_APP_DATA_CONTEXT_URL')),
+    deriveBaseUrlFromApiUrl(readEnv('IPOLLO_APP_REGISTER_URL'))
+  ]);
   const direct = firstNonEmpty(
     readEnv('IPOLLO_APP_DYNAMIC_TABLE_API_BASE_URL'),
     readEnv('IPOLLO_APP_API_BASE_URL'),
     readEnv('AINO_API_BASE_URL'),
     readEnv('NEXT_PUBLIC_CORE_API_URL')
   );
-  if (direct) return uniqueUrls([direct]);
+  if (direct) return uniqueUrls([direct, ...derivedUrls]);
+  if (derivedUrls.length > 0) return derivedUrls;
 
   if (isLocalRuntime()) {
     return uniqueUrls([
@@ -277,6 +301,7 @@ export async function queryDynamicTableRecords(
 ) {
   return withBaseUrl('缺少 iPollo App 后端地址，无法查询动态表记录。', async (baseUrl) => {
     const url = new URL(`${baseUrl}/api/records/${input.directoryId}`);
+    url.searchParams.set('applicationId', context.applicationId);
     url.searchParams.set('page', String(input.page || 1));
     url.searchParams.set('limit', String(Math.max(1, Math.min(100, Number(input.limit) || 20))));
     if (input.filter && Object.keys(input.filter).length > 0) {
@@ -295,6 +320,7 @@ export async function insertDynamicTableRecord(
 ) {
   return withBaseUrl('缺少 iPollo App 后端地址，无法新增动态表记录。', async (baseUrl) => {
     const url = new URL(`${baseUrl}/api/records/${input.directoryId}`);
+    url.searchParams.set('applicationId', context.applicationId);
     return requestJson(context, url, {
       method: 'POST',
       body: JSON.stringify({ props: input.record })
@@ -308,6 +334,7 @@ export async function updateDynamicTableRecord(
 ) {
   return withBaseUrl('缺少 iPollo App 后端地址，无法更新动态表记录。', async (baseUrl) => {
     const url = new URL(`${baseUrl}/api/records/${input.directoryId}/${input.recordId}`);
+    url.searchParams.set('applicationId', context.applicationId);
     return requestJson(context, url, {
       method: 'PATCH',
       body: JSON.stringify({ props: input.patch })
@@ -321,6 +348,7 @@ export async function deleteDynamicTableRecord(
 ) {
   return withBaseUrl('缺少 iPollo App 后端地址，无法删除动态表记录。', async (baseUrl) => {
     const url = new URL(`${baseUrl}/api/records/${input.directoryId}/${input.recordId}`);
+    url.searchParams.set('applicationId', context.applicationId);
     return requestJson(context, url, { method: 'DELETE' });
   });
 }

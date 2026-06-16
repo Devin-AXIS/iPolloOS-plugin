@@ -13,6 +13,17 @@ const firstNonEmpty = (...values: unknown[]): string | undefined => {
 
 const envString = (key: string) => String(process.env[key] ?? '').trim() || undefined;
 
+const envUrlSearchParam = (envKey: string, key: string) => {
+  const rawUrl = envString(envKey);
+  if (!rawUrl) return;
+
+  try {
+    return new URL(rawUrl).searchParams.get(key)?.trim() || undefined;
+  } catch {
+    return;
+  }
+};
+
 export function resolveDynamicTableRuntimeContext(
   input: RuntimeContextInput,
   systemVar?: RunToolSecondParamsType['systemVar']
@@ -56,6 +67,7 @@ export function resolveDynamicTableRuntimeContext(
     runtimeUser?.lumiApplicationId,
     envString('IPOLLO_APP_APPLICATION_ID'),
     envString('AINO_APPLICATION_ID'),
+    envUrlSearchParam('IPOLLO_APP_REGISTER_URL', 'applicationId'),
     systemVar?.app?.id
   );
 
