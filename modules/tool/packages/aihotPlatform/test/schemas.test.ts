@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { AihotConfigSchema, ItemsResponseSchema } from '../lib/schemas';
 
 describe('AI HOT schemas', () => {

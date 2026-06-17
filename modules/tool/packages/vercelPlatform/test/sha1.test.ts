@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { sha1Hex } from '../lib/sha1';
 
 describe('sha1Hex', () => {

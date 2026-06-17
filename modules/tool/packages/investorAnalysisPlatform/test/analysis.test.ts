@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { analyzeSearchResults, buildQueries } from '../lib/analysis';
 import { formatAnalysisMarkdown } from '../lib/format';
 import type { SearchResult } from '../lib/schemas';

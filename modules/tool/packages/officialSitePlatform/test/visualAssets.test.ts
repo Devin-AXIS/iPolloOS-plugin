@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { tool } from '../children/official_website_page/src';
 
 describe('official website visual assets', () => {

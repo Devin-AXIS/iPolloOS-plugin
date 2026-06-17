@@ -35,6 +35,15 @@ function readEnv(key: string): string {
   return String(process.env[key] ?? '').trim();
 }
 
+function readDynamicTableAuthToken(): string {
+  return firstNonEmpty(
+    readEnv('IPOLLO_APP_DYNAMIC_TABLE_API_TOKEN'),
+    readEnv('IPOLLO_APP_DATA_CONTEXT_SECRET'),
+    readEnv('APP_DATA_CONTEXT_SECRET'),
+    readEnv('LUMI_APP_DATA_CONTEXT_SECRET')
+  );
+}
+
 function normalizeBaseUrl(raw: string): string {
   const url = new URL(raw.trim());
   url.pathname = url.pathname.replace(/\/+$/, '');
@@ -173,7 +182,7 @@ async function requestJson(
   path: URL,
   init: Omit<RequestInit, 'headers'> & { headers?: Record<string, string> } = {}
 ): Promise<unknown> {
-  const authToken = context.authToken;
+  const authToken = firstNonEmpty(context.authToken, readDynamicTableAuthToken());
   if (!authToken) path.searchParams.set('noAuth', 'true');
   const method = String(init.method || 'GET').toUpperCase();
   const timeoutMs = resolveTimeoutMs();

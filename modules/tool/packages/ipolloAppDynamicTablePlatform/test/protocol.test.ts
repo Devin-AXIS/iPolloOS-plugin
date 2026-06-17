@@ -211,6 +211,7 @@ describe('iPollo App dynamic table plugin', () => {
   it('runs create and query tools against the derived APP API context', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('IPOLLO_APP_DATA_CONTEXT_URL', 'http://172.17.0.1:3017/api/app/app-data/context');
+    vi.stubEnv('IPOLLO_APP_DATA_CONTEXT_SECRET', 'dynamic-secret');
 
     const fetchMock = vi
       .fn()
@@ -323,5 +324,11 @@ describe('iPollo App dynamic table plugin', () => {
       'http://172.17.0.1:3017/api/records/fitness-directory'
     ]);
     expect(urls.every((url) => url.searchParams.get('applicationId') === 'aino-app-1')).toBe(true);
+    expect(urls.every((url) => url.searchParams.get('noAuth') === null)).toBe(true);
+    expect(
+      fetchMock.mock.calls.every(
+        (call) => call[1]?.headers?.Authorization === 'Bearer dynamic-secret'
+      )
+    ).toBe(true);
   });
 });

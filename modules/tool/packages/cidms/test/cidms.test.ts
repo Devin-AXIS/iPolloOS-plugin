@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { normalizeCidmsBaseUrl, formatCidmsError, cidmsApiKey } from '../lib/client';
 import {
   buildGeminiImagePayload,
