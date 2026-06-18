@@ -13,6 +13,9 @@ export const cleanUsername = (value: unknown) =>
 export const XConfigSchema = z.object({
   bearerToken: z.preprocess(emptyToUndefined, z.string().min(10).optional()),
   userAccessToken: z.preprocess(emptyToUndefined, z.string().min(10).optional()),
+  userAccessTokenSecret: z.preprocess(emptyToUndefined, z.string().min(10).optional()),
+  consumerKey: z.preprocess(emptyToUndefined, z.string().min(5).optional()),
+  consumerSecret: z.preprocess(emptyToUndefined, z.string().min(10).optional()),
   baseUrl: z.preprocess(
     emptyToUndefined,
     z.string().url().max(2048).optional().default('https://api.x.com')
@@ -36,7 +39,8 @@ export const XReadConfigSchema = XConfigSchema.refine(
 );
 
 export const XActionConfigSchema = XConfigSchema.refine((data) => data.userAccessToken, {
-  message: 'X user action token is required'
+  message:
+    '缺少 X 用户操作令牌 userAccessToken。写操作需要 OAuth 2.0 User Context Token，或 OAuth 1.0a Access Token + Secret，并授予对应写权限。'
 });
 
 export const XQueryModeSchema = z.enum(['user_by_username', 'user_posts', 'recent_search']);

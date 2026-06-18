@@ -56,7 +56,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.0.1',
       description: '状态化检查账号新增内容',
       inputs: [
         {

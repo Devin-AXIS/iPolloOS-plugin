@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import {
   XActionConfigSchema,
   XConfigSchema,
@@ -41,6 +41,15 @@ describe('X platform schemas', () => {
         userAccessToken: 'xox_user_action_token'
       }).userAccessToken
     ).toBe('xox_user_action_token');
+
+    expect(
+      XActionConfigSchema.parse({
+        userAccessToken: 'oauth1_user_token',
+        userAccessTokenSecret: 'oauth1_user_secret',
+        consumerKey: 'oauth1_consumer_key',
+        consumerSecret: 'oauth1_consumer_secret'
+      }).userAccessTokenSecret
+    ).toBe('oauth1_user_secret');
 
     expect(() => XReadConfigSchema.parse({})).toThrow();
     expect(() => XActionConfigSchema.parse({ bearerToken: 'xox_test_bearer_token' })).toThrow();

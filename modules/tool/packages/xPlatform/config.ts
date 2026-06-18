@@ -27,7 +27,28 @@ export default defineToolSet({
       key: 'userAccessToken',
       label: 'X 用户操作令牌',
       description:
-        '用于发帖、评论、删除、点赞、转发、关注和取关的 OAuth 2.0 User Context Token。需要按动作授予 tweet.write、like.write、follows.write、users.read 等权限。',
+        '用于发帖、评论、删除、点赞、转发、关注和取关。可填写 OAuth 2.0 User Context Token，或 OAuth 1.0a Access Token。',
+      required: false,
+      inputType: 'secret'
+    },
+    {
+      key: 'userAccessTokenSecret',
+      label: 'X 用户操作令牌 Secret',
+      description: 'OAuth 1.0a Access Token Secret。使用 OAuth 2.0 User Context Token 时可留空。',
+      required: false,
+      inputType: 'secret'
+    },
+    {
+      key: 'consumerKey',
+      label: 'X Consumer Key',
+      description: 'OAuth 1.0a 签名用 Consumer Key。仅使用 OAuth 1.0a 用户操作令牌时需要。',
+      required: false,
+      inputType: 'secret'
+    },
+    {
+      key: 'consumerSecret',
+      label: 'X Consumer Secret',
+      description: 'OAuth 1.0a 签名用 Consumer Secret。仅使用 OAuth 1.0a 用户操作令牌时需要。',
       required: false,
       inputType: 'secret'
     },

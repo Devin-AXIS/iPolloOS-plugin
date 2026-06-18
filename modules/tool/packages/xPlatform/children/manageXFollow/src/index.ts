@@ -6,16 +6,12 @@ import {
   manageFollowAction
 } from '../../../lib/client';
 import { stringifyJson } from '../../../lib/format';
-import {
-  XActionConfigSchema,
-  XFollowManageActionSchema,
-  cleanUsername
-} from '../../../lib/schemas';
+import { XConfigSchema, XFollowManageActionSchema, cleanUsername } from '../../../lib/schemas';
 
 const emptyToUndefined = (value: unknown) =>
   value === '' || value === null || value === undefined ? undefined : value;
 
-export const InputType = XActionConfigSchema.and(
+export const InputType = XConfigSchema.and(
   z.object({
     action: XFollowManageActionSchema.default('follow'),
     target_username: z.preprocess(emptyToUndefined, z.string().max(80).optional()),

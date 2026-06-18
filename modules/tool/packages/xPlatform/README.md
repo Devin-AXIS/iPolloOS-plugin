@@ -21,7 +21,9 @@ Official X API plugin for iPolloOS. This package is intentionally split by user 
 Set credentials in the toolset secret config:
 
 - `bearerToken`: read token for lookup, search, timelines, and account monitors.
-- `userAccessToken`: OAuth 2.0 user-context token for posting, replying, deleting, liking, reposting, following, and unfollowing.
+- `userAccessToken`: OAuth 2.0 user-context token, or OAuth 1.0a Access Token, for posting, replying, deleting, liking, reposting, following, and unfollowing.
+- `userAccessTokenSecret`: OAuth 1.0a Access Token Secret. Leave empty when using OAuth 2.0.
+- `consumerKey` and `consumerSecret`: OAuth 1.0a app credentials used to sign user-context write requests.
 
 Internal defaults such as `baseUrl`, request timeout, and default result limits are intentionally not exposed as user-facing inputs.
 

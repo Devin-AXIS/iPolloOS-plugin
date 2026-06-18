@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'vitest';
 import {
   createPost,
   getAuthenticatedUser,
@@ -19,6 +19,16 @@ type FetchInit = Parameters<typeof fetch>[1];
 const config = {
   bearerToken: 'test_bearer_token_123',
   userAccessToken: 'test_user_token_123',
+  baseUrl: 'https://api.x.com',
+  timeoutMs: 5000,
+  defaultMaxResults: 10
+};
+
+const oauth1Config = {
+  userAccessToken: 'test_user_access_token_123',
+  userAccessTokenSecret: 'test_user_access_secret_123',
+  consumerKey: 'test_consumer_key',
+  consumerSecret: 'test_consumer_secret_123',
   baseUrl: 'https://api.x.com',
   timeoutMs: 5000,
   defaultMaxResults: 10
@@ -199,6 +209,48 @@ describe('X platform client', () => {
 
     expect(user.id).toBe('42');
     expect(capturedAuth).toBe('Bearer test_user_token_123');
+  });
+
+  test('signs user-context requests with OAuth 1.0a when token secret is configured', async () => {
+    let capturedAuth = '';
+    globalThis.fetch = (async (_url: FetchInput, init?: FetchInit) => {
+      capturedAuth = String((init?.headers as Record<string, string>)?.Authorization);
+      return new Response(JSON.stringify({ data: { id: '200', text: 'ok' } }), {
+        status: 201
+      });
+    }) as unknown as typeof fetch;
+
+    await createPost(oauth1Config, { text: 'new post' });
+
+    expect(capturedAuth.startsWith('OAuth ')).toBe(true);
+    expect(capturedAuth).toContain('oauth_consumer_key="test_consumer_key"');
+    expect(capturedAuth).toContain('oauth_token="test_user_access_token_123"');
+    expect(capturedAuth).toContain('oauth_signature_method="HMAC-SHA1"');
+    expect(capturedAuth).toContain('oauth_signature=');
+  });
+
+  test('keeps relay URL for transport while signing OAuth 1.0a user requests', async () => {
+    let capturedUrl = '';
+    let capturedAuth = '';
+    globalThis.fetch = (async (url: FetchInput, init?: FetchInit) => {
+      capturedUrl = String(url);
+      capturedAuth = String((init?.headers as Record<string, string>)?.Authorization);
+      return new Response(JSON.stringify({ data: { id: '200', text: 'ok' } }), {
+        status: 201
+      });
+    }) as unknown as typeof fetch;
+
+    await createPost(
+      {
+        ...oauth1Config,
+        baseUrl: 'https://relay.example.com/private-prefix'
+      },
+      { text: 'new post' }
+    );
+
+    expect(capturedUrl).toBe('https://relay.example.com/private-prefix/2/tweets');
+    expect(capturedAuth.startsWith('OAuth ')).toBe(true);
+    expect(capturedAuth).toContain('oauth_signature=');
   });
 
   test('creates posts and replies through manage tweets endpoint', async () => {

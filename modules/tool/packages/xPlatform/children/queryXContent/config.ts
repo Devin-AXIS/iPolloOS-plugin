@@ -24,7 +24,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.0.1',
       description: '账号查询、账号时间线和最近搜索',
       inputs: [
         {

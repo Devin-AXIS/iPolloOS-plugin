@@ -19,6 +19,7 @@ import {
   type XUser
 } from './schemas';
 import { ProxyAgent, type Dispatcher } from 'undici';
+import { createHmac, randomBytes } from 'node:crypto';
 
 const DEFAULT_TWEET_FIELDS = [
   'id',
@@ -83,6 +84,15 @@ function encodePathPart(value: string): string {
   return encodeURIComponent(value.trim());
 }
 
+function hasOAuth1UserConfig(config: XConfig): boolean {
+  return Boolean(
+    config.consumerKey &&
+      config.consumerSecret &&
+      config.userAccessToken &&
+      config.userAccessTokenSecret
+  );
+}
+
 function resolveToken(config: XConfig, auth: RequestAuthMode): string {
   const token =
     auth === 'user' ? config.userAccessToken : config.bearerToken || config.userAccessToken;
@@ -92,6 +102,82 @@ function resolveToken(config: XConfig, auth: RequestAuthMode): string {
     );
   }
   return token;
+}
+
+function percentEncode(value: string): string {
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`
+  );
+}
+
+function getOAuth1SignatureUrl(rawUrl: string): string {
+  const url = new URL(rawUrl);
+  const apiV2Index = url.pathname.indexOf('/2/');
+  if (url.origin !== 'https://api.x.com' && apiV2Index >= 0) {
+    return `https://api.x.com${url.pathname.slice(apiV2Index)}${url.search}`;
+  }
+  return rawUrl;
+}
+
+function createOAuth1Header(config: XConfig, method: string, rawUrl: string): string {
+  if (!hasOAuth1UserConfig(config)) {
+    throw new Error('OAuth 1.0a credentials are incomplete');
+  }
+
+  const url = new URL(getOAuth1SignatureUrl(rawUrl));
+  const oauthParams: Record<string, string> = {
+    oauth_consumer_key: config.consumerKey!,
+    oauth_nonce: randomBytes(16).toString('hex'),
+    oauth_signature_method: 'HMAC-SHA1',
+    oauth_timestamp: String(Math.floor(Date.now() / 1000)),
+    oauth_token: config.userAccessToken!,
+    oauth_version: '1.0'
+  };
+
+  const signatureParams = [
+    ...Array.from(url.searchParams.entries()),
+    ...Object.entries(oauthParams)
+  ]
+    .map(([key, value]) => [percentEncode(key), percentEncode(value)] as const)
+    .sort(([leftKey, leftValue], [rightKey, rightValue]) =>
+      leftKey === rightKey ? leftValue.localeCompare(rightValue) : leftKey.localeCompare(rightKey)
+    )
+    .map(([key, value]) => `${key}=${value}`)
+    .join('&');
+
+  const baseUrl = `${url.origin}${url.pathname}`;
+  const signatureBase = [
+    method.toUpperCase(),
+    percentEncode(baseUrl),
+    percentEncode(signatureParams)
+  ].join('&');
+  const signingKey = `${percentEncode(config.consumerSecret!)}&${percentEncode(
+    config.userAccessTokenSecret!
+  )}`;
+  const signature = createHmac('sha1', signingKey).update(signatureBase).digest('base64');
+  const headerParams = { ...oauthParams, oauth_signature: signature };
+
+  return (
+    'OAuth ' +
+    Object.entries(headerParams)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, value]) => `${percentEncode(key)}="${percentEncode(value)}"`)
+      .join(', ')
+  );
+}
+
+function resolveAuthorizationHeader(
+  config: XConfig,
+  auth: RequestAuthMode,
+  method: string,
+  url: string
+): string {
+  if (hasOAuth1UserConfig(config) && (auth === 'user' || !config.bearerToken)) {
+    return createOAuth1Header(config, method, url);
+  }
+
+  return `Bearer ${resolveToken(config, auth)}`;
 }
 
 const proxyAgents = new Map<string, Dispatcher>();
@@ -154,9 +240,10 @@ async function requestJson(
 ): Promise<unknown> {
   const config = XConfigSchema.parse(rawConfig);
   const url = `${normalizeBaseUrl(config.baseUrl)}${path}`;
+  const method = options.method ?? 'GET';
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    Authorization: `Bearer ${resolveToken(config, options.auth ?? 'read')}`
+    Authorization: resolveAuthorizationHeader(config, options.auth ?? 'read', method, url)
   };
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
@@ -164,7 +251,7 @@ async function requestJson(
 
   const proxyUrl = getProxyUrl(config);
   const requestInit: RequestInit & { dispatcher?: Dispatcher } = {
-    method: options.method ?? 'GET',
+    method,
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: withTimeout(config.timeoutMs)

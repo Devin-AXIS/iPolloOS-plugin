@@ -15,7 +15,7 @@ export default defineTool({
     en: 'Publish a new X post with a user-context token, optionally as a quote post.'
   },
   toolDescription:
-    'Create a new X post through the official X API. Use quote_post_id only when the user wants to quote an existing post. Requires userAccessToken in the toolset secret config.',
+    'Create a new X post through the official X API. Use quote_post_id only when the user wants to quote an existing post. Requires userAccessToken in the toolset secret config; bearerToken is read-only and cannot publish posts.',
   runtime: {
     kind: 'execute',
     execute: {
@@ -24,7 +24,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.0.1',
       description: '发布新内容或引用内容',
       inputs: [
         {

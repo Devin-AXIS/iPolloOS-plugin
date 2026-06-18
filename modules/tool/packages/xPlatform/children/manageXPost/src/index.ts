@@ -2,11 +2,47 @@ import { getErrText } from '@tool/utils/err';
 import { z } from 'zod';
 import { getAuthenticatedUser, managePostAction } from '../../../lib/client';
 import { stringifyJson } from '../../../lib/format';
-import { XActionConfigSchema, XPostManageActionSchema } from '../../../lib/schemas';
+import { XConfigSchema, XPostManageActionSchema } from '../../../lib/schemas';
 
-export const InputType = XActionConfigSchema.and(
+const POST_ACTION_ALIASES: Record<string, z.infer<typeof XPostManageActionSchema>> = {
+  delete: 'delete',
+  like: 'like',
+  unlike: 'unlike',
+  repost: 'repost',
+  retweet: 'repost',
+  undo_repost: 'undo_repost',
+  unrepost: 'undo_repost',
+  unretweet: 'undo_repost',
+  undo_retweet: 'undo_repost'
+};
+
+const normalizePostAction = (value: unknown) => {
+  if (value === undefined || value === null || value === '') return 'like';
+  const key = String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  return POST_ACTION_ALIASES[key] ?? value;
+};
+
+const PostActionInputSchema = z.preprocess(
+  normalizePostAction,
+  z
+    .string()
+    .refine(
+      (value): value is z.infer<typeof XPostManageActionSchema> =>
+        XPostManageActionSchema.safeParse(value).success,
+      {
+        message:
+          'action must be one of: delete, like, unlike, repost, undo_repost. Aliases: retweet=repost, unretweet/unrepost=undo_repost.'
+      }
+    )
+    .transform((value) => value as z.infer<typeof XPostManageActionSchema>)
+);
+
+export const InputType = XConfigSchema.and(
   z.object({
-    action: XPostManageActionSchema.default('like'),
+    action: PostActionInputSchema.default('like'),
     post_id: z.string().trim().min(1, 'post_id is required').max(40),
     actor_user_id: z.string().max(40).optional()
   })

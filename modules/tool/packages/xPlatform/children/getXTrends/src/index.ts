@@ -4,24 +4,122 @@ import { getTrendsByWoeid } from '../../../lib/client';
 import { stringifyJson } from '../../../lib/format';
 import { XReadConfigSchema } from '../../../lib/schemas';
 
-const RegionSchema = z
-  .enum(['worldwide', 'united_states', 'china', 'japan', 'singapore', 'united_kingdom'])
-  .default('worldwide');
-const TopicSchema = z.enum(['all', 'ai', 'blockchain', 'custom']).default('all');
+const RegionKeySchema = z.enum([
+  'worldwide',
+  'united_states',
+  'china',
+  'japan',
+  'singapore',
+  'united_kingdom'
+]);
+const TopicKeySchema = z.enum(['all', 'ai', 'blockchain', 'custom']);
 
-const REGION_MAP: Record<z.infer<typeof RegionSchema>, { label: string; woeid: number }> = {
-  worldwide: { label: '全球', woeid: 1 },
-  united_states: { label: '美国', woeid: 23424977 },
-  china: { label: '中国', woeid: 23424781 },
-  japan: { label: '日本', woeid: 23424856 },
-  singapore: { label: '新加坡', woeid: 23424948 },
-  united_kingdom: { label: '英国', woeid: 23424975 }
+type RegionKey = z.infer<typeof RegionKeySchema>;
+type TopicKey = z.infer<typeof TopicKeySchema>;
+
+const REGION_MAP: Record<RegionKey, { label: string; woeid: number; aliases: string[] }> = {
+  worldwide: { label: '全球', woeid: 1, aliases: ['global', 'world', 'worldwide', '1'] },
+  united_states: {
+    label: '美国',
+    woeid: 23424977,
+    aliases: [
+      'us',
+      'usa',
+      'u.s.',
+      'u.s.a.',
+      'united states',
+      'united_states',
+      'america',
+      '23424977'
+    ]
+  },
+  china: { label: '中国', woeid: 23424781, aliases: ['cn', 'china', '中国', '23424781'] },
+  japan: { label: '日本', woeid: 23424856, aliases: ['jp', 'japan', '日本', '23424856'] },
+  singapore: {
+    label: '新加坡',
+    woeid: 23424948,
+    aliases: ['sg', 'singapore', '新加坡', '23424948']
+  },
+  united_kingdom: {
+    label: '英国',
+    woeid: 23424975,
+    aliases: ['uk', 'gb', 'united kingdom', 'united_kingdom', 'britain', '23424975']
+  }
 };
+
+const TOPIC_ALIASES: Record<string, TopicKey> = {
+  all: 'all',
+  any: 'all',
+  everything: 'all',
+  ai: 'ai',
+  'artificial intelligence': 'ai',
+  openai: 'ai',
+  xai: 'ai',
+  grok: 'ai',
+  blockchain: 'blockchain',
+  crypto: 'blockchain',
+  web3: 'blockchain',
+  bitcoin: 'blockchain',
+  btc: 'blockchain',
+  custom: 'custom',
+  keywords: 'custom',
+  keyword: 'custom'
+};
+
+const SUPPORTED_REGIONS = Object.entries(REGION_MAP)
+  .map(([key, region]) => `${key}/${region.label}/${region.woeid}`)
+  .join(', ');
+const SUPPORTED_TOPICS = 'all, ai, blockchain, custom';
+
+function normalizeKey(value: unknown): string {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+}
+
+function normalizeRegion(value: unknown): unknown {
+  if (value === undefined || value === null || value === '') return 'worldwide';
+  const key = normalizeKey(value);
+  const looseKey = key.replace(/_/g, ' ');
+  const direct = RegionKeySchema.safeParse(key);
+  if (direct.success) return direct.data;
+
+  const matched = Object.entries(REGION_MAP).find(([, region]) =>
+    region.aliases.some((alias) => normalizeKey(alias) === key || alias.toLowerCase() === looseKey)
+  );
+  return matched?.[0] ?? value;
+}
+
+function normalizeTopic(value: unknown): unknown {
+  if (value === undefined || value === null || value === '') return 'all';
+  const key = normalizeKey(value);
+  return TOPIC_ALIASES[key] ?? TOPIC_ALIASES[key.replace(/_/g, ' ')] ?? value;
+}
+
+const RegionSchema = z.preprocess(
+  normalizeRegion,
+  z
+    .string()
+    .refine((value): value is RegionKey => RegionKeySchema.safeParse(value).success, {
+      message: `region must be one of: ${SUPPORTED_REGIONS}`
+    })
+    .transform((value) => value as RegionKey)
+);
+const TopicSchema = z.preprocess(
+  normalizeTopic,
+  z
+    .string()
+    .refine((value): value is TopicKey => TopicKeySchema.safeParse(value).success, {
+      message: `topic must be one of: ${SUPPORTED_TOPICS}`
+    })
+    .transform((value) => value as TopicKey)
+);
 
 export const InputType = XReadConfigSchema.and(
   z.object({
-    region: RegionSchema,
-    topic: TopicSchema,
+    region: RegionSchema.default('worldwide'),
+    topic: TopicSchema.default('all'),
     custom_keywords: z.string().max(2048).optional()
   })
 );
@@ -37,7 +135,7 @@ export const OutputType = z.object({
 type In = z.infer<typeof InputType>;
 type Out = z.infer<typeof OutputType>;
 
-const TOPIC_KEYWORDS: Record<z.infer<typeof TopicSchema>, string[]> = {
+const TOPIC_KEYWORDS: Record<TopicKey, string[]> = {
   all: [],
   ai: [
     'ai',
@@ -71,14 +169,14 @@ const TOPIC_KEYWORDS: Record<z.infer<typeof TopicSchema>, string[]> = {
   custom: []
 };
 
-const TOPIC_LABELS: Record<z.infer<typeof TopicSchema>, string> = {
+const TOPIC_LABELS: Record<TopicKey, string> = {
   all: '全部',
   ai: 'AI 相关',
   blockchain: '区块链相关',
   custom: '自定义关键词'
 };
 
-function parseKeywords(topic: z.infer<typeof TopicSchema>, customKeywords?: string): string[] {
+function parseKeywords(topic: TopicKey, customKeywords?: string): string[] {
   if (topic !== 'custom') return TOPIC_KEYWORDS[topic];
   return String(customKeywords ?? '')
     .split(/[\s,，;；]+/)

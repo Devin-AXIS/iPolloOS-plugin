@@ -15,7 +15,7 @@ export default defineTool({
     en: 'Reply to a specific X post with a user-context token.'
   },
   toolDescription:
-    'Reply to an existing X post through the official X API. Requires userAccessToken in the toolset secret config.',
+    'Reply to an existing X post through the official X API. Requires userAccessToken in the toolset secret config; bearerToken is read-only and cannot reply.',
   runtime: {
     kind: 'execute',
     execute: {
@@ -24,7 +24,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.0.1',
       description: '回复指定内容',
       inputs: [
         {

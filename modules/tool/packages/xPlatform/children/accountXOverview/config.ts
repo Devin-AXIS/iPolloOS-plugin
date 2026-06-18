@@ -24,7 +24,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.0.1',
       description: '账号资料 + 最新内容综合查询',
       inputs: [
         {

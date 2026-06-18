@@ -2,12 +2,12 @@ import { getErrText } from '@tool/utils/err';
 import { z } from 'zod';
 import { createPost } from '../../../lib/client';
 import { stringifyJson } from '../../../lib/format';
-import { XActionConfigSchema } from '../../../lib/schemas';
+import { XConfigSchema } from '../../../lib/schemas';
 
 const emptyToUndefined = (value: unknown) =>
   value === '' || value === null || value === undefined ? undefined : value;
 
-export const InputType = XActionConfigSchema.and(
+export const InputType = XConfigSchema.and(
   z.object({
     text: z.string().trim().min(1, 'text is required').max(280),
     quote_post_id: z.preprocess(emptyToUndefined, z.string().max(40).optional()),

@@ -15,7 +15,7 @@ export default defineTool({
     en: 'Delete, like, unlike, repost, or undo repost for a specific X post.'
   },
   toolDescription:
-    'Manage a specific X post. The actor user id is resolved automatically from userAccessToken. Requires userAccessToken in the toolset secret config.',
+    'Manage a specific X post. Valid action values are delete, like, unlike, repost, undo_repost. retweet is accepted as an alias for repost; unretweet/unrepost are accepted as aliases for undo_repost. The actor user id is resolved automatically from userAccessToken. Requires userAccessToken in the toolset secret config.',
   runtime: {
     kind: 'execute',
     execute: {
@@ -24,7 +24,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.0.1',
       description: '帖子动作管理',
       inputs: [
         {
@@ -41,7 +41,8 @@ export default defineTool({
             { label: '转发', value: 'repost' },
             { label: '取消转发', value: 'undo_repost' }
           ],
-          toolDescription: 'The action to apply to the target post.'
+          toolDescription:
+            'The action to apply to the target post. Valid values: delete, like, unlike, repost, undo_repost. Aliases: retweet=repost, unretweet/unrepost=undo_repost.'
         },
         {
           key: 'post_id',

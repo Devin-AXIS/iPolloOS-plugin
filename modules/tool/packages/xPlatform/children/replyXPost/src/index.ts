@@ -2,9 +2,9 @@ import { getErrText } from '@tool/utils/err';
 import { z } from 'zod';
 import { replyToPost } from '../../../lib/client';
 import { stringifyJson } from '../../../lib/format';
-import { XActionConfigSchema } from '../../../lib/schemas';
+import { XConfigSchema } from '../../../lib/schemas';
 
-export const InputType = XActionConfigSchema.and(
+export const InputType = XConfigSchema.and(
   z.object({
     reply_to_post_id: z.string().trim().min(1, 'reply_to_post_id is required').max(40),
     text: z.string().trim().min(1, 'text is required').max(280),

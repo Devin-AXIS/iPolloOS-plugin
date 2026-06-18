@@ -33,13 +33,21 @@ export const exportTool = <TInput, TOutput>({
         }
 
         const paths = [];
+        const messages = [];
         for (const issue of issues) {
           if (issue.path) {
             paths.push(...issue.path.flat());
           }
+          const path = issue.path?.filter(Boolean).join('.');
+          messages.push(path ? `${path}: ${issue.message}` : issue.message);
         }
         const fields = Array.from(new Set(paths)).filter(Boolean).join(', ');
-        return { error: `Invalid parameters. Please check: ${fields}` };
+        const details = Array.from(new Set(messages)).filter(Boolean).join('; ');
+        return {
+          error: `Invalid parameters. Please check: ${fields || 'input'}${
+            details ? `. ${details}` : ''
+          }`
+        };
       }
 
       return { error };

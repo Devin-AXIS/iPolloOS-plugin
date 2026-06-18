@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { InputType as AccountOverviewInputType } from '../children/accountXOverview/src';
 import { InputType as WatchInputType } from '../children/checkAccountUpdates/src';
 import { InputType as TrendsInputType } from '../children/getXTrends/src';
@@ -79,10 +79,18 @@ describe('X platform child inputs', () => {
     expect(
       PostManageInputType.parse({
         ...actionBase,
-        action: 'like',
+        action: 'retweet',
         post_id: '100'
-      }).post_id
-    ).toBe('100');
+      }).action
+    ).toBe('repost');
+
+    expect(
+      PostManageInputType.parse({
+        ...actionBase,
+        action: 'unretweet',
+        post_id: '100'
+      }).action
+    ).toBe('undo_repost');
 
     const follow = FollowInputType.parse({
       ...actionBase,
@@ -116,5 +124,32 @@ describe('X platform child inputs', () => {
     });
     expect(trends.region).toBe('worldwide');
     expect(trends.topic).toBe('ai');
+  });
+
+  test('normalizes common trends region and topic aliases', () => {
+    expect(
+      TrendsInputType.parse({
+        ...base,
+        region: 'United States',
+        topic: 'AI'
+      }).region
+    ).toBe('united_states');
+
+    expect(
+      TrendsInputType.parse({
+        ...base,
+        region: '23424977',
+        topic: 'OpenAI'
+      }).topic
+    ).toBe('ai');
+
+    expect(
+      TrendsInputType.parse({
+        ...base,
+        region: '1',
+        topic: 'custom',
+        custom_keywords: 'AI,OpenAI,xAI,Grok'
+      }).region
+    ).toBe('worldwide');
   });
 });

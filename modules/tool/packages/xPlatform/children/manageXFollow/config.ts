@@ -15,7 +15,7 @@ export default defineTool({
     en: 'Follow or unfollow a specific X user.'
   },
   toolDescription:
-    'Follow or unfollow an X user. The actor user id is resolved automatically from userAccessToken. Target username is resolved through the X user lookup API.',
+    'Follow or unfollow an X user. The actor user id is resolved automatically from userAccessToken. Target username is resolved through the X user lookup API. bearerToken is read-only and cannot follow or unfollow users.',
   runtime: {
     kind: 'execute',
     execute: {
@@ -24,7 +24,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.0.1',
       description: '关注关系管理',
       inputs: [
         {

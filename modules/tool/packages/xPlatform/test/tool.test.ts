@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'vitest';
 import { tool as accountXOverview } from '../children/accountXOverview/src';
 import { tool as checkAccountUpdates } from '../children/checkAccountUpdates/src';
 import { tool as getXTrends } from '../children/getXTrends/src';
@@ -228,7 +228,10 @@ describe('X platform tools', () => {
   test('searches X posts and returns trend list', async () => {
     globalThis.fetch = (async (url: FetchInput) => {
       const textUrl = String(url);
-      if (textUrl.includes('/2/trends/by/woeid/1')) {
+      if (
+        textUrl.includes('/2/trends/by/woeid/1') ||
+        textUrl.includes('/2/trends/by/woeid/23424977')
+      ) {
         return new Response(
           JSON.stringify({
             data: [
@@ -259,8 +262,8 @@ describe('X platform tools', () => {
     });
     const trends = await getXTrends({
       ...base,
-      region: 'worldwide',
-      topic: 'ai'
+      region: 'United States',
+      topic: 'AI'
     });
 
     expect(search.result_count).toBe(1);
@@ -269,6 +272,45 @@ describe('X platform tools', () => {
     expect(trends.trends_markdown).toContain('#OpenAI');
     expect(trends.trends_markdown).not.toContain('#Bitcoin');
     expect(trends.matched_keywords).toContain('openai');
+  });
+
+  test('returns a clear write-token error before publishing without user access token', async () => {
+    let requestCount = 0;
+    globalThis.fetch = (async () => {
+      requestCount += 1;
+      return new Response(JSON.stringify({ data: { id: '201', text: 'ok' } }), {
+        status: 201
+      });
+    }) as unknown as typeof fetch;
+
+    const result = await publishXPost({
+      bearerToken: 'test_bearer_token_123',
+      text: 'new post'
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.system_error).toContain('userAccessToken');
+    expect(requestCount).toBe(0);
+  });
+
+  test('returns clear write-token errors for post actions', async () => {
+    let requestCount = 0;
+    globalThis.fetch = (async () => {
+      requestCount += 1;
+      return new Response(JSON.stringify({ data: { reposted: true } }), {
+        status: 200
+      });
+    }) as unknown as typeof fetch;
+
+    const result = await manageXPost({
+      bearerToken: 'test_bearer_token_123',
+      action: 'repost',
+      post_id: '100'
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.system_error).toContain('userAccessToken');
+    expect(requestCount).toBe(0);
   });
 
   test('publishes and replies to X posts', async () => {
