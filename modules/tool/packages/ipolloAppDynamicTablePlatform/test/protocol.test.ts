@@ -260,6 +260,7 @@ describe('iPollo App dynamic table plugin', () => {
           teamId: '',
           name: '',
           appUserId: 'app-user-1',
+          appAuthToken: 'runtime-user-token',
           iPolloApplicationId: 'aino-app-1'
         },
         app: {

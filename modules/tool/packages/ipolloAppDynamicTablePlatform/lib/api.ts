@@ -182,7 +182,7 @@ async function requestJson(
   path: URL,
   init: Omit<RequestInit, 'headers'> & { headers?: Record<string, string> } = {}
 ): Promise<unknown> {
-  const authToken = firstNonEmpty(context.authToken, readDynamicTableAuthToken());
+  const authToken = firstNonEmpty(readDynamicTableAuthToken(), context.authToken);
   if (!authToken) path.searchParams.set('noAuth', 'true');
   const method = String(init.method || 'GET').toUpperCase();
   const timeoutMs = resolveTimeoutMs();
