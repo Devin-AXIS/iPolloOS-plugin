@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { uploadFile } from '@tool/utils/uploadFile';
 import { buildMarketPageCover } from './market-page-cover';
 import { type MarketDashboardType, normalizeMarketDashboardReport } from './market-report';
 import { renderMarketDashboardHtml } from './market-render';
@@ -30,6 +31,8 @@ export const DashboardOutputType = z.object({
   page_url: z.string(),
   page_cover: z.string(),
   summary: z.string(),
+  page_storage_key: z.string().optional(),
+  page_storage_size: z.number().optional(),
   system_error: z.string().optional()
 });
 
@@ -52,11 +55,20 @@ export function createDashboardTool(params: {
         preparedFor: input.prepared_for
       });
       const pageHtml = renderMarketDashboardHtml(report);
+      const shouldPublish =
+        input.page_output_mode === 'auto_publish' || input.page_output_mode === 'resource_center';
+      const published = shouldPublish
+        ? await publishDashboardHtml(pageHtml, params.reportType)
+        : null;
       return {
-        page_html: pageHtml,
-        page_url: '',
+        page_html: shouldPublish ? '' : pageHtml,
+        page_url: published?.page_url ?? '',
         page_cover: buildMarketPageCover(report),
-        summary: `已生成 ${params.summaryLabel}：${report.title}，包含 ${report.signals.length} 个结构化信号。`
+        page_storage_key: published?.page_storage_key,
+        page_storage_size: published?.page_storage_size,
+        summary: shouldPublish
+          ? `已发布 ${params.summaryLabel}：${report.title}，包含 ${report.signals.length} 个结构化信号。`
+          : `已生成 ${params.summaryLabel}：${report.title}，包含 ${report.signals.length} 个结构化信号。`
       };
     } catch (error: unknown) {
       return {
@@ -67,6 +79,22 @@ export function createDashboardTool(params: {
         system_error: getErrText(error)
       };
     }
+  };
+}
+
+async function publishDashboardHtml(html: string, reportType: MarketDashboardType) {
+  const { accessUrl, objectName, size } = await uploadFile({
+    buffer: Buffer.from(html),
+    defaultFilename: `market-intelligence-${reportType}-${Date.now()}.html`,
+    contentType: 'text/html; charset=utf-8',
+    contentDisposition: 'inline',
+    keepRawFilename: true
+  });
+
+  return {
+    page_url: accessUrl,
+    page_storage_key: objectName,
+    page_storage_size: size
   };
 }
 

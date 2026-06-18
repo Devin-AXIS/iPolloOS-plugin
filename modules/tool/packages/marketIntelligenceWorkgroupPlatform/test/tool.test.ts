@@ -1,7 +1,15 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { tool as marketOpportunityDashboard } from '../children/market_opportunity_dashboard/src';
 import { tool as smartMoneyDashboard } from '../children/smart_money_dashboard/src';
 import { tool as tickerEventDashboard } from '../children/ticker_event_dashboard/src';
+
+vi.mock('@tool/utils/uploadFile', () => ({
+  uploadFile: vi.fn(async () => ({
+    accessUrl: 'https://os.ipollo.net/market-intelligence-smoke.html',
+    objectName: 'codex-smoke/market-intelligence-smoke.html',
+    size: 12345
+  }))
+}));
 
 const opportunityReport = {
   title: '今日 AI 机会雷达',
@@ -62,7 +70,8 @@ describe('market intelligence workgroup dashboards', () => {
     const input = {
       report_json: JSON.stringify(opportunityReport),
       report_date: '2026-06-18',
-      prepared_for: 'iPollo Finance Alpha'
+      prepared_for: 'iPollo Finance Alpha',
+      page_output_mode: 'raw_html' as const
     };
     const first = await marketOpportunityDashboard(input);
     const second = await marketOpportunityDashboard(input);
@@ -105,7 +114,8 @@ describe('market intelligence workgroup dashboards', () => {
           }
         ]
       }),
-      report_date: '2026-06-18'
+      report_date: '2026-06-18',
+      page_output_mode: 'raw_html'
     });
 
     expect(result.system_error).toBeUndefined();
@@ -122,12 +132,28 @@ describe('market intelligence workgroup dashboards', () => {
         summary: '行情异动需要继续核验财报、新闻和 SEC 证据。',
         dataGaps: ['未传入 SEC filing 事件。']
       }),
-      report_date: '2026-06-18'
+      report_date: '2026-06-18',
+      page_output_mode: 'raw_html'
     });
 
     expect(result.system_error).toBeUndefined();
     expect(result.page_html).toContain('No ranked market signal was provided');
     expect(result.page_html).toContain('未传入 SEC filing 事件');
     expect(result.summary).toContain('0 个结构化信号');
+  });
+
+  test('publishes dashboard HTML by default and returns a page url', async () => {
+    const result = await marketOpportunityDashboard({
+      report_json: JSON.stringify(opportunityReport),
+      report_date: '2026-06-18',
+      prepared_for: 'iPollo Finance Alpha'
+    });
+
+    expect(result.system_error).toBeUndefined();
+    expect(result.page_html).toBe('');
+    expect(result.page_url).toBe('https://os.ipollo.net/market-intelligence-smoke.html');
+    expect(result.page_storage_key).toBe('codex-smoke/market-intelligence-smoke.html');
+    expect(result.page_storage_size).toBe(12345);
+    expect(result.summary).toContain('已发布');
   });
 });

@@ -24,7 +24,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '0.1.0',
+      value: '0.1.1',
       description: '稳定的今日机会/风险 TOP 看板',
       inputs: [
         {
