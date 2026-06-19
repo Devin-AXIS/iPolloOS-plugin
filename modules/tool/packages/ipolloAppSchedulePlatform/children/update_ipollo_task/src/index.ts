@@ -1,9 +1,11 @@
 import { getErrText } from '@tool/utils/err';
 import type { RunToolSecondParamsType } from '@tool/type/req';
 import { z } from 'zod';
+import { buildScheduleTaskAppCard } from '../../../lib/format';
 import { resolveRuntimeIdentity } from '../../../lib/runtime';
 import { updateScheduleTask } from '../../../lib/api';
 import { DispatchChannelSchema, TaskPatchSchema, stringifyJson } from '../../../lib/schema';
+import { withAgentSubtaskExecutors } from '../../../lib/assignees';
 
 export const InputType = z.object({
   task_id: z.string().min(1),
@@ -16,6 +18,7 @@ export const OutputType = z.object({
   ok: z.boolean(),
   action_json: z.string(),
   confirm_card_json: z.string(),
+  app_card: z.string(),
   system_error: z.string().optional()
 });
 
@@ -29,7 +32,17 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
       { dispatchChannel: input.dispatch_channel },
       runtime?.systemVar
     );
-    const patch = TaskPatchSchema.parse(JSON.parse(input.patch_json));
+    const parsedPatch = TaskPatchSchema.parse(JSON.parse(input.patch_json));
+    const promotedAssignees = parsedPatch.subtasks
+      ? withAgentSubtaskExecutors(parsedPatch.assignees, parsedPatch.subtasks)
+      : [];
+    const patch =
+      parsedPatch.subtasks && (parsedPatch.assignees !== undefined || promotedAssignees.length > 0)
+        ? {
+            ...parsedPatch,
+            assignees: promotedAssignees
+          }
+        : parsedPatch;
     const action = {
       action: 'update_task',
       dispatchChannel: input.dispatch_channel,
@@ -62,16 +75,38 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
       return {
         ok: true,
         action_json: stringifyJson({ ...action, apiResult }),
-        confirm_card_json: ''
+        confirm_card_json: '',
+        app_card: stringifyJson(
+          buildScheduleTaskAppCard({
+            kind: 'updated',
+            task: { ...patch, id: input.task_id },
+            taskId: input.task_id,
+            title: patch.status === 'completed' ? '日程已完成' : '日程已更新'
+          })
+        )
       };
     }
 
     return {
       ok: true,
       action_json: stringifyJson(action),
-      confirm_card_json: stringifyJson(confirmCard)
+      confirm_card_json: stringifyJson(confirmCard),
+      app_card: stringifyJson(
+        buildScheduleTaskAppCard({
+          kind: 'confirm',
+          task: { ...patch, id: input.task_id },
+          taskId: input.task_id,
+          title: '确认更新日程'
+        })
+      )
     };
   } catch (error: unknown) {
-    return { ok: false, action_json: '', confirm_card_json: '', system_error: getErrText(error) };
+    return {
+      ok: false,
+      action_json: '',
+      confirm_card_json: '',
+      app_card: '',
+      system_error: getErrText(error)
+    };
   }
 }

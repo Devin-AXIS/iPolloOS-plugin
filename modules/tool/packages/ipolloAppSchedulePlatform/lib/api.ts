@@ -8,8 +8,10 @@ type RequestConfig = {
 type QueryTasksInput = RequestConfig & {
   from?: string;
   to?: string;
+  keyword?: string;
   assigneeType?: string;
   assigneeId?: string;
+  assigneeName?: string;
   status?: string;
   includeCompleted?: boolean;
   limit?: number;
@@ -18,6 +20,20 @@ type QueryTasksInput = RequestConfig & {
 type ApiResult = {
   raw: unknown;
   items: unknown[];
+};
+
+export type AppPublishedAgent = {
+  appBotId: string;
+  botUserId?: string;
+  fastgptAppId: string;
+  shareId: string;
+  name: string;
+  intro: string;
+  channelName: string;
+  category?: string;
+  score: number;
+  matchReasons?: string[];
+  capabilities: string[];
 };
 
 const DEFAULT_SCHEDULE_API_TIMEOUT_MS = 15000;
@@ -59,6 +75,12 @@ export function resolveScheduleApiSecret(): string {
 
 function buildTasksUrl(baseUrl: string, applicationId: string): URL {
   const url = new URL(`${baseUrl.replace(/\/+$/, '')}/api/ai/agent/tasks`);
+  url.searchParams.set('applicationId', applicationId);
+  return url;
+}
+
+function buildPublishedAgentsUrl(baseUrl: string, applicationId: string): URL {
+  const url = new URL(`${baseUrl.replace(/\/+$/, '')}/api/ai/agent/published-agents`);
   url.searchParams.set('applicationId', applicationId);
   return url;
 }
@@ -147,23 +169,304 @@ function extractItems(data: unknown): unknown[] {
   return [];
 }
 
+function extractAgents(data: unknown): unknown[] {
+  if (Array.isArray(data)) return data;
+  if (!data || typeof data !== 'object') return [];
+  const record = data as Record<string, unknown>;
+  if (Array.isArray(record.agents)) return record.agents;
+  if (record.data && typeof record.data === 'object') {
+    const nested = record.data as Record<string, unknown>;
+    if (Array.isArray(nested.agents)) return nested.agents;
+  }
+  return extractItems(data);
+}
+
+function normalizePublishedAgent(value: unknown): AppPublishedAgent | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+  const record = value as Record<string, unknown>;
+  const appBotId = String(record.appBotId ?? record.app_bot_id ?? record.id ?? '').trim();
+  const name = String(record.name ?? record.channelName ?? '').trim();
+  if (!appBotId || !name) return;
+  return {
+    appBotId,
+    ...(record.botUserId || record.bot_user_id
+      ? { botUserId: String(record.botUserId ?? record.bot_user_id) }
+      : {}),
+    fastgptAppId: String(
+      record.fastgptAppId ?? record.fastgpt_app_id ?? record.upstreamAppId ?? ''
+    ),
+    shareId: String(record.shareId ?? record.share_id ?? ''),
+    name,
+    intro: String(record.intro ?? record.description ?? ''),
+    channelName: String(record.channelName ?? record.channel_name ?? name),
+    ...(record.category ? { category: String(record.category) } : {}),
+    score: Number(record.score) || 0,
+    matchReasons: Array.isArray(record.matchReasons)
+      ? record.matchReasons.map((item) => String(item)).filter(Boolean)
+      : undefined,
+    capabilities: Array.isArray(record.capabilities)
+      ? record.capabilities.map((item) => String(item)).filter(Boolean)
+      : []
+  };
+}
+
 function getItemStatus(item: unknown): string {
   if (!item || typeof item !== 'object') return '';
   return String((item as Record<string, unknown>).status ?? '').trim();
 }
 
+function getAssigneeRecords(item: unknown): Record<string, unknown>[] {
+  if (!item || typeof item !== 'object') return [];
+  const record = item as Record<string, unknown>;
+  const records: Record<string, unknown>[] = [];
+  const pushAssignee = (assignee: unknown) => {
+    if (!assignee || typeof assignee !== 'object') return false;
+    records.push(assignee as Record<string, unknown>);
+    return true;
+  };
+  for (const key of ['assignees', 'participants', 'agents']) {
+    const assignees = record[key];
+    if (Array.isArray(assignees)) assignees.forEach(pushAssignee);
+  }
+  const subtasks = record.subtasks ?? record.children ?? record.checklist;
+  if (Array.isArray(subtasks)) {
+    for (const subtask of subtasks) {
+      if (!subtask || typeof subtask !== 'object') continue;
+      const subtaskRecord = subtask as Record<string, unknown>;
+      const assigneeType = subtaskRecord.assigneeType ?? subtaskRecord.assignee_type;
+      const assigneeId = subtaskRecord.assigneeId ?? subtaskRecord.assignee_id;
+      const assigneeName = subtaskRecord.assigneeName ?? subtaskRecord.assignee_name;
+      if (assigneeType || assigneeId || assigneeName) {
+        records.push({
+          assigneeType,
+          assignee_type: assigneeType,
+          assigneeId,
+          assignee_id: assigneeId,
+          assigneeName,
+          assignee_name: assigneeName,
+          role: 'subtask'
+        });
+      }
+    }
+  }
+  return records;
+}
+
+function getAssigneeType(record: Record<string, unknown>): string {
+  return String(record.assigneeType ?? record.assignee_type ?? '').trim();
+}
+
+function getAssigneeId(record: Record<string, unknown>): string {
+  return String(record.assigneeId ?? record.assignee_id ?? record.id ?? '').trim();
+}
+
+function getAssigneeName(record: Record<string, unknown>): string {
+  return String(record.assigneeName ?? record.assignee_name ?? record.name ?? '').trim();
+}
+
 function matchesAssignee(item: unknown, assigneeType?: string, assigneeId?: string): boolean {
   if (!assigneeType && !assigneeId) return true;
-  if (!item || typeof item !== 'object') return false;
-  const assignees = (item as Record<string, unknown>).assignees;
-  if (!Array.isArray(assignees)) return false;
-  return assignees.some((assignee) => {
-    if (!assignee || typeof assignee !== 'object') return false;
-    const record = assignee as Record<string, unknown>;
-    const type = String(record.assigneeType ?? record.assignee_type ?? '').trim();
-    const id = String(record.assigneeId ?? record.assignee_id ?? record.id ?? '').trim();
+  return getAssigneeRecords(item).some((record) => {
+    const type = getAssigneeType(record);
+    const id = getAssigneeId(record);
     return (!assigneeType || type === assigneeType) && (!assigneeId || id === assigneeId);
   });
+}
+
+function matchesCurrentUserParticipation(item: unknown, userId: string): boolean {
+  const currentUserId = String(userId ?? '').trim();
+  if (!currentUserId) return false;
+  return getAssigneeRecords(item).some((record) => {
+    const type = getAssigneeType(record);
+    const id = getAssigneeId(record);
+    return type === 'user' && (id === currentUserId || id === 'self');
+  });
+}
+
+function scoreAssigneeKeywordMatch(item: unknown, keyword?: string): number {
+  const normalized = normalizeKeyword(keyword);
+  if (!normalized) return 0;
+  const query = normalizeSearchText(normalized);
+  const queryCore = stripIntentWords(query);
+  if (!queryCore) return 0;
+  let score = 0;
+  for (const record of getAssigneeRecords(item)) {
+    for (const part of [getAssigneeName(record), getAssigneeId(record), getAssigneeType(record)]) {
+      score = Math.max(score, scoreKeywordPart(query, queryCore, part));
+    }
+  }
+  return score;
+}
+
+function collectSearchText(value: unknown, parts: string[] = []): string[] {
+  if (value == null) return parts;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    const text = String(value).trim();
+    if (text) parts.push(text);
+    return parts;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectSearchText(item, parts);
+    return parts;
+  }
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    for (const key of [
+      'id',
+      'taskId',
+      'title',
+      'name',
+      'note',
+      'content',
+      'goal',
+      'description',
+      'assigneeName',
+      'assigneeId',
+      'assigneeType',
+      'subtasks',
+      'children',
+      'checklist',
+      'assignees',
+      'agents',
+      'participants'
+    ]) {
+      collectSearchText(record[key], parts);
+    }
+  }
+  return parts;
+}
+
+function normalizeKeyword(value: unknown): string {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeSearchText(value: unknown): string {
+  return normalizeKeyword(value).replace(/\s+/g, '');
+}
+
+function stripIntentWords(value: string): string {
+  let text = value;
+  for (const word of [
+    '单独',
+    '给我',
+    '帮我',
+    '帮忙',
+    '查一下',
+    '查查',
+    '查询',
+    '查看',
+    '看看',
+    '找一下',
+    '找到',
+    '拿一个',
+    '一个',
+    '这条',
+    '这个',
+    '那个',
+    '任务',
+    '日程',
+    '卡片',
+    '有没有',
+    '有吗',
+    '吗',
+    '的'
+  ]) {
+    text = text.replaceAll(word, '');
+  }
+  return text;
+}
+
+function getLatinTokens(value: string): string[] {
+  return value.match(/[a-z0-9]+/g) ?? [];
+}
+
+function getCjkBigrams(value: string): string[] {
+  const chars = Array.from(value.replace(/[^\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g, ''));
+  if (chars.length < 2) return chars;
+  const bigrams: string[] = [];
+  for (let i = 0; i < chars.length - 1; i += 1) {
+    bigrams.push(`${chars[i]}${chars[i + 1]}`);
+  }
+  return [...new Set(bigrams)];
+}
+
+function scoreKeywordPart(query: string, queryCore: string, part: string): number {
+  const target = normalizeSearchText(part);
+  if (!target) return 0;
+  if (target.includes(queryCore) || queryCore.includes(target)) {
+    return 100 + Math.min(target.length, queryCore.length);
+  }
+
+  let score = 0;
+  for (const token of getLatinTokens(queryCore)) {
+    if (token.length >= 2 && target.includes(token)) score += token.length * 5;
+  }
+  for (const bigram of getCjkBigrams(queryCore)) {
+    if (target.includes(bigram)) score += 3;
+  }
+  if (query.includes(target) && target.length >= 4) score += 20;
+  return score;
+}
+
+function scoreKeywordMatch(item: unknown, keyword?: string): number {
+  const normalized = normalizeKeyword(keyword);
+  if (!normalized) return 1;
+  const haystack = collectSearchText(item).join('\n').toLowerCase();
+  if (!haystack) return 0;
+  const tokens = normalized.split(/[\s,，、]+/).filter(Boolean);
+  if (tokens.length === 0) return 1;
+  if (tokens.every((token) => haystack.includes(token))) return 1000;
+
+  const query = normalizeSearchText(normalized);
+  const queryCore = stripIntentWords(query);
+  if (!queryCore) return 1;
+
+  let score = 0;
+  for (const part of collectSearchText(item)) {
+    score = Math.max(score, scoreKeywordPart(query, queryCore, part));
+  }
+  return score;
+}
+
+export function filterScheduleTasksForQuery(items: unknown[], input: QueryTasksInput): unknown[] {
+  const status = String(input.status ?? '').trim();
+  const limit = Math.max(1, Math.min(100, Number(input.limit) || 20));
+  const keyword = normalizeKeyword(input.keyword);
+  const assigneeName = normalizeKeyword(input.assigneeName);
+  const hasExplicitAssigneeFilter = Boolean(input.assigneeType || input.assigneeId || assigneeName);
+  const statusItems = items.filter((item) => (!status ? true : getItemStatus(item) === status));
+  const filteredItems = statusItems.filter((item) => {
+    if (!matchesAssignee(item, input.assigneeType, input.assigneeId)) return false;
+    if (assigneeName) return scoreAssigneeKeywordMatch(item, assigneeName) > 0;
+    return true;
+  });
+
+  const assigneeKeywordItems =
+    !hasExplicitAssigneeFilter && keyword
+      ? statusItems
+          .map((item, index) => ({ item, index, score: scoreAssigneeKeywordMatch(item, keyword) }))
+          .filter(({ score }) => score >= 20)
+          .sort((a, b) => b.score - a.score || a.index - b.index)
+          .map(({ item }) => item)
+      : [];
+
+  const scopedItems =
+    hasExplicitAssigneeFilter || assigneeKeywordItems.length > 0
+      ? assigneeKeywordItems.length > 0
+        ? assigneeKeywordItems
+        : filteredItems
+      : filteredItems.filter((item) => matchesCurrentUserParticipation(item, input.userId));
+
+  if (!keyword) return scopedItems.slice(0, limit);
+
+  return scopedItems
+    .map((item, index) => ({ item, index, score: scoreKeywordMatch(item, keyword) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map(({ item }) => item)
+    .slice(0, limit);
 }
 
 async function requestJson(
@@ -246,21 +549,56 @@ async function withScheduleApiBaseUrl<T>(
 
 export async function queryScheduleTasks(input: QueryTasksInput): Promise<ApiResult> {
   return withScheduleApiBaseUrl('缺少 iPollo App 后端地址，无法读取日程。', async (baseUrl) => {
-    const url = buildTasksUrl(baseUrl, input.applicationId);
-    if (input.from) url.searchParams.set('dueFrom', input.from);
-    if (input.to) url.searchParams.set('dueTo', input.to);
-    if (input.includeCompleted) url.searchParams.set('includeCompleted', 'true');
+    const buildQueryUrl = (includeTimeRange: boolean) => {
+      const url = buildTasksUrl(baseUrl, input.applicationId);
+      if (includeTimeRange) {
+        if (input.from) url.searchParams.set('dueFrom', input.from);
+        if (input.to) url.searchParams.set('dueTo', input.to);
+      }
+      if (input.includeCompleted) url.searchParams.set('includeCompleted', 'true');
+      return url;
+    };
 
-    const raw = await requestJson(input, url, { method: 'GET' });
-    const status = String(input.status ?? '').trim();
-    const limit = Math.max(1, Math.min(100, Number(input.limit) || 20));
-    const items = extractItems(raw)
-      .filter((item) => (!status ? true : getItemStatus(item) === status))
-      .filter((item) => matchesAssignee(item, input.assigneeType, input.assigneeId))
-      .slice(0, limit);
+    const raw = await requestJson(input, buildQueryUrl(true), { method: 'GET' });
+    let items = filterScheduleTasksForQuery(extractItems(raw), input);
+
+    if (items.length === 0 && normalizeKeyword(input.keyword) && (input.from || input.to)) {
+      const fallbackUrl = buildQueryUrl(false);
+      const fallbackRaw = await requestJson(input, fallbackUrl, { method: 'GET' });
+      items = filterScheduleTasksForQuery(extractItems(fallbackRaw), input);
+      if (items.length > 0) return { raw: fallbackRaw, items };
+    }
 
     return { raw, items };
   });
+}
+
+export async function queryAppPublishedAgents(
+  input: RequestConfig & {
+    taskText?: string;
+    limit?: number;
+    excludeFastGPTAppId?: string;
+  }
+): Promise<{ raw: unknown; agents: AppPublishedAgent[] }> {
+  return withScheduleApiBaseUrl(
+    '缺少 iPollo App 后端地址，无法读取当前 App 已上线智能体。',
+    async (baseUrl) => {
+      const url = buildPublishedAgentsUrl(baseUrl, input.applicationId);
+      if (input.taskText) url.searchParams.set('taskText', input.taskText);
+      if (input.limit) url.searchParams.set('limit', String(input.limit));
+      if (input.excludeFastGPTAppId) {
+        url.searchParams.set('excludeFastGPTAppId', input.excludeFastGPTAppId);
+      }
+
+      const raw = await requestJson(input, url, { method: 'GET' });
+      return {
+        raw,
+        agents: extractAgents(raw)
+          .map(normalizePublishedAgent)
+          .filter(Boolean) as AppPublishedAgent[]
+      };
+    }
+  );
 }
 
 export async function createScheduleTask(input: RequestConfig & { task: TaskPayload }) {

@@ -1,10 +1,10 @@
 {
-  "name": "ipolloos-tools-app-schedule",
-  "version": "1.4.7",
+  "name": "ipolloos-tools-market-intelligence-native",
+  "version": "1.0.0",
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "build": "bun ../../../../scripts/build.ts",
+    "build": "bun ../../build/index.ts marketIntelligenceNativePlatform",
     "test": "bun test ./test"
   },
   "devDependencies": {

@@ -13,6 +13,7 @@ export const PublishedAgentSchema = z.object({
   channelName: z.string(),
   category: z.string().optional(),
   score: z.number(),
+  matchReasons: z.array(z.string()).optional(),
   capabilities: z.array(z.string()).default([])
 });
 
@@ -28,6 +29,7 @@ export async function getPublishedAgents(
     taskText?: string;
     limit?: number;
     excludeFastGPTAppId?: string;
+    iPolloApplicationId?: string;
   },
   systemVar: SystemVarType
 ) {
@@ -42,7 +44,8 @@ export async function getPublishedAgents(
     body: JSON.stringify({
       taskText: params.taskText ?? '',
       limit: params.limit ?? 10,
-      excludeFastGPTAppId: params.excludeFastGPTAppId ?? ''
+      excludeFastGPTAppId: params.excludeFastGPTAppId ?? '',
+      iPolloApplicationId: params.iPolloApplicationId ?? ''
     })
   });
 

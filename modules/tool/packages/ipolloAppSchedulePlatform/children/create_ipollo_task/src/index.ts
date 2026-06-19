@@ -1,10 +1,15 @@
 import { getErrText } from '@tool/utils/err';
 import type { RunToolSecondParamsType } from '@tool/type/req';
 import { z } from 'zod';
-import { buildConfirmCard, buildExecutionPackages } from '../../../lib/format';
+import {
+  buildConfirmCard,
+  buildExecutionPackages,
+  buildScheduleTaskAppCard
+} from '../../../lib/format';
 import { resolveRuntimeIdentity } from '../../../lib/runtime';
 import { createScheduleTask } from '../../../lib/api';
 import { DispatchChannelSchema, TaskPayloadSchema, stringifyJson } from '../../../lib/schema';
+import { withAgentSubtaskExecutors, withRuntimeUserOwner } from '../../../lib/assignees';
 
 function parseJson(value: unknown, fallback: unknown) {
   if (value === undefined || value === null || value === '') return fallback;
@@ -34,6 +39,7 @@ export const OutputType = z.object({
   task_json: z.string(),
   execution_packages_json: z.string(),
   confirm_card_json: z.string(),
+  app_card: z.string(),
   action_json: z.string(),
   system_error: z.string().optional()
 });
@@ -48,7 +54,8 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
       { dispatchChannel: input.dispatch_channel },
       runtime?.systemVar
     );
-    const assignees = parseJson(input.assignees_json, []);
+    const subtasks = parseJson(input.subtasks_json, []);
+    const assignees = withAgentSubtaskExecutors(parseJson(input.assignees_json, []), subtasks);
     const task = TaskPayloadSchema.parse({
       applicationId: identity.applicationId,
       userId: identity.userId,
@@ -56,11 +63,8 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
       content: input.content,
       goal: input.goal,
       schedule: parseJson(input.schedule_json, undefined),
-      assignees:
-        Array.isArray(assignees) && assignees.length > 0
-          ? assignees
-          : [{ assigneeType: 'user', assigneeId: identity.userId, role: 'owner' }],
-      subtasks: parseJson(input.subtasks_json, []),
+      assignees: withRuntimeUserOwner(assignees, identity.userId),
+      subtasks,
       attachments: parseJson(input.attachments_json, []),
       source: 'agent',
       requireUserConfirm: input.require_user_confirm
@@ -95,6 +99,14 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
         task_json: stringifyJson({ ...task, id: created.id || undefined }),
         execution_packages_json: stringifyJson(executionPackages),
         confirm_card_json: '',
+        app_card: stringifyJson(
+          buildScheduleTaskAppCard({
+            kind: 'created',
+            task: { ...task, id: created.id || undefined },
+            taskId: created.id,
+            title: '日程已创建'
+          })
+        ),
         action_json: stringifyJson({ ...action, taskId: created.id, apiResult: created.raw })
       };
     }
@@ -105,6 +117,13 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
       task_json: stringifyJson(task),
       execution_packages_json: stringifyJson(executionPackages),
       confirm_card_json: stringifyJson(confirmCard),
+      app_card: stringifyJson(
+        buildScheduleTaskAppCard({
+          kind: 'confirm',
+          task,
+          title: '确认创建日程'
+        })
+      ),
       action_json: stringifyJson(action)
     };
   } catch (error: unknown) {
@@ -114,6 +133,7 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
       task_json: '',
       execution_packages_json: '',
       confirm_card_json: '',
+      app_card: '',
       action_json: '',
       system_error: getErrText(error)
     };

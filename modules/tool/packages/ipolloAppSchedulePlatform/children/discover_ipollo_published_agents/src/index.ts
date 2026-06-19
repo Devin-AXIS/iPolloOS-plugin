@@ -3,6 +3,7 @@ import type { RunToolSecondParamsType } from '@tool/type/req';
 import { z } from 'zod';
 import { getPublishedAgents, type PublishedAgent } from '@/invoke/publishedAgents';
 import { stringifyJson } from '../../../lib/schema';
+import { queryAppPublishedAgents } from '../../../lib/api';
 
 export const InputType = z.object({
   task_text: z.string().min(1),
@@ -24,19 +25,24 @@ export const OutputType = z.object({
 type In = z.input<typeof InputType>;
 type Out = z.output<typeof OutputType>;
 
-function formatAgentsMarkdown(agents: PublishedAgent[]): string {
+type AgentCandidate = PublishedAgent;
+
+function formatAgentsMarkdown(agents: AgentCandidate[]): string {
   if (agents.length === 0) return '暂无可分配的已发布智能体。';
   return agents
     .map((agent, index) => {
       const intro = agent.intro ? `：${agent.intro}` : '';
       const score = agent.score > 0 ? ` · 匹配 ${agent.score}` : '';
-      return `${index + 1}. ${agent.name}${intro}${score}`;
+      const reasons = agent.matchReasons?.length
+        ? ` · ${agent.matchReasons.slice(0, 2).join('；')}`
+        : '';
+      return `${index + 1}. ${agent.name}${intro}${score}${reasons}`;
     })
     .join('\n');
 }
 
-function buildAssigneesJson(agent?: PublishedAgent): string {
-  if (!agent) return '[]';
+function buildAssigneesJson(agent?: AgentCandidate): string {
+  if (!agent || agent.score <= 0) return '[]';
   return stringifyJson([
     {
       assigneeType: 'agent',
@@ -54,6 +60,19 @@ function getCurrentFastGPTAppId(systemVar?: RunToolSecondParamsType['systemVar']
   return String(app?.upstreamAppId || app?.id || '').trim();
 }
 
+function getCurrentIPolloApplicationId(systemVar?: RunToolSecondParamsType['systemVar']): string {
+  const app = systemVar?.app as RunToolSecondParamsType['systemVar']['app'] & {
+    applicationId?: string;
+    iPolloApplicationId?: string;
+  };
+  const user = systemVar?.user as RunToolSecondParamsType['systemVar']['user'] & {
+    iPolloApplicationId?: string;
+  };
+  return String(
+    app?.iPolloApplicationId || app?.applicationId || user?.iPolloApplicationId || ''
+  ).trim();
+}
+
 export async function tool(props: In, runtime?: RunToolSecondParamsType): Promise<Out> {
   try {
     const input = InputType.parse(props);
@@ -63,24 +82,64 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
     const currentFastGPTAppId = input.exclude_current_agent
       ? getCurrentFastGPTAppId(runtime?.systemVar)
       : '';
-    const result = await getPublishedAgents(
-      {
-        taskText: input.task_text,
-        limit: input.limit,
-        excludeFastGPTAppId: currentFastGPTAppId
-      },
-      runtime.systemVar
-    );
-    const recommended = result.agents[0];
+    const iPolloApplicationId = getCurrentIPolloApplicationId(runtime.systemVar);
+    let agents: AgentCandidate[] = [];
+    let count = 0;
+    let invokeError = '';
+    let appAgentsError = '';
+
+    try {
+      const result = await getPublishedAgents(
+        {
+          taskText: input.task_text,
+          limit: input.limit,
+          excludeFastGPTAppId: currentFastGPTAppId,
+          iPolloApplicationId
+        },
+        runtime.systemVar
+      );
+      agents = result.agents;
+      count = result.count;
+    } catch (error: unknown) {
+      invokeError = getErrText(error);
+    }
+
+    let recommended = agents.find((agent) => agent.score > 0);
+    if (!recommended && iPolloApplicationId) {
+      try {
+        const appAgents = await queryAppPublishedAgents({
+          applicationId: iPolloApplicationId,
+          userId: String(
+            (runtime.systemVar.user as { appUserId?: string; id?: string } | undefined)
+              ?.appUserId ||
+              (runtime.systemVar.user as { id?: string } | undefined)?.id ||
+              ''
+          ),
+          taskText: input.task_text,
+          limit: input.limit,
+          excludeFastGPTAppId: currentFastGPTAppId
+        });
+        agents = appAgents.agents as AgentCandidate[];
+        count = appAgents.agents.length;
+        recommended = agents.find((agent) => agent.score > 0);
+      } catch (error: unknown) {
+        appAgentsError = getErrText(error);
+      }
+    }
+
+    if (invokeError && agents.length === 0) {
+      throw new Error(appAgentsError ? `${invokeError}; ${appAgentsError}` : invokeError);
+    }
 
     return {
       ok: true,
-      agents_json: stringifyJson(result.agents),
-      agents_markdown: formatAgentsMarkdown(result.agents),
+      agents_json: stringifyJson(agents),
+      agents_markdown: formatAgentsMarkdown(agents),
       recommended_agent_id: recommended?.appBotId ?? '',
       recommended_agent_name: recommended?.name ?? '',
       recommended_assignees_json: buildAssigneesJson(recommended),
-      count: result.count
+      count,
+      ...(appAgentsError && agents.length === 0 ? { system_error: appAgentsError } : {})
     };
   } catch (error: unknown) {
     return {
