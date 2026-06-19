@@ -19,8 +19,8 @@ export const OutputType = z.object({
   system_error: z.string().optional()
 });
 
-type In = z.infer<typeof InputType>;
-type Out = z.infer<typeof OutputType>;
+type In = z.input<typeof InputType>;
+type Out = z.output<typeof OutputType>;
 
 export async function tool(props: In, runtime?: RunToolSecondParamsType): Promise<Out> {
   try {
@@ -56,7 +56,6 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
       const apiResult = await updateScheduleTask({
         applicationId: identity.applicationId,
         userId: identity.userId,
-        authToken: identity.authToken,
         taskId: input.task_id,
         patch
       });

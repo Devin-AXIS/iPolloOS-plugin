@@ -38,8 +38,8 @@ export const OutputType = z.object({
   system_error: z.string().optional()
 });
 
-type In = z.infer<typeof InputType>;
-type Out = z.infer<typeof OutputType>;
+type In = z.input<typeof InputType>;
+type Out = z.output<typeof OutputType>;
 
 export async function tool(props: In, runtime?: RunToolSecondParamsType): Promise<Out> {
   try {
@@ -87,7 +87,6 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
       const created = await createScheduleTask({
         applicationId: task.applicationId,
         userId: task.userId,
-        authToken: identity.authToken,
         task
       });
       return {

@@ -7,15 +7,15 @@ import {
 
 export default defineTool({
   name: {
-    'zh-CN': '金融机会 · TOP 看板',
-    en: 'Market Opportunity · top dashboard'
+    'zh-CN': '主题产业 · 深度看板',
+    en: 'Theme Industry · dashboard'
   },
   description: {
-    'zh-CN': '把今日机会、风险和观察信号渲染成稳定 HTML 看板。',
-    en: 'Render ranked opportunity, risk, and watch signals into a stable HTML dashboard.'
+    'zh-CN': '把主题热度、产业链关系、受益/受损公司和证据映射渲染成稳定 HTML 看板。',
+    en: 'Render theme momentum, industry mapping, exposed companies, and evidence into a stable HTML dashboard.'
   },
   toolDescription:
-    '用于 Opportunity Discovery。上游 Agent 应先调用行情、SEC、新闻、主题、资金等插件并形成结构化 report_json；本工具只做稳定金融看板渲染和 page_html/page_cover 输出，不抓数据、不调用模型。结构字段不完整时也可传 content/markdown 等长研究正文兜底生成研究页。',
+    '用于主题/产业深度分析。上游 Agent 应先调用新闻主题、主题公司映射、行情、SEC 和 X 读侧插件，形成结构化 report_json；本工具只做稳定金融看板渲染和 page_html/page_cover 输出，不抓数据、不调用模型。不要把宽泛主题写入长期监控配置；主题产业应作为一次性深度分析或机会扫描处理。',
   runtime: {
     kind: 'execute',
     execute: {
@@ -24,17 +24,17 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '0.1.1',
-      description: '稳定的今日机会/风险 TOP 看板',
+      value: '0.1.0',
+      description: '稳定的主题产业深度分析看板',
       inputs: [
         {
           key: 'report_json',
-          label: '结构化金融报告 JSON',
+          label: '结构化主题产业报告 JSON',
           required: true,
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.textarea, FlowNodeInputTypeEnum.reference],
           toolDescription:
-            '必填。上游 Agent 编排后的结构化 JSON，建议包含 title、summary、signals/topSignals/events、sections、sources、dataGaps。若暂时只有长研究内容，可传 {"title":"","content":"","dataGaps":[]}；不要传用户原始需求。已有完整 HTML 时改用通用 HTML 页面工具。'
+            '必填。建议包含 title、summary、signals/topSignals/events、sections、sources、dataGaps。signals 应区分 beneficiary、supplier、customer、competitor、risk_exposed 或 attention_only。若暂时只有长研究内容，可传 {"title":"","content":"","dataGaps":[]}；不要传用户原始需求。已有完整 HTML 时改用通用 HTML 页面工具。'
         },
         {
           key: 'prepared_for',

@@ -30,11 +30,7 @@ export function resolveDynamicTableRuntimeContext(
 ) {
   const runtimeApp = systemVar?.app as RunToolSecondParamsType['systemVar']['app'] & {
     applicationId?: string;
-    ainoApplicationId?: string;
     iPolloApplicationId?: string;
-    ipolloApplicationId?: string;
-    appApplicationId?: string;
-    lumiApplicationId?: string;
     agentId?: string;
     appBotId?: string;
     upstreamAppId?: string;
@@ -46,27 +42,14 @@ export function resolveDynamicTableRuntimeContext(
     ipolloAppUserId?: string;
     appAuthToken?: string;
     __ipolloAppAuthToken?: string;
-    ainoApplicationId?: string;
     iPolloApplicationId?: string;
-    ipolloApplicationId?: string;
-    appApplicationId?: string;
-    lumiApplicationId?: string;
   };
 
   const applicationId = firstNonEmpty(
     runtimeApp?.applicationId,
     runtimeApp?.iPolloApplicationId,
-    runtimeApp?.ipolloApplicationId,
-    runtimeApp?.ainoApplicationId,
-    runtimeApp?.appApplicationId,
-    runtimeApp?.lumiApplicationId,
     runtimeUser?.iPolloApplicationId,
-    runtimeUser?.ipolloApplicationId,
-    runtimeUser?.ainoApplicationId,
-    runtimeUser?.appApplicationId,
-    runtimeUser?.lumiApplicationId,
     envString('IPOLLO_APP_APPLICATION_ID'),
-    envString('AINO_APPLICATION_ID'),
     envUrlSearchParam('IPOLLO_APP_REGISTER_URL', 'applicationId'),
     systemVar?.app?.id
   );

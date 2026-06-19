@@ -34,7 +34,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.textarea, FlowNodeInputTypeEnum.reference],
           toolDescription:
-            '必填。建议包含 title、summary、signals/events、sections、sources、dataGaps。不要传自然语言需求或 HTML。'
+            '必填。建议包含 title、summary、signals/events、sections、sources、dataGaps。若暂时只有长研究内容，可传 {"title":"","content":"","dataGaps":[]}；不要传用户原始需求。已有完整 HTML 时改用通用 HTML 页面工具。'
         },
         {
           key: 'prepared_for',

@@ -39,8 +39,7 @@ function readDynamicTableAuthToken(): string {
   return firstNonEmpty(
     readEnv('IPOLLO_APP_DYNAMIC_TABLE_API_TOKEN'),
     readEnv('IPOLLO_APP_DATA_CONTEXT_SECRET'),
-    readEnv('APP_DATA_CONTEXT_SECRET'),
-    readEnv('LUMI_APP_DATA_CONTEXT_SECRET')
+    readEnv('APP_DATA_CONTEXT_SECRET')
   );
 }
 
@@ -114,7 +113,6 @@ export function resolveDynamicTableApiBaseUrls(): string[] {
   const derivedUrls = uniqueUrls([
     deriveBaseUrlFromApiUrl(readEnv('IPOLLO_APP_DATA_CONTEXT_URL')),
     deriveBaseUrlFromApiUrl(readEnv('APP_DATA_CONTEXT_URL')),
-    deriveBaseUrlFromApiUrl(readEnv('LUMI_APP_DATA_CONTEXT_URL')),
     deriveBaseUrlFromApiUrl(readEnv('IPOLLO_APP_REGISTER_URL'))
   ]);
   const direct = firstNonEmpty(

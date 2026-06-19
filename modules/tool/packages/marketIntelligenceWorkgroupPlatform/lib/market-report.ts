@@ -52,6 +52,7 @@ export type MarketDashboardReport = {
   preparedFor: string;
   marketContext: string;
   summary: string;
+  narrativeBlocks: string[];
   signals: MarketDashboardSignal[];
   sections: MarketDashboardSection[];
   sources: MarketEvidence[];
@@ -131,6 +132,12 @@ const ReportSchema = z
     marketContext: z.string().optional(),
     market_context: z.string().optional(),
     summary: z.string().optional(),
+    content: z.union([z.string(), z.array(z.string())]).optional(),
+    markdown: z.union([z.string(), z.array(z.string())]).optional(),
+    body: z.union([z.string(), z.array(z.string())]).optional(),
+    narrative: z.union([z.string(), z.array(z.string())]).optional(),
+    keyFindings: z.array(z.string()).optional(),
+    key_findings: z.array(z.string()).optional(),
     signals: z.array(SignalSchema).optional(),
     topSignals: z.array(SignalSchema).optional(),
     top_signals: z.array(SignalSchema).optional(),
@@ -146,7 +153,11 @@ export function parseReportJson(value: unknown): Record<string, unknown> {
   if (typeof value === 'string') {
     const text = value.trim();
     if (!text) return {};
-    return JSON.parse(text);
+    try {
+      return JSON.parse(text);
+    } catch {
+      return buildLooseTextReport(text);
+    }
   }
   if (value && typeof value === 'object' && !Array.isArray(value))
     return value as Record<string, unknown>;
@@ -161,11 +172,15 @@ export function normalizeMarketDashboardReport(params: {
   preparedFor?: string;
 }): MarketDashboardReport {
   const parsed = ReportSchema.parse(parseReportJson(params.reportJson));
-  const rawSignals =
-    parsed.signals ?? parsed.topSignals ?? parsed.top_signals ?? parsed.events ?? [];
-  const signals = rawSignals.map(normalizeSignal).filter((item) => item.title || item.summary);
+  const rawSignalGroups = collectSignalGroups(parsed);
+  const signals = rawSignalGroups
+    .flatMap(({ items, defaultLabel }) => items.map((item) => normalizeSignal(item, defaultLabel)))
+    .filter((item) => item.title || item.summary);
   const sources = (parsed.sources ?? []).map(normalizeEvidence).filter((item) => item.sourceName);
-  const sections = (parsed.sections ?? []).map(normalizeSection).filter((item) => item.title);
+  const sections = collectSections(parsed)
+    .map(normalizeSection)
+    .filter((item) => item.title);
+  const narrativeBlocks = collectNarrativeBlocks(parsed);
   const asOf =
     cleanText(parsed.asOf ?? parsed.as_of ?? params.reportDate) ||
     new Date().toISOString().slice(0, 10);
@@ -176,7 +191,9 @@ export function normalizeMarketDashboardReport(params: {
     cleanText(parsed.summary) ||
     (signals.length
       ? `${signals.length} 个市场信号已完成排序，页面按证据质量、影响范围和用户相关性组织。`
-      : '当前输入没有可展示的市场信号。');
+      : narrativeBlocks.length
+        ? `已整理 ${narrativeBlocks.length} 段研究内容；建议继续补充 signals/evidence 以形成完整排序。`
+        : '当前输入没有可展示的市场信号。');
 
   return {
     reportType: params.reportType,
@@ -188,6 +205,7 @@ export function normalizeMarketDashboardReport(params: {
       'AI Market Intelligence',
     marketContext: cleanText(parsed.marketContext ?? parsed.market_context),
     summary,
+    narrativeBlocks,
     signals: signals.sort((a, b) => b.score - a.score).slice(0, 20),
     sections,
     sources,
@@ -196,8 +214,169 @@ export function normalizeMarketDashboardReport(params: {
   };
 }
 
-function normalizeSignal(raw: z.infer<typeof SignalSchema>): MarketDashboardSignal {
-  const label = normalizeLabel(raw.label);
+function buildLooseTextReport(text: string): Record<string, unknown> {
+  const title = inferLooseTitle(text);
+
+  return {
+    title,
+    summary: summarizeLooseText(text),
+    content: text,
+    dataGaps: [
+      '输入为非结构化研究文本，页面已保留正文；建议上游补充 signals、sources 和 confidence。'
+    ]
+  };
+}
+
+function inferLooseTitle(text: string): string {
+  const firstLine = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+  const cleaned = firstLine
+    ?.replace(/^#+\s*/, '')
+    .replace(/[:：]\s*$/, '')
+    .trim();
+  return cleaned ? cleaned.slice(0, 96) : '市场研究简报';
+}
+
+function summarizeLooseText(text: string): string {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) return '已收到非结构化研究内容。';
+  return normalized.length > 180 ? `${normalized.slice(0, 180)}...` : normalized;
+}
+
+function collectNarrativeBlocks(parsed: z.infer<typeof ReportSchema>): string[] {
+  const values = [
+    parsed.content,
+    parsed.markdown,
+    parsed.body,
+    parsed.narrative,
+    parsed.keyFindings,
+    parsed.key_findings
+  ];
+
+  return values.flatMap(normalizeNarrativeValue).flatMap(splitNarrativeText).slice(0, 8);
+}
+
+function normalizeNarrativeValue(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(normalizeNarrativeValue);
+  if (value && typeof value === 'object') return [JSON.stringify(value, null, 2)];
+  const text = cleanText(value);
+  return text ? [text] : [];
+}
+
+function splitNarrativeText(text: string): string[] {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const chunks = paragraphs.length > 1 ? paragraphs : text.match(/[\s\S]{1,1400}/g) || [];
+
+  return chunks.map((item) => item.trim()).filter(Boolean);
+}
+
+function collectSignalGroups(parsed: z.infer<typeof ReportSchema>): Array<{
+  items: Array<z.infer<typeof SignalSchema>>;
+  defaultLabel?: MarketDashboardSignal['label'];
+}> {
+  const source = parsed as Record<string, unknown>;
+  const groups: Array<{
+    value: unknown;
+    defaultLabel?: MarketDashboardSignal['label'];
+  }> = [
+    { value: parsed.signals },
+    { value: parsed.topSignals },
+    { value: parsed.top_signals },
+    { value: parsed.events },
+    { value: source.rankedSignals },
+    { value: source.ranked_signals },
+    { value: source.opportunities, defaultLabel: 'opportunity' },
+    { value: source.opportunitySignals, defaultLabel: 'opportunity' },
+    { value: source.opportunity_signals, defaultLabel: 'opportunity' },
+    { value: source.risks, defaultLabel: 'risk' },
+    { value: source.riskSignals, defaultLabel: 'risk' },
+    { value: source.risk_signals, defaultLabel: 'risk' },
+    { value: source.watchItems, defaultLabel: 'watch' },
+    { value: source.watch_items, defaultLabel: 'watch' },
+    { value: source.alerts, defaultLabel: 'watch' },
+    { value: source.monitorAlerts, defaultLabel: 'watch' },
+    { value: source.monitor_alerts, defaultLabel: 'watch' },
+    { value: source.watchlistAlerts, defaultLabel: 'watch' },
+    { value: source.watchlist_alerts, defaultLabel: 'watch' },
+    { value: source.flowSignals, defaultLabel: 'watch' },
+    { value: source.flow_signals, defaultLabel: 'watch' },
+    { value: source.exposures, defaultLabel: 'watch' },
+    { value: source.findings, defaultLabel: 'neutral' }
+  ];
+
+  const seen = new Set<string>();
+
+  return groups.flatMap(({ value, defaultLabel }) => {
+    const items = normalizeSignalArray(value).filter((item) => {
+      const key = JSON.stringify([
+        item.title,
+        item.summary,
+        item.ticker ?? item.symbol,
+        item.eventType ?? item.event_type
+      ]);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return items.length ? [{ items, defaultLabel }] : [];
+  });
+}
+
+function normalizeSignalArray(value: unknown): Array<z.infer<typeof SignalSchema>> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const parsed = SignalSchema.safeParse(item);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
+function collectSections(
+  parsed: z.infer<typeof ReportSchema>
+): Array<z.infer<typeof SectionSchema>> {
+  const source = parsed as Record<string, unknown>;
+  const explicitSections = [
+    parsed.sections,
+    source.blocks,
+    source.marketBlocks,
+    source.market_blocks,
+    source.metricSections,
+    source.metric_sections,
+    source.dashboards,
+    source.panels
+  ].flatMap(normalizeSectionArray);
+  const metricSection = normalizeMetricsSection(source.metrics);
+
+  return metricSection ? [metricSection, ...explicitSections] : explicitSections;
+}
+
+function normalizeSectionArray(value: unknown): Array<z.infer<typeof SectionSchema>> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const parsed = SectionSchema.safeParse(item);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
+function normalizeMetricsSection(value: unknown): z.infer<typeof SectionSchema> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const items = Object.entries(value as Record<string, unknown>)
+    .filter(([, itemValue]) => itemValue != null && String(itemValue).trim())
+    .slice(0, 12)
+    .map(([label, itemValue]) => ({ label, value: String(itemValue) }));
+  if (!items.length) return undefined;
+  return { title: '关键指标', items };
+}
+
+function normalizeSignal(
+  raw: z.infer<typeof SignalSchema>,
+  defaultLabel?: MarketDashboardSignal['label']
+): MarketDashboardSignal {
+  const label = normalizeLabel(raw.label ?? defaultLabel);
   const score = clamp(raw.score ?? raw.finalScore ?? 50);
   const evidence = (raw.evidence ?? []).map(normalizeEvidence).filter((item) => item.sourceName);
   return {

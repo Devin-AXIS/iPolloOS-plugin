@@ -3,7 +3,6 @@ import type { TaskPayload } from './schema';
 type RequestConfig = {
   applicationId: string;
   userId: string;
-  authToken?: string;
 };
 
 type QueryTasksInput = RequestConfig & {
@@ -21,23 +20,7 @@ type ApiResult = {
   items: unknown[];
 };
 
-const DEFAULT_ONLINE_SCHEDULE_API_BASE_URL = 'https://core.metaio.cc';
 const DEFAULT_SCHEDULE_API_TIMEOUT_MS = 15000;
-const DEFAULT_LOCAL_SCHEDULE_API_BASE_URLS = [
-  'http://host.docker.internal:3007',
-  'http://127.0.0.1:3007',
-  'http://localhost:3007'
-];
-const LEGACY_BASE_URL_ENV = ['FAST', 'GPT_BASE_URL'].join('');
-const LEGACY_APP_HOST = ['fast', 'gpt-app'].join('');
-
-const firstNonEmpty = (...values: unknown[]): string => {
-  for (const value of values) {
-    const text = String(value ?? '').trim();
-    if (text) return text;
-  }
-  return '';
-};
 
 function readEnv(key: string): string {
   return String(process.env[key] ?? '').trim();
@@ -48,55 +31,6 @@ function normalizeBaseUrl(raw: string): string {
   url.pathname = url.pathname.replace(/\/+$/, '');
   if (url.pathname === '/api') url.pathname = '';
   return url.toString().replace(/\/+$/, '');
-}
-
-function deriveBaseFromKnownUrl(raw: string): string {
-  const url = new URL(raw.trim());
-  url.pathname = url.pathname
-    .replace(/\/api\/app\/app-data\/context\/?$/, '')
-    .replace(/\/app-data\/context\/?$/, '')
-    .replace(/\/api\/app-publish-callback\/?$/, '')
-    .replace(/\/app-publish-callback\/?$/, '');
-  url.search = '';
-  url.hash = '';
-  return url.toString().replace(/\/+$/, '');
-}
-
-const isLocalUrl = (raw: string): boolean => {
-  const text = raw.trim().toLowerCase();
-  return (
-    text.includes('localhost') ||
-    text.includes('127.0.0.1') ||
-    text.includes('host.docker.internal') ||
-    text.includes('ipolloos-app') ||
-    text.includes(LEGACY_APP_HOST) ||
-    text.includes('ipolloos-plugin')
-  );
-};
-
-function isLocalIpolloRuntime(): boolean {
-  const explicit = firstNonEmpty(
-    readEnv('IPOLLO_APP_SCHEDULE_RUNTIME'),
-    readEnv('IPOLLO_RUNTIME_ENV'),
-    readEnv('AINO_RUNTIME_ENV')
-  ).toLowerCase();
-  if (['local', 'development', 'dev'].includes(explicit)) return true;
-  if (['online', 'production', 'prod'].includes(explicit)) return false;
-
-  const nodeEnv = readEnv('NODE_ENV').toLowerCase();
-  if (nodeEnv === 'production') return false;
-
-  const runtimeUrls = [
-    LEGACY_BASE_URL_ENV,
-    'IPOLLOOS_BASE_URL',
-    'HTML_ANYTHING_AI_APP_URL',
-    'MOBILE_AI_SERVICE_AI_APP_URL',
-    'FE_DOMAIN',
-    'NEXT_PUBLIC_BASE_URL'
-  ].map(readEnv);
-  if (runtimeUrls.some(isLocalUrl)) return true;
-
-  return nodeEnv !== 'production';
 }
 
 function uniqueUrls(urls: string[]): string[] {
@@ -111,30 +45,8 @@ function uniqueUrls(urls: string[]): string[] {
 }
 
 export function resolveScheduleApiBaseUrls(): string[] {
-  const direct = firstNonEmpty(
-    readEnv('IPOLLO_APP_SCHEDULE_API_BASE_URL'),
-    readEnv('IPOLLO_APP_API_BASE_URL'),
-    readEnv('AINO_API_BASE_URL'),
-    readEnv('NEXT_PUBLIC_CORE_API_URL')
-  );
-  if (direct) return uniqueUrls([direct]);
-
-  const knownUrl = firstNonEmpty(
-    readEnv('IPOLLO_APP_DATA_CONTEXT_URL'),
-    readEnv('IPOLLO_APP_CONTEXT_URL'),
-    readEnv('IPOLLO_APP_REGISTER_URL')
-  );
-  if (knownUrl) return uniqueUrls([deriveBaseFromKnownUrl(knownUrl)]);
-
-  if (isLocalIpolloRuntime()) {
-    return uniqueUrls([
-      readEnv('IPOLLO_APP_LOCAL_API_BASE_URL'),
-      readEnv('AINO_LOCAL_API_BASE_URL'),
-      ...DEFAULT_LOCAL_SCHEDULE_API_BASE_URLS
-    ]);
-  }
-
-  return uniqueUrls([DEFAULT_ONLINE_SCHEDULE_API_BASE_URL]);
+  const direct = readEnv('IPOLLO_APP_TASK_API_BASE_URL');
+  return direct ? uniqueUrls([direct]) : [];
 }
 
 export function resolveScheduleApiBaseUrl(): string {
@@ -142,13 +54,7 @@ export function resolveScheduleApiBaseUrl(): string {
 }
 
 export function resolveScheduleApiSecret(): string {
-  return firstNonEmpty(
-    readEnv('IPOLLO_APP_SCHEDULE_API_SECRET'),
-    readEnv('APP_TASKS_SECRET'),
-    readEnv('APP_DATA_CONTEXT_SECRET'),
-    readEnv('IPOLLO_APP_DATA_CONTEXT_SECRET'),
-    readEnv('IPOLLO_APP_REGISTER_SECRET')
-  );
+  return readEnv('IPOLLO_APP_TASK_API_SECRET');
 }
 
 function buildTasksUrl(baseUrl: string, applicationId: string): URL {
@@ -158,10 +64,7 @@ function buildTasksUrl(baseUrl: string, applicationId: string): URL {
 }
 
 function resolveScheduleApiTimeoutMs(): number {
-  const raw = firstNonEmpty(
-    readEnv('IPOLLO_APP_SCHEDULE_API_TIMEOUT_MS'),
-    readEnv('AINO_API_TIMEOUT_MS')
-  );
+  const raw = readEnv('IPOLLO_APP_TASK_API_TIMEOUT_MS');
   const timeout = Number(raw);
   return Number.isFinite(timeout) && timeout > 0 ? timeout : DEFAULT_SCHEDULE_API_TIMEOUT_MS;
 }
@@ -268,8 +171,10 @@ async function requestJson(
   path: URL,
   init: Omit<RequestInit, 'headers'> & { headers?: Record<string, string> } = {}
 ): Promise<unknown> {
-  const authToken = firstNonEmpty(config.authToken, resolveScheduleApiSecret());
-  if (!authToken) path.searchParams.set('noAuth', 'true');
+  const authToken = resolveScheduleApiSecret();
+  if (!authToken) {
+    throw new Error('缺少 IPOLLO_APP_TASK_API_SECRET，无法访问 iPollo App 日程接口。');
+  }
   const method = String(init.method || 'GET').toUpperCase();
   const timeoutMs = resolveScheduleApiTimeoutMs();
 
@@ -283,7 +188,7 @@ async function requestJson(
         'Content-Type': 'application/json',
         'x-application-id': config.applicationId,
         'x-current-user-id': config.userId,
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        Authorization: `Bearer ${authToken}`,
         ...(init.headers ?? {})
       }
     });
@@ -330,39 +235,13 @@ async function requestJson(
   return data;
 }
 
-function shouldTryNextBaseUrl(error: unknown): boolean {
-  const message = String(
-    error instanceof Error ? error.message : typeof error === 'string' ? error : ''
-  ).toLowerCase();
-  return (
-    message.includes('fetch failed') ||
-    message.includes('failed to fetch') ||
-    message.includes('econnrefused') ||
-    message.includes('enotfound') ||
-    message.includes('etimedout') ||
-    message.includes('connect timeout') ||
-    message.includes('network')
-  );
-}
-
 async function withScheduleApiBaseUrl<T>(
   missingMessage: string,
   run: (baseUrl: string) => Promise<T>
 ): Promise<T> {
-  const baseUrls = resolveScheduleApiBaseUrls();
-  if (baseUrls.length === 0) throw new Error(missingMessage);
-
-  let lastError: unknown;
-  for (const baseUrl of baseUrls) {
-    try {
-      return await run(baseUrl);
-    } catch (error) {
-      lastError = error;
-      if (!shouldTryNextBaseUrl(error)) throw error;
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error(missingMessage);
+  const baseUrl = resolveScheduleApiBaseUrl();
+  if (!baseUrl) throw new Error(missingMessage);
+  return run(baseUrl);
 }
 
 export async function queryScheduleTasks(input: QueryTasksInput): Promise<ApiResult> {

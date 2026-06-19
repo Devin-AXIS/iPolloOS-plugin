@@ -10,12 +10,12 @@ import { resolveScheduleApiBaseUrl, resolveScheduleApiBaseUrls } from '../lib/ap
 import { TaskPayloadSchema } from '../lib/schema';
 import { tool as createTaskTool } from '../children/create_ipollo_task/src';
 import { tool as queryTaskTool } from '../children/query_ipollo_tasks/src';
+import { tool as discoverAgentsTool } from '../children/discover_ipollo_published_agents/src';
 import schedulePlatformConfig from '../config';
 import createTaskConfig from '../children/create_ipollo_task/config';
 import queryTaskConfig from '../children/query_ipollo_tasks/config';
 import updateTaskConfig from '../children/update_ipollo_task/config';
-
-const LEGACY_BASE_URL_ENV = ['FAST', 'GPT_BASE_URL'].join('');
+import discoverAgentsConfig from '../children/discover_ipollo_published_agents/config';
 
 describe('ipollo app schedule schema', () => {
   it('exposes natural-language fields to the Agent instead of treating them as static config', () => {
@@ -26,28 +26,34 @@ describe('ipollo app schedule schema', () => {
     const createConfirm = createInputs.find((item) => item.key === 'require_user_confirm');
     const queryFrom = queryInputs.find((item) => item.key === 'from');
     const queryTo = queryInputs.find((item) => item.key === 'to');
-    const hiddenRuntimeKeys = [
+    const removedRuntimeKeys = [
       'application_id',
       'user_id',
       'schedule_api_base_url',
       'schedule_api_secret',
       'assignee_id',
-      'assignees_json',
-      'subtasks_json',
       'dispatch_channel'
     ];
+    const hiddenAssignmentKeys = ['assignees_json', 'subtasks_json', 'attachments_json'];
 
     expect(
       (schedulePlatformConfig as { secretInputConfig?: unknown[] }).secretInputConfig ?? []
     ).toHaveLength(0);
-    expect(createInputs.some((item) => hiddenRuntimeKeys.includes(item.key))).toBe(false);
-    expect(queryInputs.some((item) => hiddenRuntimeKeys.includes(item.key))).toBe(false);
-    expect(updateInputs.some((item) => hiddenRuntimeKeys.includes(item.key))).toBe(false);
+    expect(createInputs.some((item) => removedRuntimeKeys.includes(item.key))).toBe(false);
+    expect(queryInputs.some((item) => removedRuntimeKeys.includes(item.key))).toBe(false);
+    expect(updateInputs.some((item) => removedRuntimeKeys.includes(item.key))).toBe(false);
+    expect(
+      hiddenAssignmentKeys.every((key) => {
+        const input = createInputs.find((item) => item.key === key);
+        return input?.renderTypeList.includes('hidden' as any) && !!input.toolDescription;
+      })
+    ).toBe(true);
     expect(createTitle?.required).toBe(true);
     expect(createTitle?.toolDescription).toContain('任务标题');
     expect(createConfirm?.defaultValue).toBe(false);
     expect(queryFrom?.toolDescription).toContain('查询开始时间');
     expect(queryTo?.toolDescription).toContain('查询结束时间');
+    expect(discoverAgentsConfig.versionList[0].inputs[0].key).toBe('task_text');
   });
 
   it('normalizes a task payload', () => {
@@ -156,7 +162,7 @@ describe('ipollo app schedule schema', () => {
           appAuthToken: 'ipollo-token-1'
         },
         app: { id: 'ipollo-app-1', name: '日程助手' },
-        tool: { id: 'query_ipollo_tasks', version: '1.3.2' },
+        tool: { id: 'query_ipollo_tasks', version: '1.4.0' },
         time: '2026-06-06 12:00:00'
       }
     );
@@ -186,7 +192,7 @@ describe('ipollo app schedule schema', () => {
             appUserId: 'ipollo-user-1'
           },
           app: { id: 'ipolloos-app-1', name: '日程助手' },
-          tool: { id: 'query_ipollo_tasks', version: '1.3.2' },
+          tool: { id: 'query_ipollo_tasks', version: '1.4.0' },
           time: '2026-06-06 12:00:00'
         }
       );
@@ -223,7 +229,7 @@ describe('ipollo app schedule schema', () => {
             name: ''
           },
           app: { id: 'ipolloos-app-1', name: '日程助手' },
-          tool: { id: 'query_ipollo_tasks', version: '1.3.2' },
+          tool: { id: 'query_ipollo_tasks', version: '1.4.0' },
           time: '2026-06-06 12:00:00'
         }
       )
@@ -244,7 +250,7 @@ describe('ipollo app schedule schema', () => {
           name: ''
         },
         app: { id: 'ipolloos-app-1', name: '日程助手' },
-        tool: { id: 'query_ipollo_tasks', version: '1.3.2' },
+        tool: { id: 'query_ipollo_tasks', version: '1.4.0' },
         time: '2026-06-06 12:00:00'
       }
     );
@@ -257,131 +263,75 @@ describe('ipollo app schedule schema', () => {
     });
   });
 
-  it('uses the built-in online iPollo App backend when no runtime URL is configured online', () => {
-    const envKeys = [
-      'IPOLLO_APP_SCHEDULE_API_BASE_URL',
-      'IPOLLO_APP_API_BASE_URL',
-      'AINO_API_BASE_URL',
-      'NEXT_PUBLIC_CORE_API_URL',
-      'IPOLLO_APP_LOCAL_API_BASE_URL',
-      'AINO_LOCAL_API_BASE_URL',
-      'IPOLLO_APP_SCHEDULE_RUNTIME',
-      'IPOLLO_RUNTIME_ENV',
-      'AINO_RUNTIME_ENV',
-      LEGACY_BASE_URL_ENV,
-      'IPOLLOOS_BASE_URL',
-      'HTML_ANYTHING_AI_APP_URL',
-      'MOBILE_AI_SERVICE_AI_APP_URL',
-      'FE_DOMAIN',
-      'NEXT_PUBLIC_BASE_URL',
-      'IPOLLO_APP_DATA_CONTEXT_URL',
-      'IPOLLO_APP_CONTEXT_URL',
-      'IPOLLO_APP_REGISTER_URL'
-    ];
-    const previous = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
-    const oldNodeEnv = process.env.NODE_ENV;
-
+  it('requires the explicit iPollo App task API base URL', () => {
+    const originalBaseUrl = process.env.IPOLLO_APP_TASK_API_BASE_URL;
     try {
-      for (const key of envKeys) delete process.env[key];
-      process.env.NODE_ENV = 'production';
-      expect(resolveScheduleApiBaseUrl()).toBe('https://core.metaio.cc');
+      delete process.env.IPOLLO_APP_TASK_API_BASE_URL;
+      expect(resolveScheduleApiBaseUrl()).toBe('');
+      expect(resolveScheduleApiBaseUrls()).toEqual([]);
+
+      process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+      expect(resolveScheduleApiBaseUrl()).toBe('https://aino.example.com');
+      expect(resolveScheduleApiBaseUrls()).toEqual(['https://aino.example.com']);
     } finally {
-      for (const key of envKeys) {
-        if (previous[key] === undefined) {
-          delete process.env[key];
-        } else {
-          process.env[key] = previous[key];
-        }
+      if (originalBaseUrl === undefined) {
+        delete process.env.IPOLLO_APP_TASK_API_BASE_URL;
+      } else {
+        process.env.IPOLLO_APP_TASK_API_BASE_URL = originalBaseUrl;
       }
-      process.env.NODE_ENV = oldNodeEnv;
     }
   });
 
-  it('uses the built-in local iPollo App backend when iPolloOS is running locally', () => {
-    const envKeys = [
-      'IPOLLO_APP_SCHEDULE_API_BASE_URL',
-      'IPOLLO_APP_API_BASE_URL',
-      'AINO_API_BASE_URL',
-      'NEXT_PUBLIC_CORE_API_URL',
-      'IPOLLO_APP_LOCAL_API_BASE_URL',
-      'AINO_LOCAL_API_BASE_URL',
-      'IPOLLO_APP_SCHEDULE_RUNTIME',
-      'IPOLLO_RUNTIME_ENV',
-      'AINO_RUNTIME_ENV',
-      LEGACY_BASE_URL_ENV,
-      'IPOLLOOS_BASE_URL',
-      'HTML_ANYTHING_AI_APP_URL',
-      'MOBILE_AI_SERVICE_AI_APP_URL',
-      'FE_DOMAIN',
-      'NEXT_PUBLIC_BASE_URL',
-      'IPOLLO_APP_DATA_CONTEXT_URL',
-      'IPOLLO_APP_CONTEXT_URL',
-      'IPOLLO_APP_REGISTER_URL'
-    ];
-    const previous = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
-    const oldNodeEnv = process.env.NODE_ENV;
+  it('fails before fetch when task API secret is missing', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env.IPOLLO_APP_TASK_API_BASE_URL;
+    const originalSecret = process.env.IPOLLO_APP_TASK_API_SECRET;
+    let called = false;
+    globalThis.fetch = (async () => {
+      called = true;
+      return new Response('{}', { status: 200 });
+    }) as unknown as typeof fetch;
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com';
+    delete process.env.IPOLLO_APP_TASK_API_SECRET;
 
     try {
-      for (const key of envKeys) delete process.env[key];
-      process.env.NODE_ENV = 'production';
-      process.env.IPOLLO_APP_SCHEDULE_RUNTIME = 'local';
-      process.env.IPOLLOOS_BASE_URL = 'http://ipolloos-app:3000';
-      expect(resolveScheduleApiBaseUrls()).toEqual([
-        'http://host.docker.internal:3007',
-        'http://127.0.0.1:3007',
-        'http://localhost:3007'
-      ]);
-    } finally {
-      for (const key of envKeys) {
-        if (previous[key] === undefined) {
-          delete process.env[key];
-        } else {
-          process.env[key] = previous[key];
+      const result = await queryTaskTool(
+        { limit: 20 },
+        {
+          systemVar: {
+            user: {
+              id: 'ipolloos-user',
+              username: '',
+              contact: '',
+              membername: '',
+              teamName: '',
+              teamId: '',
+              name: '',
+              appUserId: 'ipollo-user-1'
+            },
+            app: { id: 'ipollo-app-1', name: '日程助手' },
+            tool: { id: 'query_ipollo_tasks', version: '1.4.0' },
+            time: '2026-06-06 12:00:00'
+          },
+          streamResponse: () => {}
         }
-      }
-      process.env.NODE_ENV = oldNodeEnv;
-    }
-  });
+      );
 
-  it('does not infer local iPollo App backend from generic URLs in production', () => {
-    const envKeys = [
-      'IPOLLO_APP_SCHEDULE_API_BASE_URL',
-      'IPOLLO_APP_API_BASE_URL',
-      'AINO_API_BASE_URL',
-      'NEXT_PUBLIC_CORE_API_URL',
-      'IPOLLO_APP_LOCAL_API_BASE_URL',
-      'AINO_LOCAL_API_BASE_URL',
-      'IPOLLO_APP_SCHEDULE_RUNTIME',
-      'IPOLLO_RUNTIME_ENV',
-      'AINO_RUNTIME_ENV',
-      LEGACY_BASE_URL_ENV,
-      'IPOLLOOS_BASE_URL',
-      'HTML_ANYTHING_AI_APP_URL',
-      'MOBILE_AI_SERVICE_AI_APP_URL',
-      'FE_DOMAIN',
-      'NEXT_PUBLIC_BASE_URL',
-      'IPOLLO_APP_DATA_CONTEXT_URL',
-      'IPOLLO_APP_CONTEXT_URL',
-      'IPOLLO_APP_REGISTER_URL'
-    ];
-    const previous = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
-    const oldNodeEnv = process.env.NODE_ENV;
-
-    try {
-      for (const key of envKeys) delete process.env[key];
-      process.env.NODE_ENV = 'production';
-      process.env.FE_DOMAIN = 'http://localhost:3000';
-      process.env.IPOLLOOS_BASE_URL = 'http://ipolloos-app:3000';
-      expect(resolveScheduleApiBaseUrls()).toEqual(['https://core.metaio.cc']);
+      expect(result.ok).toBe(false);
+      expect(result.system_error).toContain('IPOLLO_APP_TASK_API_SECRET');
+      expect(called).toBe(false);
     } finally {
-      for (const key of envKeys) {
-        if (previous[key] === undefined) {
-          delete process.env[key];
-        } else {
-          process.env[key] = previous[key];
-        }
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env.IPOLLO_APP_TASK_API_BASE_URL;
+      } else {
+        process.env.IPOLLO_APP_TASK_API_BASE_URL = originalBaseUrl;
       }
-      process.env.NODE_ENV = oldNodeEnv;
+      if (originalSecret === undefined) {
+        delete process.env.IPOLLO_APP_TASK_API_SECRET;
+      } else {
+        process.env.IPOLLO_APP_TASK_API_SECRET = originalSecret;
+      }
     }
   });
 
@@ -414,7 +364,7 @@ describe('ipollo app schedule schema', () => {
             appUserId: 'ipollo-user-1'
           },
           app: { id: 'ipollo-app-1', name: '日程助手' },
-          tool: { id: 'create_ipollo_task', version: '1.3.2' },
+          tool: { id: 'create_ipollo_task', version: '1.4.0' },
           time: '2026-06-06 12:00:00'
         },
         streamResponse: () => {}
@@ -453,7 +403,7 @@ describe('ipollo app schedule schema', () => {
             appUserId: 'ipollo-user-1'
           },
           app: { id: 'ipollo-app-1', name: '日程助手' },
-          tool: { id: 'create_ipollo_task', version: '1.3.2' },
+          tool: { id: 'create_ipollo_task', version: '1.4.0' },
           time: '2026-06-06 12:00:00'
         },
         streamResponse: () => {}
@@ -467,8 +417,8 @@ describe('ipollo app schedule schema', () => {
 
   it('queries tasks from the iPollo App schedule API', async () => {
     const originalFetch = globalThis.fetch;
-    const originalBaseUrl = process.env.IPOLLO_APP_SCHEDULE_API_BASE_URL;
-    const originalSecret = process.env.APP_TASKS_SECRET;
+    const originalBaseUrl = process.env.IPOLLO_APP_TASK_API_BASE_URL;
+    const originalSecret = process.env.IPOLLO_APP_TASK_API_SECRET;
     const calls: Array<{ url: string; init?: RequestInit }> = [];
     globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
       calls.push({ url: String(url), init });
@@ -486,9 +436,9 @@ describe('ipollo app schedule schema', () => {
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
-    }) as typeof fetch;
-    process.env.IPOLLO_APP_SCHEDULE_API_BASE_URL = 'https://aino.example.com/api';
-    process.env.APP_TASKS_SECRET = 'secret-1';
+    }) as unknown as typeof fetch;
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
 
     try {
       const result = await queryTaskTool(
@@ -512,7 +462,7 @@ describe('ipollo app schedule schema', () => {
               appAuthToken: 'ipollo-token-1'
             },
             app: { id: 'ipollo-app-1', name: '日程助手' },
-            tool: { id: 'query_ipollo_tasks', version: '1.3.2' },
+            tool: { id: 'query_ipollo_tasks', version: '1.4.0' },
             time: '2026-06-06 12:00:00'
           },
           streamResponse: () => {}
@@ -528,27 +478,27 @@ describe('ipollo app schedule schema', () => {
       expect(url.pathname).toBe('/api/ai/agent/tasks');
       expect(url.searchParams.get('applicationId')).toBe('ipollo-app-1');
       expect(url.searchParams.get('dueFrom')).toBe('2026-06-06T00:00:00+08:00');
-      expect(headers.Authorization).toBe('Bearer ipollo-token-1');
+      expect(headers.Authorization).toBe('Bearer secret-1');
       expect(headers['x-current-user-id']).toBe('ipollo-user-1');
     } finally {
       globalThis.fetch = originalFetch;
       if (originalBaseUrl === undefined) {
-        delete process.env.IPOLLO_APP_SCHEDULE_API_BASE_URL;
+        delete process.env.IPOLLO_APP_TASK_API_BASE_URL;
       } else {
-        process.env.IPOLLO_APP_SCHEDULE_API_BASE_URL = originalBaseUrl;
+        process.env.IPOLLO_APP_TASK_API_BASE_URL = originalBaseUrl;
       }
       if (originalSecret === undefined) {
-        delete process.env.APP_TASKS_SECRET;
+        delete process.env.IPOLLO_APP_TASK_API_SECRET;
       } else {
-        process.env.APP_TASKS_SECRET = originalSecret;
+        process.env.IPOLLO_APP_TASK_API_SECRET = originalSecret;
       }
     }
   });
 
   it('creates a task through the iPollo App schedule API when confirmation is not required', async () => {
     const originalFetch = globalThis.fetch;
-    const originalBaseUrl = process.env.IPOLLO_APP_SCHEDULE_API_BASE_URL;
-    const originalSecret = process.env.APP_TASKS_SECRET;
+    const originalBaseUrl = process.env.IPOLLO_APP_TASK_API_BASE_URL;
+    const originalSecret = process.env.IPOLLO_APP_TASK_API_SECRET;
     let body: Record<string, unknown> = {};
     let headers: Record<string, string> = {};
     globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
@@ -558,9 +508,9 @@ describe('ipollo app schedule schema', () => {
         JSON.stringify({ success: true, id: 'created-task-1', item: { id: 'created-task-1' } }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
-    }) as typeof fetch;
-    process.env.IPOLLO_APP_SCHEDULE_API_BASE_URL = 'https://aino.example.com';
-    process.env.APP_TASKS_SECRET = 'secret-1';
+    }) as unknown as typeof fetch;
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
 
     try {
       const result = await createTaskTool(
@@ -587,7 +537,7 @@ describe('ipollo app schedule schema', () => {
               appAuthToken: 'ipollo-token-1'
             },
             app: { id: 'ipollo-app-1', name: '日程助手' },
-            tool: { id: 'create_ipollo_task', version: '1.3.2' },
+            tool: { id: 'create_ipollo_task', version: '1.4.0' },
             time: '2026-06-06 12:00:00'
           },
           streamResponse: () => {}
@@ -599,42 +549,42 @@ describe('ipollo app schedule schema', () => {
       expect(result.confirm_card_json).toBe('');
       expect(body.title).toBe('明天 15:00 会议');
       expect((body.schedule as Record<string, unknown>).dueAt).toBe('2026-06-07T15:00:00+08:00');
-      expect(headers.Authorization).toBe('Bearer ipollo-token-1');
+      expect(headers.Authorization).toBe('Bearer secret-1');
       expect(headers['x-current-user-id']).toBe('ipollo-user-1');
     } finally {
       globalThis.fetch = originalFetch;
       if (originalBaseUrl === undefined) {
-        delete process.env.IPOLLO_APP_SCHEDULE_API_BASE_URL;
+        delete process.env.IPOLLO_APP_TASK_API_BASE_URL;
       } else {
-        process.env.IPOLLO_APP_SCHEDULE_API_BASE_URL = originalBaseUrl;
+        process.env.IPOLLO_APP_TASK_API_BASE_URL = originalBaseUrl;
       }
       if (originalSecret === undefined) {
-        delete process.env.APP_TASKS_SECRET;
+        delete process.env.IPOLLO_APP_TASK_API_SECRET;
       } else {
-        process.env.APP_TASKS_SECRET = originalSecret;
+        process.env.IPOLLO_APP_TASK_API_SECRET = originalSecret;
       }
     }
   });
 
   it('returns schedule API diagnostics when actual task creation fetch fails', async () => {
     const originalFetch = globalThis.fetch;
-    const originalBaseUrl = process.env.IPOLLO_APP_SCHEDULE_API_BASE_URL;
-    const originalSecret = process.env.APP_TASKS_SECRET;
-    const originalTimeout = process.env.IPOLLO_APP_SCHEDULE_API_TIMEOUT_MS;
+    const originalBaseUrl = process.env.IPOLLO_APP_TASK_API_BASE_URL;
+    const originalSecret = process.env.IPOLLO_APP_TASK_API_SECRET;
+    const originalTimeout = process.env.IPOLLO_APP_TASK_API_TIMEOUT_MS;
     globalThis.fetch = (async () => {
       const error = new Error('fetch failed') as Error & {
         cause?: Record<string, string>;
       };
       error.cause = {
         code: 'ENOTFOUND',
-        hostname: 'core.metaio.cc',
-        message: 'getaddrinfo ENOTFOUND core.metaio.cc'
+        hostname: 'aino.example.com',
+        message: 'getaddrinfo ENOTFOUND aino.example.com'
       };
       throw error;
-    }) as typeof fetch;
-    process.env.IPOLLO_APP_SCHEDULE_API_BASE_URL = 'https://core.metaio.cc';
-    process.env.APP_TASKS_SECRET = 'secret-1';
-    process.env.IPOLLO_APP_SCHEDULE_API_TIMEOUT_MS = '12345';
+    }) as unknown as typeof fetch;
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
+    process.env.IPOLLO_APP_TASK_API_TIMEOUT_MS = '12345';
 
     try {
       const result = await createTaskTool(
@@ -660,7 +610,7 @@ describe('ipollo app schedule schema', () => {
               appUserId: 'ipollo-user-1'
             },
             app: { id: 'ipollo-app-1', name: '日程助手' },
-            tool: { id: 'create_ipollo_task', version: '1.3.2' },
+            tool: { id: 'create_ipollo_task', version: '1.4.0' },
             time: '2026-06-06 12:00:00'
           },
           streamResponse: () => {}
@@ -670,28 +620,113 @@ describe('ipollo app schedule schema', () => {
       expect(result.ok).toBe(false);
       expect(result.system_error).toContain('iPollo App 日程请求失败');
       expect(result.system_error).toContain('"method":"POST"');
-      expect(result.system_error).toContain('"endpoint_host":"core.metaio.cc"');
+      expect(result.system_error).toContain('"endpoint_host":"aino.example.com"');
       expect(result.system_error).toContain('"endpoint_path":"/api/ai/agent/tasks"');
       expect(result.system_error).toContain('"timeout_ms":12345');
       expect(result.system_error).toContain('"cause_code":"ENOTFOUND"');
-      expect(result.system_error).toContain('"cause_hostname":"core.metaio.cc"');
+      expect(result.system_error).toContain('"cause_hostname":"aino.example.com"');
     } finally {
       globalThis.fetch = originalFetch;
       if (originalBaseUrl === undefined) {
-        delete process.env.IPOLLO_APP_SCHEDULE_API_BASE_URL;
+        delete process.env.IPOLLO_APP_TASK_API_BASE_URL;
       } else {
-        process.env.IPOLLO_APP_SCHEDULE_API_BASE_URL = originalBaseUrl;
+        process.env.IPOLLO_APP_TASK_API_BASE_URL = originalBaseUrl;
       }
       if (originalSecret === undefined) {
-        delete process.env.APP_TASKS_SECRET;
+        delete process.env.IPOLLO_APP_TASK_API_SECRET;
       } else {
-        process.env.APP_TASKS_SECRET = originalSecret;
+        process.env.IPOLLO_APP_TASK_API_SECRET = originalSecret;
       }
       if (originalTimeout === undefined) {
-        delete process.env.IPOLLO_APP_SCHEDULE_API_TIMEOUT_MS;
+        delete process.env.IPOLLO_APP_TASK_API_TIMEOUT_MS;
       } else {
-        process.env.IPOLLO_APP_SCHEDULE_API_TIMEOUT_MS = originalTimeout;
+        process.env.IPOLLO_APP_TASK_API_TIMEOUT_MS = originalTimeout;
       }
+    }
+  });
+
+  it('discovers published agents and returns assignee json for task creation', async () => {
+    const originalFetch = globalThis.fetch;
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      if (String(url).endsWith('/api/plugin/getAccessToken')) {
+        return new Response(JSON.stringify({ data: { accessToken: 'plugin-access-token' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          data: {
+            agents: [
+              {
+                appBotId: 'aino-bot-1',
+                fastgptAppId: 'fastgpt-app-1',
+                shareId: 'share-1',
+                name: '研究助手',
+                intro: '负责资料检索',
+                channelName: '研究助手发布',
+                score: 2,
+                capabilities: ['检索', '摘要']
+              }
+            ],
+            count: 1
+          }
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }) as unknown as typeof fetch;
+
+    try {
+      const result = await discoverAgentsTool(
+        {
+          task_text: '帮我查明天会议客户资料',
+          limit: 5,
+          exclude_current_agent: true
+        },
+        {
+          systemVar: {
+            user: {
+              id: 'tmb-1',
+              username: '',
+              contact: '',
+              membername: '',
+              teamName: '',
+              teamId: 'team-1',
+              name: ''
+            },
+            app: {
+              id: 'current-fastgpt-app',
+              name: '日程助手',
+              upstreamAppId: 'current-fastgpt-app'
+            },
+            tool: { id: 'discover_ipollo_published_agents', version: '1.4.0' },
+            time: '2026-06-06 12:00:00'
+          },
+          streamResponse: () => {}
+        }
+      );
+
+      const invokeBody = JSON.parse(String(calls[1].init?.body ?? '{}'));
+      expect(result.ok).toBe(true);
+      expect(result.count).toBe(1);
+      expect(result.recommended_agent_id).toBe('aino-bot-1');
+      expect(result.agents_markdown).toContain('研究助手');
+      expect(JSON.parse(result.recommended_assignees_json)).toEqual([
+        {
+          assigneeType: 'agent',
+          assigneeId: 'aino-bot-1',
+          assigneeName: '研究助手',
+          role: 'executor'
+        }
+      ]);
+      expect(calls[1].init?.headers).toMatchObject({
+        authorization: 'Bearer plugin-access-token'
+      });
+      expect(invokeBody.excludeFastGPTAppId).toBe('current-fastgpt-app');
+    } finally {
+      globalThis.fetch = originalFetch;
     }
   });
 });

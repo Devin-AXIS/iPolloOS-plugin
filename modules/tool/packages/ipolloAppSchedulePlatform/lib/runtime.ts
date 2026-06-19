@@ -21,9 +21,7 @@ export function resolveRuntimeIdentity(
 ) {
   const runtimeApp = systemVar?.app as RunToolSecondParamsType['systemVar']['app'] & {
     applicationId?: string;
-    appApplicationId?: string;
     iPolloApplicationId?: string;
-    ipolloApplicationId?: string;
   };
   const runtimeUser = systemVar?.user as RunToolSecondParamsType['systemVar']['user'] & {
     app_user_id?: string;
@@ -32,19 +30,13 @@ export function resolveRuntimeIdentity(
     ipolloAppUserId?: string;
     appAuthToken?: string;
     __ipolloAppAuthToken?: string;
-    appApplicationId?: string;
     iPolloApplicationId?: string;
-    ipolloApplicationId?: string;
   };
   const applicationId = firstNonEmpty(
     input.applicationId,
     runtimeApp?.applicationId,
     runtimeApp?.iPolloApplicationId,
-    runtimeApp?.ipolloApplicationId,
-    runtimeApp?.appApplicationId,
     runtimeUser?.iPolloApplicationId,
-    runtimeUser?.ipolloApplicationId,
-    runtimeUser?.appApplicationId,
     envString('IPOLLO_APP_APPLICATION_ID'),
     systemVar?.app?.id
   );

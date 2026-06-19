@@ -15,8 +15,8 @@ export default defineTool({
     '当用户问今天/明天/某 Agent 有哪些任务，或 Agent 执行前需要读取任务列表时调用。工具会自动使用当前 iPollo App 和当前可信 App 用户。',
   versionList: [
     {
-      value: '1.3.2',
-      description: '查询 iPollo App 任务，支持运行时身份兜底',
+      value: '1.4.0',
+      description: '查询 iPollo App 任务，使用严格任务接口配置',
       inputs: [
         {
           key: 'from',

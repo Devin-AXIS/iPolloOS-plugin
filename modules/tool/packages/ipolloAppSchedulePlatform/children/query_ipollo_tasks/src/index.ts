@@ -7,11 +7,11 @@ import { queryScheduleTasks } from '../../../lib/api';
 import { DispatchChannelSchema, emptyToUndefined, stringifyJson } from '../../../lib/schema';
 
 export const InputType = z.object({
-  from: z.preprocess(emptyToUndefined, z.string().optional()),
-  to: z.preprocess(emptyToUndefined, z.string().optional()),
-  assignee_type: z.preprocess(emptyToUndefined, z.enum(['user', 'agent']).optional()),
-  assignee_id: z.preprocess(emptyToUndefined, z.string().optional()),
-  status: z.preprocess(emptyToUndefined, z.string().optional()),
+  from: z.preprocess(emptyToUndefined, z.string().optional()).optional(),
+  to: z.preprocess(emptyToUndefined, z.string().optional()).optional(),
+  assignee_type: z.preprocess(emptyToUndefined, z.enum(['user', 'agent']).optional()).optional(),
+  assignee_id: z.preprocess(emptyToUndefined, z.string().optional()).optional(),
+  status: z.preprocess(emptyToUndefined, z.string().optional()).optional(),
   include_completed: z.boolean().default(false),
   dispatch_channel: DispatchChannelSchema,
   limit: z.coerce.number().int().min(1).max(100).default(20)
@@ -26,8 +26,8 @@ export const OutputType = z.object({
   system_error: z.string().optional()
 });
 
-type In = z.infer<typeof InputType>;
-type Out = z.infer<typeof OutputType>;
+type In = Record<string, unknown>;
+type Out = z.output<typeof OutputType>;
 
 export async function tool(props: In, runtime?: RunToolSecondParamsType): Promise<Out> {
   try {
@@ -68,7 +68,6 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
     const result = await queryScheduleTasks({
       applicationId: identity.applicationId,
       userId: identity.userId,
-      authToken: identity.authToken,
       from: input.from,
       to: input.to,
       assigneeType: input.assignee_type,

@@ -15,8 +15,8 @@ export default defineTool({
     '当用户明确要求修改、取消、完成某个任务时调用。工具会自动使用当前 iPollo App 和当前可信 App 用户。',
   versionList: [
     {
-      value: '1.3.2',
-      description: '更新 iPollo App 任务，支持运行时身份兜底',
+      value: '1.4.0',
+      description: '更新 iPollo App 任务，使用严格任务接口配置',
       inputs: [
         {
           key: 'task_id',

@@ -18,8 +18,8 @@ export default defineTool({
     '当用户明确要求安排、提醒、定时执行某事时调用。工具会自动使用当前 iPollo App 和当前可信 App 用户；用户明确要求创建时直接创建，只有用户要求预览/确认时才设置 require_user_confirm=true。',
   versionList: [
     {
-      value: '1.3.2',
-      description: '创建 iPollo App 任务/日程，支持运行时身份兜底',
+      value: '1.4.0',
+      description: '创建 iPollo App 任务/日程，支持已发布智能体直分配',
       inputs: [
         {
           key: 'title',
@@ -50,6 +50,29 @@ export default defineTool({
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
           toolDescription:
             'JSON：{mode, timezone, dueAt, startAt, endAt, repeatRule}。mode 可为 none/once/recurring/range。'
+        },
+        {
+          key: 'assignees_json',
+          label: '执行人 JSON',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.hidden],
+          toolDescription:
+            'JSON 数组。需要 AI 执行时用 discover_ipollo_published_agents 的 recommended_assignees_json；只记录用户个人日程时留空。'
+        },
+        {
+          key: 'subtasks_json',
+          label: '子任务 JSON',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.hidden],
+          toolDescription:
+            'JSON 数组。需要拆分执行步骤时填写，每项包含 title/content/assigneeType/assigneeId/assigneeName。'
+        },
+        {
+          key: 'attachments_json',
+          label: '附件 JSON',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.hidden],
+          toolDescription: 'JSON 数组。需要把上下文、原始语音文本、工具结果等附加给任务时填写。'
         },
         {
           key: 'require_user_confirm',
