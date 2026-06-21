@@ -84,6 +84,7 @@ describe('iPollo App dynamic table plugin', () => {
     });
 
     expect(manifest.directories[0].config.agentDataTableKey).toBe('fitness_profile');
+    expect(manifest.directories[0].config.ownership).toBe('per_app_user');
     expect(manifest.directories[0].fields[1].type).toBe('json');
     expect(manifest.directories[0].fields[1].config.appFieldType).toBe('city_select');
     expect(manifest.directories[0].fields[2].type).toBe('json');
@@ -226,7 +227,8 @@ describe('iPollo App dynamic table plugin', () => {
                 slug: 'fitness_profile',
                 config: {
                   agentId: 'fastgpt-agent-1',
-                  agentDataTableKey: 'fitness_profile'
+                  agentDataTableKey: 'fitness_profile',
+                  ownership: 'per_app_user'
                 }
               }
             ]
@@ -320,16 +322,344 @@ describe('iPollo App dynamic table plugin', () => {
     const urls = fetchMock.mock.calls.map((call) => new URL(call[0] as string));
     expect(urls.map((url) => `${url.origin}${url.pathname}`)).toEqual([
       'http://172.17.0.1:3017/api/directories',
-      'http://172.17.0.1:3017/api/module-import',
+      'http://172.17.0.1:3017/api/modules/import',
       'http://172.17.0.1:3017/api/directories',
       'http://172.17.0.1:3017/api/records/fitness-directory'
     ]);
     expect(urls.every((url) => url.searchParams.get('applicationId') === 'aino-app-1')).toBe(true);
+    expect(urls[3].searchParams.get('filter')).toBe(JSON.stringify({ app_user_id: 'app-user-1' }));
     expect(urls.every((url) => url.searchParams.get('noAuth') === null)).toBe(true);
     expect(
       fetchMock.mock.calls.every(
-        (call) => call[1]?.headers?.Authorization === 'Bearer dynamic-secret'
+        (call) => call[1]?.headers?.Authorization === 'Bearer runtime-user-token'
       )
     ).toBe(true);
+  });
+
+  it('upserts per-user records by scoped filter when no record_id is known', async () => {
+    vi.stubEnv('IPOLLO_APP_DYNAMIC_TABLE_API_BASE_URL', 'https://aino.test');
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            directories: [
+              {
+                id: 'market-profile-directory',
+                slug: 'market_watch_profile',
+                config: {
+                  agentId: 'fastgpt-agent-1',
+                  agentDataTableKey: 'market_watch_profile',
+                  ownership: 'per_app_user'
+                }
+              }
+            ]
+          }
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ data: { records: [] } }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { id: 'record-1' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await manageDynamicTableRecordsTool(
+      {
+        action: 'upsert',
+        table: 'market_watch_profile',
+        record_json: JSON.stringify({
+          id: 'monitor_settings',
+          enabled: true,
+          delivery_time: '08:30'
+        })
+      },
+      {
+        systemVar: {
+          user: {
+            id: 'fastgpt-user-1',
+            username: '',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: '',
+            name: '',
+            appUserId: 'app-user-1',
+            appUserName: '测试用户',
+            iPolloApplicationId: 'aino-app-1'
+          },
+          app: {
+            id: 'fastgpt-agent-1',
+            name: '美股情报',
+            iPolloApplicationId: 'aino-app-1',
+            agentId: 'fastgpt-agent-1'
+          },
+          tool: {
+            id: 'ipolloAppDynamicTablePlatform/manage_dynamic_table_records',
+            version: '1.0.0'
+          },
+          time: '2026-06-21 12:00:00'
+        },
+        streamResponse: vi.fn()
+      }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(JSON.parse(result.action_json)).toEqual(
+      expect.objectContaining({
+        mode: 'insert',
+        filter: { id: 'monitor_settings', app_user_id: 'app-user-1' }
+      })
+    );
+    const queryUrl = new URL(fetchMock.mock.calls[1][0] as string);
+    expect(queryUrl.searchParams.get('filter')).toBe(
+      JSON.stringify({ id: 'monitor_settings', app_user_id: 'app-user-1' })
+    );
+    const insertBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
+    expect(insertBody.props).toEqual(
+      expect.objectContaining({
+        id: 'monitor_settings',
+        enabled: true,
+        app_user_id: 'app-user-1',
+        application_id: 'aino-app-1',
+        agent_id: 'fastgpt-agent-1'
+      })
+    );
+  });
+
+  it('upserts by patching an existing scoped record', async () => {
+    vi.stubEnv('IPOLLO_APP_DYNAMIC_TABLE_API_BASE_URL', 'https://aino.test');
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            directories: [
+              {
+                id: 'market-target-directory',
+                slug: 'market_watch_target',
+                config: {
+                  agentId: 'fastgpt-agent-1',
+                  agentDataTableKey: 'market_watch_target',
+                  ownership: 'per_app_user'
+                }
+              }
+            ]
+          }
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            records: [
+              {
+                id: 'record-existing',
+                props: { target_key: 'NVDA' }
+              }
+            ]
+          }
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { id: 'record-existing' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await manageDynamicTableRecordsTool(
+      {
+        action: 'upsert',
+        table: 'market_watch_target',
+        record_json: JSON.stringify({
+          target_key: 'NVDA',
+          display_name: 'NVDA',
+          enabled: true
+        })
+      },
+      {
+        systemVar: {
+          user: {
+            id: 'fastgpt-user-1',
+            username: '',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: '',
+            name: '',
+            appUserId: 'app-user-1',
+            iPolloApplicationId: 'aino-app-1'
+          },
+          app: {
+            id: 'fastgpt-agent-1',
+            name: '美股情报',
+            iPolloApplicationId: 'aino-app-1',
+            agentId: 'fastgpt-agent-1'
+          },
+          tool: {
+            id: 'ipolloAppDynamicTablePlatform/manage_dynamic_table_records',
+            version: '1.0.0'
+          },
+          time: '2026-06-21 12:00:00'
+        },
+        streamResponse: vi.fn()
+      }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(JSON.parse(result.action_json)).toEqual(
+      expect.objectContaining({
+        mode: 'update',
+        recordId: 'record-existing',
+        filter: { target_key: 'NVDA', app_user_id: 'app-user-1' }
+      })
+    );
+    expect(String(fetchMock.mock.calls[2][0])).toContain(
+      '/api/records/market-target-directory/record-existing'
+    );
+    const patchBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
+    expect(patchBody.props).toEqual(
+      expect.objectContaining({
+        target_key: 'NVDA',
+        app_user_id: 'app-user-1',
+        application_id: 'aino-app-1',
+        agent_id: 'fastgpt-agent-1'
+      })
+    );
+  });
+
+  it('injects runtime ownership fields when inserting per-user agent data', async () => {
+    vi.stubEnv('IPOLLO_APP_DYNAMIC_TABLE_API_BASE_URL', 'https://aino.test');
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            directories: [
+              {
+                id: 'life-log-directory',
+                slug: 'life_log',
+                config: {
+                  agentId: 'fastgpt-agent-1',
+                  agentDataTableKey: 'life_log',
+                  ownership: 'per_app_user'
+                }
+              }
+            ]
+          }
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { id: 'record-1' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await manageDynamicTableRecordsTool(
+      {
+        action: 'insert',
+        table: 'life_log',
+        record_json: JSON.stringify({
+          record_type: 'water',
+          title: '水 300ml',
+          water_ml: 300,
+          app_user_id: 'spoofed-user'
+        })
+      },
+      {
+        systemVar: {
+          user: {
+            id: 'fastgpt-user-1',
+            username: '',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: '',
+            name: '',
+            appUserId: 'app-user-1',
+            appUserName: '测试用户',
+            iPolloApplicationId: 'aino-app-1'
+          },
+          app: {
+            id: 'fastgpt-agent-1',
+            name: '生活助手',
+            iPolloApplicationId: 'aino-app-1',
+            agentId: 'fastgpt-agent-1'
+          },
+          tool: {
+            id: 'ipolloAppDynamicTablePlatform/manage_dynamic_table_records',
+            version: '1.0.0'
+          },
+          time: '2026-06-21 12:00:00'
+        },
+        streamResponse: vi.fn()
+      }
+    );
+
+    expect(result.ok).toBe(true);
+    const insertBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(insertBody.props).toEqual(
+      expect.objectContaining({
+        record_type: 'water',
+        water_ml: 300,
+        app_user_id: 'app-user-1',
+        app_user_name: '测试用户',
+        application_id: 'aino-app-1',
+        agent_id: 'fastgpt-agent-1'
+      })
+    );
+  });
+
+  it('rejects per-user agent data writes without runtime App user identity', async () => {
+    vi.stubEnv('IPOLLO_APP_DYNAMIC_TABLE_API_BASE_URL', 'https://aino.test');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            directories: [
+              {
+                id: 'life-log-directory',
+                slug: 'life_log',
+                config: {
+                  agentId: 'fastgpt-agent-1',
+                  agentDataTableKey: 'life_log',
+                  ownership: 'per_app_user'
+                }
+              }
+            ]
+          }
+        })
+      )
+    );
+
+    const result = await manageDynamicTableRecordsTool(
+      {
+        action: 'insert',
+        table: 'life_log',
+        record_json: JSON.stringify({ record_type: 'water' })
+      },
+      {
+        systemVar: {
+          user: {
+            id: 'fastgpt-user-1',
+            username: '',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: '',
+            name: ''
+          },
+          app: {
+            id: 'fastgpt-agent-1',
+            name: '生活助手',
+            iPolloApplicationId: 'aino-app-1',
+            agentId: 'fastgpt-agent-1'
+          },
+          tool: {
+            id: 'ipolloAppDynamicTablePlatform/manage_dynamic_table_records',
+            version: '1.0.0'
+          },
+          time: '2026-06-21 12:00:00'
+        },
+        streamResponse: vi.fn()
+      }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.system_error).toContain('缺少 App 用户信息');
   });
 });

@@ -37,9 +37,16 @@ export function resolveDynamicTableRuntimeContext(
   };
   const runtimeUser = systemVar?.user as RunToolSecondParamsType['systemVar']['user'] & {
     app_user_id?: string;
+    app_user_name?: string;
     app用户id?: string;
+    app用户名?: string;
     iPolloAppUserId?: string;
     ipolloAppUserId?: string;
+    iPolloAppUserName?: string;
+    ipolloAppUserName?: string;
+    ipolloUserName?: string;
+    ipollo_user_name?: string;
+    appUserName?: string;
     appAuthToken?: string;
     __ipolloAppAuthToken?: string;
     iPolloApplicationId?: string;
@@ -59,8 +66,19 @@ export function resolveDynamicTableRuntimeContext(
     runtimeUser?.iPolloAppUserId,
     runtimeUser?.ipolloAppUserId,
     runtimeUser?.app_user_id,
-    runtimeUser?.['app用户id'],
-    systemVar?.user?.id
+    runtimeUser?.['app用户id']
+  );
+  const userName = firstNonEmpty(
+    runtimeUser?.appUserName,
+    runtimeUser?.app_user_name,
+    runtimeUser?.['app用户名'],
+    runtimeUser?.iPolloAppUserName,
+    runtimeUser?.ipolloAppUserName,
+    runtimeUser?.ipolloUserName,
+    runtimeUser?.ipollo_user_name,
+    systemVar?.user?.username,
+    systemVar?.user?.membername,
+    systemVar?.user?.name
   );
   const authToken = firstNonEmpty(runtimeUser?.appAuthToken, runtimeUser?.__ipolloAppAuthToken);
   const agentId = firstNonEmpty(
@@ -80,6 +98,7 @@ export function resolveDynamicTableRuntimeContext(
   return {
     applicationId,
     userId,
+    userName,
     authToken,
     agentId,
     identitySource: authToken ? 'runtime_token' : 'runtime_context'

@@ -24,7 +24,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.2.4',
       description: '生成原生市场雷达看板',
       inputs: [
         {

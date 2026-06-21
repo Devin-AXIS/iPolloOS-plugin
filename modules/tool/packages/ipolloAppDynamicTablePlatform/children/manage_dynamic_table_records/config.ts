@@ -8,11 +8,11 @@ import {
 export default defineTool({
   name: { 'zh-CN': '查询和管理动态表', en: 'Query and manage dynamic table' },
   description: {
-    'zh-CN': '查询、新增、更新、删除当前 Agent 已存在的动态表记录。',
-    en: 'Query, insert, update, and delete records in an existing dynamic table for the current Agent.'
+    'zh-CN': '查询、新增、更新、更新或新增、删除当前 Agent 已存在的动态表记录。',
+    en: 'Query, insert, update, upsert, and delete records in an existing dynamic table for the current Agent.'
   },
   toolDescription:
-    '运行期使用。选择动作后只填写对应业务字段：查询用筛选条件/关键词/数量；新增用记录内容；更新用记录 ID 和更新内容；删除用记录 ID。不要填写应用 ID、用户 ID、Agent ID、密钥或 token。',
+    '运行期使用。选择动作后只填写对应业务字段：查询用筛选条件/关键词/数量；新增用记录内容；更新用记录 ID 和更新内容；更新或新增用记录内容和可选筛选条件；删除用记录 ID。不要填写应用 ID、用户 ID、Agent ID、密钥或 token。',
   versionList: [
     {
       value: '1.0.0',
@@ -29,6 +29,7 @@ export default defineTool({
             { label: '查询', value: 'query' },
             { label: '新增', value: 'insert' },
             { label: '更新', value: 'update' },
+            { label: '更新或新增', value: 'upsert' },
             { label: '删除', value: 'delete' }
           ],
           toolDescription: '要执行的记录动作。'
@@ -46,7 +47,7 @@ export default defineTool({
           label: '筛选条件',
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
-          toolDescription: '查询时可用。JSON 对象，例如 {"goal":"减脂"}。'
+          toolDescription: '查询或更新或新增时可用。JSON 对象，例如 {"goal":"减脂"}。'
         },
         {
           key: 'search',
@@ -68,7 +69,7 @@ export default defineTool({
           label: '记录内容',
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
-          toolDescription: '新增时必填。JSON 对象，例如 {"goal":"减脂","height":175}。'
+          toolDescription: '新增或更新或新增时必填。JSON 对象，例如 {"goal":"减脂","height":175}。'
         },
         {
           key: 'record_id',

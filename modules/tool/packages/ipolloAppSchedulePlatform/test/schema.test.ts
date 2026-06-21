@@ -38,6 +38,9 @@ describe('ipollo app schedule schema', () => {
     const queryTo = queryInputs.find((item) => item.key === 'to');
     const queryKeyword = queryInputs.find((item) => item.key === 'keyword');
     const queryAssigneeName = queryInputs.find((item) => item.key === 'assignee_name');
+    const queryOnlyCurrentUserAssignee = queryInputs.find(
+      (item) => item.key === 'only_current_user_assignee'
+    );
     const removedRuntimeKeys = [
       'application_id',
       'user_id',
@@ -84,6 +87,7 @@ describe('ipollo app schedule schema', () => {
     expect(queryTo?.toolDescription).toContain('查询结束时间');
     expect(queryKeyword?.toolDescription).toContain('自然语言');
     expect(queryAssigneeName?.toolDescription).toContain('默认只返回当前用户参与');
+    expect(queryOnlyCurrentUserAssignee?.toolDescription).toContain('不要只在最终文本里筛选');
     expect(discoverAgentsConfig.versionList[0].inputs[0].key).toBe('task_text');
   });
 
@@ -215,6 +219,58 @@ describe('ipollo app schedule schema', () => {
         userId: 'user-1'
       }).map((item: any) => item.title)
     ).toEqual(['我的会议', 'AI 研究', '我参与的评审', '子任务分给我']);
+  });
+
+  it('can narrow task queries to tasks primarily assigned to the current user', () => {
+    const tasks = [
+      {
+        title: '我自己负责的面试',
+        assignees: [
+          { assigneeType: 'user', assigneeId: 'user-1', assigneeName: '我', role: 'owner' }
+        ]
+      },
+      {
+        title: '美股智能体日报',
+        assignees: [
+          { assigneeType: 'user', assigneeId: 'user-1', assigneeName: '我', role: 'owner' },
+          {
+            assigneeType: 'agent',
+            assigneeId: 'market-agent',
+            assigneeName: '美股智能体',
+            role: 'executor'
+          }
+        ]
+      },
+      {
+        title: '未来洞察监控',
+        assignees: [
+          { assigneeType: 'agent', assigneeId: 'future-agent', assigneeName: '未来洞察' }
+        ],
+        subtasks: [
+          { title: '人工确认', assigneeType: 'user', assigneeId: 'user-1', assigneeName: '我' }
+        ]
+      },
+      {
+        title: '张三负责',
+        assignees: [{ assigneeType: 'user', assigneeId: 'user-2', assigneeName: '张三' }]
+      }
+    ];
+
+    expect(
+      filterScheduleTasksForQuery(tasks, {
+        applicationId: 'app-1',
+        userId: 'user-1',
+        onlyCurrentUserAssignee: true
+      }).map((item: any) => item.title)
+    ).toEqual(['我自己负责的面试']);
+
+    expect(
+      filterScheduleTasksForQuery(tasks, {
+        applicationId: 'app-1',
+        userId: 'user-1',
+        keyword: '只需要执行人我自己的任务'
+      }).map((item: any) => item.title)
+    ).toEqual(['我自己负责的面试']);
   });
 
   it('queries another assignee only when the user names that person or agent', () => {
@@ -808,6 +864,106 @@ describe('ipollo app schedule schema', () => {
       expect(url.searchParams.get('dueFrom')).toBe('2026-06-06T00:00:00+08:00');
       expect(headers.Authorization).toBe('Bearer secret-1');
       expect(headers['x-current-user-id']).toBe('ipollo-user-1');
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env.IPOLLO_APP_TASK_API_BASE_URL;
+      } else {
+        process.env.IPOLLO_APP_TASK_API_BASE_URL = originalBaseUrl;
+      }
+      if (originalSecret === undefined) {
+        delete process.env.IPOLLO_APP_TASK_API_SECRET;
+      } else {
+        process.env.IPOLLO_APP_TASK_API_SECRET = originalSecret;
+      }
+    }
+  });
+
+  it('filters the returned app card when querying only tasks assigned to the current user', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env.IPOLLO_APP_TASK_API_BASE_URL;
+    const originalSecret = process.env.IPOLLO_APP_TASK_API_SECRET;
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          success: true,
+          items: [
+            {
+              id: 'self-task',
+              title: '我自己负责的面试',
+              dueAt: '2026-06-21T10:00:00+08:00',
+              status: 'pending',
+              assignees: [
+                {
+                  assigneeType: 'user',
+                  assigneeId: 'ipollo-user-1',
+                  assigneeName: '我',
+                  role: 'owner'
+                }
+              ]
+            },
+            {
+              id: 'market-agent-task',
+              title: '监控设置',
+              dueAt: '2026-06-21T08:30:00+08:00',
+              status: 'pending',
+              assignees: [
+                {
+                  assigneeType: 'user',
+                  assigneeId: 'ipollo-user-1',
+                  assigneeName: '我',
+                  role: 'owner'
+                },
+                {
+                  assigneeType: 'agent',
+                  assigneeId: 'market-agent-1',
+                  assigneeName: 'AI Market Intelligence Agent',
+                  role: 'executor'
+                }
+              ]
+            }
+          ]
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )) as unknown as typeof fetch;
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
+
+    try {
+      const result = await queryTaskTool(
+        {
+          from: '2026-06-21T00:00:00+08:00',
+          to: '2026-06-21T23:59:59+08:00',
+          only_current_user_assignee: true,
+          include_completed: false,
+          limit: 20
+        },
+        {
+          systemVar: {
+            user: {
+              id: 'ipolloos-user',
+              username: '',
+              contact: '',
+              membername: '',
+              teamName: '',
+              teamId: '',
+              name: '',
+              appUserId: 'ipollo-user-1'
+            },
+            app: { id: 'ipollo-app-1', name: '日程助手' },
+            tool: { id: 'query_ipollo_tasks', version: '1.4.8' },
+            time: '2026-06-20 12:00:00'
+          },
+          streamResponse: () => {}
+        }
+      );
+
+      const appCard = JSON.parse(result.app_card);
+      const tasks = JSON.parse(result.tasks_json);
+      expect(result.count).toBe(1);
+      expect(tasks.map((item: any) => item.id)).toEqual(['self-task']);
+      expect(appCard.data.count).toBe(1);
+      expect(appCard.data.items.map((item: any) => item.taskId)).toEqual(['self-task']);
     } finally {
       globalThis.fetch = originalFetch;
       if (originalBaseUrl === undefined) {

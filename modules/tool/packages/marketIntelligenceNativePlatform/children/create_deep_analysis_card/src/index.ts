@@ -6,8 +6,12 @@ import {
   asRecord,
   buildAppCard,
   buildCardId,
+  buildContentSections,
   buildDeliveryRecord,
+  buildOverviewBlocks,
   buildSignalRecord,
+  deriveSourcesFromSignals,
+  mergeSources,
   normalizeAiBlocks,
   normalizeSignals,
   normalizeSources,
@@ -56,9 +60,14 @@ export async function tool(props: In): Promise<Out> {
         ? rawTargets.map((item) => normalizeTarget(item, input.analysis_type))
         : [normalizeTarget(input.targets_json, input.analysis_type)];
     const signals = normalizeSignals(input.signals_json);
-    const sources = normalizeSources(input.sources_json);
+    const sources = mergeSources(
+      normalizeSources(input.sources_json),
+      deriveSourcesFromSignals(signals)
+    );
     const aiBlocks = normalizeAiBlocks(input.ai_blocks_json);
     const metrics = asRecord(parseJsonValue(input.metrics_json, {}));
+    const contentSections = buildContentSections(aiBlocks, signals.length > 0);
+    const overviewBlocks = buildOverviewBlocks(contentSections);
     const generatedAt = new Date().toISOString();
     const cardId = buildCardId([
       'market-deep-analysis',
@@ -68,6 +77,16 @@ export async function tool(props: In): Promise<Out> {
       generatedAt
     ]);
     const title = targets.map((target) => target.name || target.targetKey).join(', ') || '深度分析';
+    const summary =
+      contentSections.find((section) => section.content)?.content ||
+      signals.find((signal) => signal.summary)?.summary ||
+      `已生成 ${title} 的${input.analysis_focus || '深度'}分析。`;
+    const tabs = [
+      { key: 'overview', title: '概览', count: overviewBlocks.length },
+      { key: 'signals', title: '关键信号', count: signals.length },
+      { key: 'analysis', title: '深度分析', count: contentSections.length },
+      { key: 'evidence', title: '证据', count: sources.length }
+    ];
     const card = buildAppCard({
       id: cardId,
       componentName: MARKET_DEEP_ANALYSIS_COMPONENT,
@@ -77,10 +96,27 @@ export async function tool(props: In): Promise<Out> {
         analysisType: input.analysis_type,
         analysisFocus: input.analysis_focus || 'opportunity_risk',
         generatedAt,
+        summary,
         targets,
         metrics,
         signals,
         aiBlocks,
+        contentSections,
+        overviewBlocks,
+        tabs,
+        viewModel: {
+          title,
+          summary,
+          analysisType: input.analysis_type,
+          analysisFocus: input.analysis_focus || 'opportunity_risk',
+          targets,
+          metrics,
+          signals,
+          contentSections,
+          overviewBlocks,
+          sources,
+          tabs
+        },
         sources
       }
     });

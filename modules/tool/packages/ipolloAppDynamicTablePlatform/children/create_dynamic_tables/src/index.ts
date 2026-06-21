@@ -60,17 +60,14 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
     );
     const createdTables = plan.tables.filter((table) => !existingKeys.has(getTableKey(table)));
     const skippedTables = plan.tables.filter((table) => existingKeys.has(getTableKey(table)));
-    const manifest =
-      createdTables.length > 0
-        ? buildDynamicTablesManifest({
-            plan,
-            tables: createdTables,
-            applicationId: context.applicationId,
-            agentId: context.agentId
-          })
-        : null;
+    const manifest = buildDynamicTablesManifest({
+      plan,
+      tables: plan.tables,
+      applicationId: context.applicationId,
+      agentId: context.agentId
+    });
 
-    const apiResult = manifest ? await importDynamicTablesModule(context, manifest) : null;
+    const apiResult = await importDynamicTablesModule(context, manifest);
     const action = {
       action: 'create_dynamic_tables',
       applicationId: context.applicationId,

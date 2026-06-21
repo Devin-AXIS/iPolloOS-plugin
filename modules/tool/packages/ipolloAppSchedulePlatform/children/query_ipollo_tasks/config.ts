@@ -12,11 +12,12 @@ export default defineTool({
     en: 'Query iPollo App tasks for the current user.'
   },
   toolDescription:
-    '当用户问今天/明天/某 Agent/某人有哪些任务，或 Agent 执行前需要读取任务列表时调用。默认不要展示与当前用户无关的任务：如果用户没有点名其他人或 Agent，工具会只返回当前可信 App 用户作为执行人/参与人/子任务执行人的任务。用户明确点名某人或某 Agent 时，把名字写入 assignee_name，只查询该对象相关任务；同时可把任务标题/对象写入 keyword。用户问“明天一天/今天有哪些”时传全天范围，APP 卡片会是列表；用户问“明天早上 8 点有没有任务/8 点的任务”这类具体时间时，必须传该具体时间的精确小窗口（建议 8:00:00 到 8:00:59，最多不超过 5 分钟；只有用户明确说 8 点到 9 点/这一小时才用小时范围），若只查到一条，APP 卡片会是单个日程卡。用户用自然语言点名任务时，例如“单独给我人工智能主题演讲”“拿一个 BBS 会议任务”，必须把核心标题/对象写入 keyword，通常 limit=1；不要只靠时间窗猜。工具会自动使用当前 iPollo App 和当前可信 App 用户。',
+    '当用户问今天/明天/某 Agent/某人有哪些任务，或 Agent 执行前需要读取任务列表时调用。默认不要展示与当前用户无关的任务：如果用户没有点名其他人或 Agent，工具会只返回当前可信 App 用户作为执行人/参与人/子任务执行人的任务。用户明确说“只要执行人是我自己/负责人是我/我自己负责的任务/不要别的 Agent 的任务”时，必须把 only_current_user_assignee 设为 true，插件会让 tasks_json 和 app_card 同步只返回当前用户本人负责、且没有其他 Agent/人员作为顶层执行人的任务。用户明确点名某人或某 Agent 时，把名字写入 assignee_name，只查询该对象相关任务；同时可把任务标题/对象写入 keyword。用户问“明天一天/今天有哪些”时传全天范围，APP 卡片会是列表；用户问“明天早上 8 点有没有任务/8 点的任务”这类具体时间时，必须传该具体时间的精确小窗口（建议 8:00:00 到 8:00:59，最多不超过 5 分钟；只有用户明确说 8 点到 9 点/这一小时才用小时范围），若只查到一条，APP 卡片会是单个日程卡。用户用自然语言点名任务时，例如“单独给我人工智能主题演讲”“拿一个 BBS 会议任务”，必须把核心标题/对象写入 keyword，通常 limit=1；不要只靠时间窗猜。工具会自动使用当前 iPollo App 和当前可信 App 用户。',
   versionList: [
     {
-      value: '1.4.7',
-      description: '查询 iPollo App 任务，默认按当前用户参与过滤并支持按执行人名称查询',
+      value: '1.4.8',
+      description:
+        '查询 iPollo App 任务，支持当前用户本人负责过滤、默认按当前用户参与过滤并支持按执行人名称查询',
       inputs: [
         {
           key: 'from',
@@ -49,6 +50,15 @@ export default defineTool({
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.input],
           toolDescription:
             '可空。用户明确点名某个 Agent 或人的任务时填写，例如“未来洞察”“美股智能体”“张三”。填写后查询该执行人/参与人/子任务执行人相关任务；未填写时默认只返回当前用户参与的任务。'
+        },
+        {
+          key: 'only_current_user_assignee',
+          label: '只看我负责',
+          valueType: WorkflowIOValueTypeEnum.boolean,
+          renderTypeList: [FlowNodeInputTypeEnum.switch],
+          defaultValue: false,
+          toolDescription:
+            '用户明确要求“只要执行人是我自己/负责人是我/我自己负责/不要别的 Agent 的任务”时设为 true。设为 true 后，插件会同时过滤 tasks_json 和 app_card，只保留当前可信 App 用户作为顶层负责人/执行人、且没有其他 Agent 或其他人作为顶层执行人的任务；不要只在最终文本里筛选。'
         },
         {
           key: 'status',

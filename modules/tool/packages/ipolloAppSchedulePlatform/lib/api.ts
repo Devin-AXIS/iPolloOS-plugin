@@ -12,6 +12,7 @@ type QueryTasksInput = RequestConfig & {
   assigneeType?: string;
   assigneeId?: string;
   assigneeName?: string;
+  onlyCurrentUserAssignee?: boolean;
   status?: string;
   includeCompleted?: boolean;
   limit?: number;
@@ -252,6 +253,21 @@ function getAssigneeRecords(item: unknown): Record<string, unknown>[] {
   return records;
 }
 
+function getTopLevelAssigneeRecords(item: unknown): Record<string, unknown>[] {
+  if (!item || typeof item !== 'object') return [];
+  const record = item as Record<string, unknown>;
+  const records: Record<string, unknown>[] = [];
+  for (const key of ['assignees', 'participants', 'agents']) {
+    const assignees = record[key];
+    if (!Array.isArray(assignees)) continue;
+    for (const assignee of assignees) {
+      if (assignee && typeof assignee === 'object')
+        records.push(assignee as Record<string, unknown>);
+    }
+  }
+  return records;
+}
+
 function getAssigneeType(record: Record<string, unknown>): string {
   return String(record.assigneeType ?? record.assignee_type ?? '').trim();
 }
@@ -280,6 +296,27 @@ function matchesCurrentUserParticipation(item: unknown, userId: string): boolean
     const type = getAssigneeType(record);
     const id = getAssigneeId(record);
     return type === 'user' && (id === currentUserId || id === 'self');
+  });
+}
+
+function matchesCurrentUserPrimaryAssignee(item: unknown, userId: string): boolean {
+  const currentUserId = String(userId ?? '').trim();
+  if (!currentUserId) return false;
+  const records = getTopLevelAssigneeRecords(item);
+  if (records.length === 0) return false;
+  const hasCurrentUser = records.some((record) => {
+    const type = getAssigneeType(record);
+    const id = getAssigneeId(record);
+    return type === 'user' && (id === currentUserId || id === 'self');
+  });
+  if (!hasCurrentUser) return false;
+
+  return !records.some((record) => {
+    const type = getAssigneeType(record);
+    const id = getAssigneeId(record);
+    if (type === 'agent') return true;
+    if (type === 'user' && id && id !== currentUserId && id !== 'self') return true;
+    return false;
   });
 }
 
@@ -344,6 +381,18 @@ function normalizeKeyword(value: unknown): string {
 
 function normalizeSearchText(value: unknown): string {
   return normalizeKeyword(value).replace(/\s+/g, '');
+}
+
+function isCurrentUserAssigneeOnlyIntent(keyword: string): boolean {
+  const query = normalizeSearchText(keyword);
+  if (!query) return false;
+  const mentionsSelf = ['我自己', '自己的', '只看我', '只要我', '本人', '自己'].some((part) =>
+    query.includes(part)
+  );
+  if (!mentionsSelf) return false;
+  return ['执行人', '负责人', '负责', '指派给我', '分配给我', '我来执行', '我处理'].some((part) =>
+    query.includes(part)
+  );
 }
 
 function stripIntentWords(value: string): string {
@@ -436,6 +485,9 @@ export function filterScheduleTasksForQuery(items: unknown[], input: QueryTasksI
   const keyword = normalizeKeyword(input.keyword);
   const assigneeName = normalizeKeyword(input.assigneeName);
   const hasExplicitAssigneeFilter = Boolean(input.assigneeType || input.assigneeId || assigneeName);
+  const onlyCurrentUserAssignee =
+    !hasExplicitAssigneeFilter &&
+    (input.onlyCurrentUserAssignee || isCurrentUserAssigneeOnlyIntent(keyword));
   const statusItems = items.filter((item) => (!status ? true : getItemStatus(item) === status));
   const filteredItems = statusItems.filter((item) => {
     if (!matchesAssignee(item, input.assigneeType, input.assigneeId)) return false;
@@ -458,15 +510,20 @@ export function filterScheduleTasksForQuery(items: unknown[], input: QueryTasksI
         ? assigneeKeywordItems
         : filteredItems
       : filteredItems.filter((item) => matchesCurrentUserParticipation(item, input.userId));
+  const assignmentScopedItems = onlyCurrentUserAssignee
+    ? scopedItems.filter((item) => matchesCurrentUserPrimaryAssignee(item, input.userId))
+    : scopedItems;
 
-  if (!keyword) return scopedItems.slice(0, limit);
+  if (!keyword) return assignmentScopedItems.slice(0, limit);
 
-  return scopedItems
+  const scoredItems = assignmentScopedItems
     .map((item, index) => ({ item, index, score: scoreKeywordMatch(item, keyword) }))
     .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score || a.index - b.index)
-    .map(({ item }) => item)
-    .slice(0, limit);
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+  if (scoredItems.length === 0 && onlyCurrentUserAssignee) {
+    return assignmentScopedItems.slice(0, limit);
+  }
+  return scoredItems.map(({ item }) => item).slice(0, limit);
 }
 
 async function requestJson(

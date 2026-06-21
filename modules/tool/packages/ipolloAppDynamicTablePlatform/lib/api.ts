@@ -4,6 +4,7 @@ import { getTableKey, normalizeStorageFieldType, safeSlug } from './schema';
 type RequestContext = {
   applicationId: string;
   userId?: string;
+  userName?: string;
   authToken?: string;
   agentId?: string;
 };
@@ -180,7 +181,7 @@ async function requestJson(
   path: URL,
   init: Omit<RequestInit, 'headers'> & { headers?: Record<string, string> } = {}
 ): Promise<unknown> {
-  const authToken = firstNonEmpty(readDynamicTableAuthToken(), context.authToken);
+  const authToken = firstNonEmpty(context.authToken, readDynamicTableAuthToken());
   if (!authToken) path.searchParams.set('noAuth', 'true');
   const method = String(init.method || 'GET').toUpperCase();
   const timeoutMs = resolveTimeoutMs();
@@ -286,7 +287,7 @@ export async function importDynamicTablesModule(
   manifest: Record<string, unknown>
 ): Promise<unknown> {
   return withBaseUrl('缺少 iPollo App 后端地址，无法创建动态表。', async (baseUrl) => {
-    const url = new URL(`${baseUrl}/api/module-import`);
+    const url = new URL(`${baseUrl}/api/modules/import`);
     url.searchParams.set('applicationId', context.applicationId);
     url.searchParams.set('mode', 'commit');
     return requestJson(context, url, {
@@ -442,6 +443,10 @@ export function buildDynamicTablesManifest(params: {
           agentId: params.agentId,
           agentDataTable: true,
           agentDataTableKey: tableKey,
+          ownership: String((table as Record<string, unknown>).ownership || 'per_app_user'),
+          agentDataOwnership: String(
+            (table as Record<string, unknown>).ownership || 'per_app_user'
+          ),
           tableKind: table.kind || 'custom',
           description: table.description || ''
         },
