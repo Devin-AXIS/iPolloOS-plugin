@@ -1,280 +1,77 @@
-# iPolloOS-plugin Devlopment Document
+# iPolloOS-plugin Development Guide / 开发指南
 
+This file is the short daily workflow guide. The complete architecture and operation manual is in [docs/plugin-framework.md](./docs/plugin-framework.md).
 
-## Common Commands
+本文是日常开发速查。完整架构和运行说明见 [docs/plugin-framework.md](./docs/plugin-framework.md)。
 
-### install dependencies
+## Commands / 命令
 
 ```bash
 bun install
-```
-
-### build
-
-```bash
-bun run build
-```
-
-### run
-
-- dev mode
-```bash
+bun run test
+bun run build:runtime
+bun run build:pkg
 bun run dev
 ```
 
-In dev mode, the worker will be rebuilt every time you save the file (hot reload).
+## Local Runtime / 本地运行时
 
-- prod mode (after build)
-```bash
-bun run prod
-```
+`bun run dev` starts the standalone plugin runtime from `runtime/`. iPolloOS main service calls this runtime through the configured plugin base URL.
 
-## Development
+`bun run dev` 会启动 `runtime/` 下的独立插件运行时。iPolloOS 主服务通过配置的插件基础地址调用它。
 
-Link the sdk to ipolloos:
+## New Tool Pattern / 新工具开发范式
 
-under the iPolloOS/packages/service directory:
+Create a package under `modules/tool/packages/{platformName}`. Keep shared API clients, schemas, formatters, and auth helpers under `lib/`, then expose user-facing capabilities as child tools under `children/`.
 
-```
-pnpm link xxxx/iPolloOS-plugin/sdk
-```
+在 `modules/tool/packages/{platformName}` 下创建插件包。公共 API client、schema、格式化和鉴权逻辑放在 `lib/`，面向用户的能力放在 `children/` 子工具中。
 
-This command will not update the package.json file.
+Use stable IDs and version labels:
 
-## Plugin Capability Types
+使用稳定 ID 和版本号：
 
-iPolloOS plugins are organized by runtime behavior into two types: execute plugins and trigger plugins.
+- Keep parent `toolId` stable.
+- Keep child tool IDs stable.
+- Bump `versionList[0].value` when inputs, outputs, behavior, secrets, permissions, or published formats change.
+- Keep output keys stable for existing workflows.
 
-### Execute Plugins
+## Runtime Declarations / Runtime 声明
 
-Execute plugins are suitable for one-shot calls. A user, Agent, or workflow passes inputs to the plugin; the plugin performs a query, generation, send, publish, update, or delete operation; then it returns structured outputs.
+Use `runtime.kind = "execute"` for one-shot calls. Set `riskLevel` when the tool can write or destroy external state.
 
-Common scenarios:
+一次性调用使用 `runtime.kind = "execute"`。如果工具会写入或破坏外部状态，需要设置 `riskLevel`。
 
-- Search, web reading, and database queries.
-- File parsing, format conversion, and content generation.
-- Message sending, task creation, and content publishing.
-- Updating or deleting resources in external systems.
+Use `runtime.kind = "trigger"` for polling or webhook event sources. Trigger tools perform one check or one normalization pass; iPolloOS OS owns scheduling, state, dedupe, and workflow dispatch.
 
-Execute plugins do not need to declare `runtime` by default. To let the platform understand risk level, add optional metadata in `config.ts`:
+轮询或 Webhook 事件源使用 `runtime.kind = "trigger"`。触发工具只执行“一次检查”或“一次标准化”；调度、状态、去重和工作流启动由 iPolloOS OS 负责。
 
-```typescript
-export default defineTool({
-  name: {
-    'zh-CN': '发送消息',
-    en: 'Send message'
-  },
-  description: {
-    'zh-CN': '向外部系统发送消息。',
-    en: 'Send a message to an external service.'
-  },
-  runtime: {
-    kind: 'execute',
-    execute: {
-      riskLevel: 'write',
-      requireUserConfirmDefault: true,
-      idempotencyKeyInput: 'requestId'
-    }
-  },
-  versionList: [
-    {
-      value: '1.0.0',
-      inputs: [],
-      outputs: []
-    }
-  ]
-});
-```
+Required trigger outputs:
 
-Recommended risk levels:
+触发工具标准输出：
 
-- `read`: read-only, does not change external state.
-- `write`: creates, sends, or updates.
-- `destructive`: deletes, unfollows, revokes, or performs other destructive actions.
+- `events_json`
+- `next_state_json`
+- optional `summary_markdown`
+- optional `system_error`
 
-### Trigger Plugins
+## Test Checklist / 测试清单
 
-Trigger plugins are suitable for long-running monitoring, scheduled checks, and external event intake. They describe when to check, how to persist state, and how to output new events. The platform can use this metadata to create monitoring instances and trigger downstream workflows.
+Before publishing:
 
-Common scenarios:
+发布前检查：
 
-- Periodically check whether an account, keyword, repository, or data source has new content.
-- Persist `lastPostId`, `cursor`, `etag`, or similar state and return only incremental events.
-- Receive webhook callbacks and convert external events into workflow inputs.
-- Send monitored events into translation, filtering, notification, or approval workflows.
+- Run `bun run test`.
+- Run targeted package tests when a package has its own `test/` directory.
+- Run `bun run build:runtime`.
+- Run `bun run build:pkg`.
+- For trigger tools, verify empty events do not imply downstream work and duplicate `dedupeKey` values are stable.
 
-Trigger plugins declare `runtime.trigger` in `config.ts`:
+## iPolloOS Main Service Boundary / 主服务边界
 
-```typescript
-export default defineTool({
-  name: {
-    'zh-CN': '检查账号新增内容',
-    en: 'Check account updates'
-  },
-  description: {
-    'zh-CN': '按状态检查账号新增内容并返回事件。',
-    en: 'Check account updates by state and return events.'
-  },
-  runtime: {
-    kind: 'trigger',
-    trigger: {
-      type: 'polling',
-      minIntervalSeconds: 60,
-      defaultIntervalSeconds: 300,
-      maxBatchEvents: 50,
-      outputEventKey: 'events_json',
-      outputStateKey: 'next_state_json',
-      allowManualRun: true,
-      allowAutoRun: true
-    }
-  },
-  versionList: [
-    {
-      value: '1.0.0',
-      inputs: [],
-      outputs: [
-        {
-          key: 'events_json',
-          label: 'Events JSON',
-          valueType: WorkflowIOValueTypeEnum.string
-        },
-        {
-          key: 'next_state_json',
-          label: 'Next state JSON',
-          valueType: WorkflowIOValueTypeEnum.string
-        }
-      ]
-    }
-  ]
-});
-```
+The plugin runtime executes plugin code. The iPolloOS main service owns import, marketplace metadata, workflow node definitions, Trigger Runtime instances, state, event inbox, and workflow dispatch.
 
-Recommended trigger outputs:
+插件运行时只执行插件代码。iPolloOS 主服务负责插件导入、市场元数据、工作流节点定义、Trigger Runtime 实例、状态、事件收件箱和工作流启动。
 
-- `events_json`: an array of new events. Each event should include a stable `dedupeKey`.
-- `next_state_json`: state for the next run.
-- `summary_markdown`: optional run summary.
-- `system_error`: optional error output.
+When plugin metadata changes, rebuild packages and refresh/import them in iPolloOS. When OS-side trigger/runtime contracts change, deploy the iPolloOS main service too.
 
-A platform plugin can contain both execute and trigger child tools. For example, an X platform toolset can include account lookup, content search, watch checking, and post/follow actions.
-
-### Page Outputs and Chat Cards
-
-If a plugin generates a single-page HTML result, return `page_html`. In auto-publish or resource-center mode, the platform writes `page_url`, and the chat client renders it as an openable page card.
-
-To make the card feel like the plugin's own surface instead of a plain link, also return `page_cover`. It is a JSON string owned by the plugin developer. The platform only parses it and renders it with the common chat card style.
-
-Display-only pages can provide just a cover:
-
-```json
-{
-  "title": "Elephant Website",
-  "description": "Hero section, species overview, and conservation actions",
-  "eyebrow": "Web page",
-  "coverImageUrl": "https://example.com/cover.png",
-  "accentColor": "#0ea5e9",
-  "actionLabel": "Open"
-}
-```
-
-Interactive pages can expose core fields. The chat card will show filled values and missing fields before the user opens the page:
-
-```json
-{
-  "title": "Feedback Form",
-  "description": "Collect feedback for this session",
-  "variant": "form",
-  "status": "Needs input",
-  "actionLabel": "Fill",
-  "fields": [
-    { "label": "Name", "value": "Alex", "required": true },
-    { "label": "Phone", "placeholder": "To fill", "required": true },
-    { "label": "Feedback", "placeholder": "To fill" }
-  ],
-  "chips": ["Feedback", "Form"]
-}
-```
-
-Supported fields:
-
-- `title`, `description`, `eyebrow`: title, summary, and type label.
-- `coverImageUrl`: cover image for display pages. Without it, the chat client falls back to a title card.
-- `accentColor`: hex theme color.
-- `variant`: recommended values are `cover`, `summary`, `data`, and `form`.
-- `status`: short card status, such as `Needs input` or `Submitted`.
-- `actionLabel`: bottom-right action text.
-- `fields`: field preview items with `label`, `value`, `placeholder`, `required`, and `type`.
-- `chips`: short tags for category or state.
-
-### Development Practices
-
-#### 1. Use English comments
-In the code, use English comments to explain the purpose of the code.
-
-#### 2. Use English variable names
-In some plugins, the variable names are not English for compatibility.
-
-The new plugins should use English variable names.
-
-#### 3. Wrtie Test Cases
-
-Write test cases for the plugin.
-
-We use [vitest](https://vitest.dev) for testing.
-
-#### 4. Avoid Using Variables (let, var) as Much as Possible, Use const
-"Immutable" variables improve code readability, help avoid issues caused by incorrect assignments, and are beneficial for TypeScript hints.
-
-#### 5. Avoid Using any as Much as Possible
-
-#### 6. Variable Scope
-Try to use smaller variable scopes. Usually this can be done in two ways:
-
-1. Use "block scope" syntax
-
-```typescript
-const foo = () => {
-  {
-    const bar = 1;
-    console.log(bar); // 1
-  }
-  console.log(bar); // ReferenceError: bar is not defined
-};
-```
-
-2. Use IIFE (Immediately Invoked Function Expression)
-If a result needs to be exported to a larger scope, you can use IIFE syntax.
-
-```typescript
-const foo = () => {
-  const bar = (()=>{
-    const a = 1;
-    const b = 2;
-    return a + b;
-  })();
-  console.log(bar); // 3
-  console.log(a); // ReferenceError: a is not defined
-};
-```
-
-### System Built-in Utility Functions
-
-The system has some built-in utility functions available under the directory `modules/tool/utils`.
-You can import them in code using `import { xxx } from '@/tool/utils'`.
-
-The list of utility functions includes:
-
-- delay: delay
-- getErrText: error handling
-- htmlTable2Md: convert html table to markdown
-- retryFn: retry function
-- replaceSensitiveText: replace sensitive text
-- request: request function
-- GET: GET request
-- POST: POST request
-- PUT: PUT request
-- DELETE: DELETE request
-- PATCH: PATCH request
-- createHttpClient: create custom http client
-- getNanoid: generate unique id
-- uploadFile: upload file to Minio
+当插件元数据变化时，需要重新构建插件包并在 iPolloOS 中刷新或导入。当 OS 侧 trigger/runtime 协议变化时，也需要部署 iPolloOS 主服务。

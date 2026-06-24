@@ -176,6 +176,14 @@ export const ToolTagEnum = z.enum([
 export const ToolRuntimeKindEnum = z.enum(['execute', 'trigger']);
 export const ToolExecuteRiskLevelEnum = z.enum(['read', 'write', 'destructive']);
 export const ToolTriggerTypeEnum = z.enum(['polling', 'webhook']);
+export const ToolTriggerRetryBackoffEnum = z.enum(['none', 'linear', 'exponential']);
+export const ToolTriggerFailurePolicyEnum = z.enum([
+  'keep_state',
+  'advance_state',
+  'pause_trigger'
+]);
+export const ToolTriggerWebhookAuthEnum = z.enum(['none', 'bearer', 'signature']);
+export const ToolTriggerWebhookMethodEnum = z.enum(['POST', 'GET']);
 
 export const ToolExecuteRuntimeSchema = z.object({
   riskLevel: ToolExecuteRiskLevelEnum.optional(),
@@ -183,60 +191,118 @@ export const ToolExecuteRuntimeSchema = z.object({
   idempotencyKeyInput: z.string().optional()
 });
 
-export const ToolTriggerRuntimeSchema = z.object({
-  type: ToolTriggerTypeEnum,
-  minIntervalSeconds: z.number().int().positive().optional(),
-  defaultIntervalSeconds: z.number().int().positive().optional(),
-  schedule: z
-    .object({
-      minIntervalSeconds: z.number().int().positive().optional(),
-      defaultIntervalSeconds: z.number().int().positive().optional(),
-      maxIntervalSeconds: z.number().int().positive().optional(),
-      timeoutSeconds: z.number().int().positive().optional(),
-      jitterSeconds: z.number().int().nonnegative().optional()
-    })
-    .optional(),
-  state: z
-    .object({
-      inputKey: z.string().optional(),
-      outputKey: z.string().optional(),
-      schemaVersion: z.string().optional(),
-      cursorKey: z.string().optional(),
-      resettable: z.boolean().optional()
-    })
-    .optional(),
-  event: z
-    .object({
-      outputKey: z.string().optional(),
-      schemaVersion: z.string().optional(),
-      dedupeKey: z.string().optional(),
-      occurredAtKey: z.string().optional(),
-      maxBatchEvents: z.number().int().positive().optional()
-    })
-    .optional(),
-  delivery: z
-    .object({
-      retryMaxAttempts: z.number().int().nonnegative().optional(),
-      retryBackoff: z.enum(['fixed', 'linear', 'exponential']).optional(),
-      failurePolicy: z.enum(['keep_state', 'advance_state', 'disable']).optional(),
-      concurrencyKeyInput: z.string().optional(),
-      lockTtlSeconds: z.number().int().positive().optional()
-    })
-    .optional(),
-  permissions: z
-    .object({
-      allowManualRun: z.boolean().optional(),
-      allowAutoRun: z.boolean().optional()
-    })
-    .optional(),
-  maxBatchEvents: z.number().int().positive().optional(),
-  stateSchemaVersion: z.string().optional(),
-  eventSchemaVersion: z.string().optional(),
+const positiveIntegerSeconds = z.number().int().positive();
+
+const validateIntervalRange = (
+  value: {
+    minIntervalSeconds?: number;
+    defaultIntervalSeconds?: number;
+    maxIntervalSeconds?: number;
+  },
+  ctx: z.RefinementCtx
+) => {
+  if (
+    value.minIntervalSeconds &&
+    value.defaultIntervalSeconds &&
+    value.defaultIntervalSeconds < value.minIntervalSeconds
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['defaultIntervalSeconds'],
+      message: 'defaultIntervalSeconds must be greater than or equal to minIntervalSeconds'
+    });
+  }
+
+  if (
+    value.maxIntervalSeconds &&
+    value.defaultIntervalSeconds &&
+    value.defaultIntervalSeconds > value.maxIntervalSeconds
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['defaultIntervalSeconds'],
+      message: 'defaultIntervalSeconds must be less than or equal to maxIntervalSeconds'
+    });
+  }
+};
+
+export const ToolTriggerScheduleRuntimeSchema = z
+  .object({
+    minIntervalSeconds: positiveIntegerSeconds.optional(),
+    defaultIntervalSeconds: positiveIntegerSeconds.optional(),
+    maxIntervalSeconds: positiveIntegerSeconds.optional(),
+    timeoutSeconds: positiveIntegerSeconds.optional(),
+    jitterSeconds: z.number().int().nonnegative().optional()
+  })
+  .superRefine(validateIntervalRange);
+
+export const ToolTriggerStateRuntimeSchema = z.object({
+  inputKey: z.string().optional(),
+  outputKey: z.string().optional(),
+  schemaVersion: z.string().optional(),
+  cursorKey: z.string().optional(),
+  resettable: z.boolean().optional()
+});
+
+export const ToolTriggerEventRuntimeSchema = z.object({
+  outputKey: z.string().optional(),
+  schemaVersion: z.string().optional(),
+  dedupeKey: z.string().optional(),
+  occurredAtKey: z.string().optional(),
+  payloadKey: z.string().optional(),
+  maxBatchEvents: z.number().int().positive().optional()
+});
+
+export const ToolTriggerDeliveryRuntimeSchema = z.object({
+  retryMaxAttempts: z.number().int().nonnegative().optional(),
+  retryBackoff: ToolTriggerRetryBackoffEnum.optional(),
+  failurePolicy: ToolTriggerFailurePolicyEnum.optional(),
+  concurrencyKeyInput: z.string().optional(),
+  lockTtlSeconds: positiveIntegerSeconds.optional()
+});
+
+export const ToolTriggerWebhookRuntimeSchema = z.object({
+  method: ToolTriggerWebhookMethodEnum.optional(),
+  path: z.string().optional(),
+  auth: ToolTriggerWebhookAuthEnum.optional(),
+  secretInputKey: z.string().optional(),
+  signatureHeader: z.string().optional(),
+  timestampHeader: z.string().optional(),
+  toleranceSeconds: positiveIntegerSeconds.optional()
+});
+
+export const ToolTriggerPermissionRuntimeSchema = z.object({
   allowManualRun: z.boolean().optional(),
   allowAutoRun: z.boolean().optional(),
-  outputEventKey: z.string().optional(),
-  outputStateKey: z.string().optional()
+  requireUserConfirmDefault: z.boolean().optional()
 });
+
+export const ToolTriggerRuntimeSchema = z
+  .object({
+    type: ToolTriggerTypeEnum,
+
+    // Compatibility aliases kept for existing trigger declarations.
+    minIntervalSeconds: positiveIntegerSeconds.optional(),
+    defaultIntervalSeconds: positiveIntegerSeconds.optional(),
+    maxBatchEvents: z.number().int().positive().optional(),
+    stateSchemaVersion: z.string().optional(),
+    eventSchemaVersion: z.string().optional(),
+    allowManualRun: z.boolean().optional(),
+    allowAutoRun: z.boolean().optional(),
+    outputEventKey: z.string().optional(),
+    outputStateKey: z.string().optional(),
+
+    schedule: ToolTriggerScheduleRuntimeSchema.optional(),
+    state: ToolTriggerStateRuntimeSchema.optional(),
+    event: ToolTriggerEventRuntimeSchema.optional(),
+    delivery: ToolTriggerDeliveryRuntimeSchema.optional(),
+    webhook: ToolTriggerWebhookRuntimeSchema.optional(),
+    permissions: ToolTriggerPermissionRuntimeSchema.optional(),
+    metadata: z.record(z.string(), z.any()).optional()
+  })
+  .superRefine((trigger, ctx) => {
+    validateIntervalRange(trigger, ctx);
+  });
 
 export const ToolRuntimeSchema = z
   .object({

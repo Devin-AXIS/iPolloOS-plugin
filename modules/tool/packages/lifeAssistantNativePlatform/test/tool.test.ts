@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { tool as prepareTables } from '../children/prepare_life_assistant_tables/src';
 import { tool as createLifeCard } from '../children/create_life_assistant_card/src';
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { tool as createMonitorEventCard } from '../children/create_monitor_event_card/src';
 import { tool as createDailyReportCard } from '../children/create_daily_report_card/src';
 import { tool as createDiscoveryBoardCard } from '../children/create_discovery_board_card/src';

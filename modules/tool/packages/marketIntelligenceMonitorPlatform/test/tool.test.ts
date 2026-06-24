@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { tool as checkWatchSubjects } from '../children/checkWatchSubjects/src';
 
 describe('marketIntelligenceMonitorPlatform', () => {
