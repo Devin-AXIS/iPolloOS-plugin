@@ -25,7 +25,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.1',
+      value: '1.0.2',
       description: '回复指定内容',
       inputs: [
         {

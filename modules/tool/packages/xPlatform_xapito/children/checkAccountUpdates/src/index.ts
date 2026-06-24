@@ -44,6 +44,7 @@ export const OutputType = z.object({
 
 type In = z.infer<typeof InputType>;
 type Out = z.infer<typeof OutputType>;
+type PostEvent = ReturnType<typeof normalizePostEvents>[number];
 
 function parseUsernames(value: unknown): string[] {
   const raw = String(value ?? '');
@@ -128,18 +129,59 @@ function buildNextState(accounts: Record<string, XWatchAccountState>) {
   return state;
 }
 
+function truncateText(value: string, maxLength = 180): string {
+  const text = value.replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1)}…`;
+}
+
+function formatPostLine(event: PostEvent): string {
+  const meta = [event.postedAt, event.url].filter(Boolean).join(' | ');
+  const text = truncateText(event.text || '(无正文)');
+  return `- ${text}${meta ? `\n  ${meta}` : ''}`;
+}
+
 function formatSummary(
-  results: Array<{ username: string; count: number; newestPostId: string; baseline: boolean }>
+  results: Array<{
+    username: string;
+    count: number;
+    newestPostId: string;
+    baseline: boolean;
+    recentEvents: PostEvent[];
+  }>
 ) {
   const total = results.reduce((sum, item) => sum + item.count, 0);
   const watched = results.map((item) => `@${item.username}`).join('、');
   const baselineAccounts = results.filter((item) => item.baseline);
 
   if (!total && baselineAccounts.length) {
-    const baselineWatched = baselineAccounts.map((item) => `@${item.username}`).join('、');
-    return `已建立 ${baselineWatched} 的监控基线。首次运行不会把历史内容作为新增事件触发。`;
+    const lines = [
+      `已建立 ${baselineAccounts.map((item) => `@${item.username}`).join('、')} 的监控基线。`,
+      '',
+      '首次运行不会把历史内容作为新增事件触发，因此 count=0、events_json=[]。'
+    ];
+
+    baselineAccounts.forEach((item) => {
+      lines.push('', `## @${item.username} 最近内容摘要`);
+      if (item.newestPostId) lines.push(`最新 Post ID：${item.newestPostId}`);
+      const recent = item.recentEvents.slice(0, 5);
+      if (!recent.length) {
+        lines.push('', '未查询到可展示的最近内容。');
+        return;
+      }
+      lines.push('', ...recent.map(formatPostLine));
+    });
+
+    return lines.join('\n');
   }
-  if (!total) return `未发现 ${watched} 的新增 X 内容。`;
+  if (!total) {
+    const latest = results
+      .map((item) => item.newestPostId)
+      .filter(Boolean)
+      .sort(comparePostIds)
+      .at(-1);
+    return `未发现 ${watched} 的新增 X 内容。${latest ? `最新 Post ID：${latest}` : ''}`;
+  }
 
   const lines = [`发现 ${total} 条新增 X 内容。`, ''];
   results.forEach((item) => {
@@ -178,6 +220,7 @@ export async function tool(props: In): Promise<Out> {
       count: number;
       newestPostId: string;
       baseline: boolean;
+      recentEvents: PostEvent[];
     }> = [];
     const errors: string[] = [];
 
@@ -202,7 +245,8 @@ export async function tool(props: In): Promise<Out> {
         });
 
         const isBaseline = !previousAccountState.lastPostId;
-        const events = isBaseline ? [] : normalizePostEvents(data);
+        const normalizedEvents = normalizePostEvents(data);
+        const events = isBaseline ? [] : normalizedEvents;
         allEvents.push(...events);
 
         const newestPostId = latestPostId(data.data, previousAccountState.lastPostId);
@@ -217,7 +261,8 @@ export async function tool(props: In): Promise<Out> {
           username,
           count: events.length,
           newestPostId,
-          baseline: isBaseline
+          baseline: isBaseline,
+          recentEvents: isBaseline ? normalizedEvents.slice().reverse().slice(0, 5) : []
         });
       } catch (e: unknown) {
         const key = accountKey(username);
@@ -230,7 +275,8 @@ export async function tool(props: In): Promise<Out> {
           username,
           count: 0,
           newestPostId: previousAccountState.newestPostId ?? previousAccountState.lastPostId ?? '',
-          baseline: false
+          baseline: false,
+          recentEvents: []
         });
         errors.push(`@${username}: ${getErrText(e)}`);
       }
