@@ -38,21 +38,56 @@ User-facing inputs should stay business-oriented. Account operations use usernam
 
 Recent search covers the last 7 days. Full-archive search is exposed in `searchXPosts` as a paid/eligible X API capability.
 
-## Trigger state
+## Standard polling trigger
 
-`checkAccountUpdates` accepts one username or a list of usernames separated by new lines, commas, semicolons, or spaces. It reads `state_json` and writes `next_state_json`.
+`checkAccountUpdates` is a standard iPolloOS polling trigger. The plugin declares the polling rule, but the main system owns scheduling, state persistence, event deduplication, and workflow dispatch.
 
-The state stores per-account cursors:
+Runtime flow:
 
-- `accounts.{username}.userId`
-- `accounts.{username}.username`
-- `accounts.{username}.lastPostId`
-- `accounts.{username}.newestPostId`
-- `accounts.{username}.checkedAt`
+1. Install or import this plugin.
+2. The main system discovers `checkAccountUpdates` as `runtime.kind = trigger` and `trigger.type = polling`.
+3. A user creates a Trigger Instance and sets `username`.
+4. The default interval is 5 minutes (`300` seconds). The minimum interval is also `300` seconds; users may increase it up to `86400` seconds.
+5. For every run, the main system calls this tool once and passes the previously saved `state_json`.
+6. The plugin checks xapi.to once, returns `events_json` and `next_state_json`, then exits.
+7. The main system transparently stores `next_state_json`, deduplicates by `dedupeKey`, and dispatches downstream workflows.
 
-Single-account state is stored in the same per-account cursor shape.
+Minimal trigger inputs:
 
-Events use `dedupeKey = x:post:{id}` so the platform can deduplicate notifications.
+- `username`: one X username, with or without `@`.
+- `state_json`: previous state saved by the main system. Empty state initializes the baseline.
+- `max_results`: defaults to `20`.
+- `include_replies`: defaults to `false`.
+- `include_retweets`: defaults to `false`.
+- `initial_mode`: defaults to `baseline`.
+
+State shape:
+
+- `version`
+- `userId`
+- `username`
+- `lastPostId`
+- `newestPostId`
+- `seenPostIds`
+- `checkedAt`
+- `lastSuccessAt`
+- `lastError`
+
+Events use `dedupeKey = x:{userId}:{postId}` and `eventType = x.post.created`.
+
+Deprecated legacy internals:
+
+- Runtime internal `XPollingService`
+- Local `data/xPlatform_xapito/polling-state.json` as the official state source
+- Pending outbox
+- Active `X_HOOK_URL` delivery
+- `X_POLLING_ENABLED`
+- `X_POLLING_ACCOUNTS`
+- `X_HOOK_ENABLED`
+- `X_HOOK_URL`
+- `X_HOOK_SECRET`
+
+Only `X_BEARER_TOKEN`/`X_READ_TOKEN` and `X_API_BASE_URL=https://x.p.xapi.to` are needed for standard trigger execution when credentials are supplied through runtime environment instead of tool secret inputs.
 
 ## Action behavior
 

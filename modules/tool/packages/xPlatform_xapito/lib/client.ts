@@ -18,6 +18,7 @@ import {
   type XTrendsResponse,
   type XUser
 } from './schemas';
+import { comparePostIds, normalizePostId } from './postId';
 import { ProxyAgent, type Dispatcher } from 'undici';
 import { createHmac, randomBytes } from 'node:crypto';
 
@@ -287,16 +288,6 @@ async function requestJson(
   return data;
 }
 
-export function comparePostIds(a: string, b: string): number {
-  try {
-    const ai = BigInt(a);
-    const bi = BigInt(b);
-    return ai === bi ? 0 : ai > bi ? 1 : -1;
-  } catch {
-    return a.localeCompare(b);
-  }
-}
-
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -401,7 +392,14 @@ function summarizeXapiResponse(raw: unknown): string {
   const keys = Object.keys(root).slice(0, 20).join(',');
   const dataKeys = data ? Object.keys(data).slice(0, 20).join(',') : '';
   const code = textValue(root.code, root.status, data?.code, data?.status);
-  const msg = textValue(root.msg, root.message, root.detail, data?.msg, data?.message, data?.detail);
+  const msg = textValue(
+    root.msg,
+    root.message,
+    root.detail,
+    data?.msg,
+    data?.message,
+    data?.detail
+  );
 
   return [
     code ? `code=${code}` : '',
@@ -426,7 +424,7 @@ function normalizeXapiUser(value: unknown): XUser | undefined {
     name: textValue(legacy.name, node.name),
     username: textValue(legacy.screen_name, legacy.username, node.screen_name, node.username),
     description: textValue(legacy.description, node.description),
-    verified: booleanValue(legacy.verified, node.verified),
+    verified: booleanValue(legacy.verified) ?? booleanValue(node.verified),
     verified_type: textValue(legacy.verified_type, node.verified_type),
     public_metrics: {
       followers_count: numberValue(legacy.followers_count),
@@ -439,13 +437,17 @@ function normalizeXapiUser(value: unknown): XUser | undefined {
 
 function normalizeReferencedTweets(legacy: Record<string, unknown>) {
   const refs: Array<{ type: string; id: string }> = [];
-  const replyId = textValue(legacy.in_reply_to_status_id_str, legacy.in_reply_to_status_id);
-  const retweetId = textValue(
-    legacy.retweeted_status_id_str,
-    legacy.retweeted_status_id,
-    asRecord(legacy.retweeted_status_result)?.rest_id
+  const replyId = normalizePostId(
+    textValue(legacy.in_reply_to_status_id_str, legacy.in_reply_to_status_id)
   );
-  const quoteId = textValue(legacy.quoted_status_id_str, legacy.quoted_status_id);
+  const retweetId = normalizePostId(
+    textValue(
+      legacy.retweeted_status_id_str,
+      legacy.retweeted_status_id,
+      asRecord(legacy.retweeted_status_result)?.rest_id
+    )
+  );
+  const quoteId = normalizePostId(textValue(legacy.quoted_status_id_str, legacy.quoted_status_id));
   if (replyId) refs.push({ type: 'replied_to', id: replyId });
   if (retweetId) refs.push({ type: 'retweeted', id: retweetId });
   if (quoteId) refs.push({ type: 'quoted', id: quoteId });
@@ -456,7 +458,9 @@ function normalizeXapiPost(value: unknown): XPostListResponse['data'][number] | 
   const node = asRecord(unwrapResult(value));
   if (!node) return undefined;
   const legacy = asRecord(node.legacy) ?? node;
-  const id = textValue(node.rest_id, node.id, node.id_str, legacy.id_str, legacy.id);
+  const id = normalizePostId(
+    textValue(node.rest_id, node.id, node.id_str, legacy.id_str, legacy.id)
+  );
   const text = textValue(
     legacy.full_text,
     legacy.text,
@@ -618,14 +622,14 @@ export async function getUserPosts(
   params.set('cursor', input.paginationToken || '-1');
   params.set('resFormat', 'json');
 
-  const data = await requestJson(
-    `/base/apitools/userTweetsV2?${params}`,
-    parsedConfig
-  );
+  const data = await requestJson(`/base/apitools/userTweetsV2?${params}`, parsedConfig);
   const normalized = normalizeXapiPosts(data, input);
   return {
     ...normalized,
-    data: normalized.data.slice(0, Math.min(Math.max(input.maxResults ?? config.defaultMaxResults, 5), 100)),
+    data: normalized.data.slice(
+      0,
+      Math.min(Math.max(input.maxResults ?? config.defaultMaxResults, 5), 100)
+    ),
     meta: {
       ...normalized.meta,
       result_count: Math.min(

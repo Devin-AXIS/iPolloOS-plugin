@@ -1,6 +1,6 @@
 import { getCachedData, refreshVersionKey } from '@/cache';
 import { SystemCacheKeyEnum } from '@/cache/type';
-import { connectionMongo, connectMongo, delay, MONGO_URL } from '@/mongo';
+import { connectionMongo, connectMongo, MONGO_URL } from '@/mongo';
 import { ensureDir, refreshDir } from '@/utils/fs';
 import { configureLogger, getLogger, root, destroyLogger } from '@/logger';
 import { env } from '@/env';
@@ -39,16 +39,22 @@ async function prepare() {
   ]);
 }
 
-function shutdown() {
-  server?.close(async () => {
-    logger.info('HTTP server closed');
-
-    // TODO:
-    // All resources should be cleanup
+async function shutdown() {
+  try {
+    await new Promise<void>((resolve) => {
+      if (!server) {
+        resolve();
+        return;
+      }
+      server.close(() => {
+        logger.info('HTTP server closed');
+        resolve();
+      });
+    });
     await destroyLogger();
-  });
-
-  process.exit(0);
+  } finally {
+    process.exit(0);
+  }
 }
 
 async function main() {
@@ -62,8 +68,8 @@ async function main() {
     shutdown();
   }
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', () => void shutdown());
+  process.on('SIGINT', () => void shutdown());
 
   server = serve(
     {

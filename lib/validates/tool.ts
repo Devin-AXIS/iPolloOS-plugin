@@ -187,11 +187,13 @@ export const ToolTriggerRuntimeSchema = z.object({
   type: ToolTriggerTypeEnum,
   minIntervalSeconds: z.number().int().positive().optional(),
   defaultIntervalSeconds: z.number().int().positive().optional(),
+  configurableInterval: z.boolean().optional(),
   schedule: z
     .object({
       minIntervalSeconds: z.number().int().positive().optional(),
       defaultIntervalSeconds: z.number().int().positive().optional(),
       maxIntervalSeconds: z.number().int().positive().optional(),
+      configurableInterval: z.boolean().optional(),
       timeoutSeconds: z.number().int().positive().optional(),
       jitterSeconds: z.number().int().nonnegative().optional()
     })

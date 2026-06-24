@@ -8,21 +8,22 @@ import {
 export default defineTool({
   toolId: 'xPlatform_xapito/checkAccountUpdates',
   name: {
-    'zh-CN': '监控 X 内容变化',
-    en: 'Monitor X content changes'
+    'zh-CN': '触发器：监控 X 账号内容变化',
+    en: 'Trigger: Monitor X account changes'
   },
   description: {
-    'zh-CN': '监控一个或多个 X 账号的内容变化，并输出新增事件和下一次状态。',
-    en: 'Monitor content changes for one or more X accounts, then return new events and next state.'
+    'zh-CN': '标准 polling trigger：每次调用检查一个 X 账号，并输出新增事件和下一次状态。',
+    en: 'Standard polling trigger: check one X account per invocation, then return new events and next state.'
   },
   toolDescription:
-    'Trigger-friendly X polling check. It accepts one or more usernames, reads state_json, fetches user posts with since_id per account, returns events_json and next_state_json. Use this in monitor workflows.',
+    'Standard iPolloOS polling trigger. The host system schedules this tool, passes state_json, stores next_state_json, deduplicates events, and dispatches workflows. The plugin performs exactly one X update check per invocation.',
   runtime: {
     kind: 'trigger',
     trigger: {
       type: 'polling',
+      configurableInterval: true,
       schedule: {
-        minIntervalSeconds: 60,
+        minIntervalSeconds: 300,
         defaultIntervalSeconds: 300,
         maxIntervalSeconds: 86400,
         timeoutSeconds: 60,
@@ -39,7 +40,7 @@ export default defineTool({
         outputKey: 'events_json',
         schemaVersion: 'x-account-post-event.v1',
         dedupeKey: 'dedupeKey',
-        occurredAtKey: 'postedAt',
+        occurredAtKey: 'occurredAt',
         maxBatchEvents: 50
       },
       delivery: {
@@ -57,17 +58,17 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.2',
+      value: '1.0.3',
       description: '状态化检查账号新增内容',
       inputs: [
         {
           key: 'username',
-          label: '用户名列表',
+          label: '用户名',
           required: true,
           valueType: WorkflowIOValueTypeEnum.string,
-          renderTypeList: [FlowNodeInputTypeEnum.textarea, FlowNodeInputTypeEnum.reference],
-          placeholder: 'xdevelopers\nopenai\nelonmusk',
-          toolDescription: 'X 用户名列表，可带或不带 @。多个账号用换行、逗号或空格分隔。'
+          renderTypeList: [FlowNodeInputTypeEnum.input, FlowNodeInputTypeEnum.reference],
+          placeholder: 'openai',
+          toolDescription: 'X 用户名，可带或不带 @。一个 Trigger Instance 建议监控一个账号。'
         },
         {
           key: 'state_json',
@@ -75,7 +76,18 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.hidden, FlowNodeInputTypeEnum.reference],
           required: false,
-          toolDescription: '上一次输出的 next_state_json。平台监控实例会自动保存和传回。'
+          toolDescription:
+            '主系统保存的上一次 next_state_json。标准 Trigger 模式下插件不会读取本地状态文件。'
+        },
+        {
+          key: 'max_results',
+          label: '最大检查数量',
+          defaultValue: 20,
+          valueType: WorkflowIOValueTypeEnum.number,
+          renderTypeList: [FlowNodeInputTypeEnum.numberInput, FlowNodeInputTypeEnum.reference],
+          min: 5,
+          max: 100,
+          toolDescription: '每次检查读取的最近帖子数量。'
         },
         {
           key: 'include_replies',
@@ -90,16 +102,29 @@ export default defineTool({
           defaultValue: false,
           valueType: WorkflowIOValueTypeEnum.boolean,
           renderTypeList: [FlowNodeInputTypeEnum.switch, FlowNodeInputTypeEnum.reference]
+        },
+        {
+          key: 'initial_mode',
+          label: '首次运行模式',
+          defaultValue: 'baseline',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.select, FlowNodeInputTypeEnum.reference],
+          list: [
+            { label: '建立基线', value: 'baseline' },
+            { label: '回填历史', value: 'backfill' }
+          ],
+          toolDescription:
+            'baseline 首次运行只建立游标，不产生历史事件；backfill 会将首次查询结果作为事件返回。'
         }
       ],
       outputs: [
         {
-          valueType: WorkflowIOValueTypeEnum.string,
+          valueType: WorkflowIOValueTypeEnum.arrayAny,
           key: 'events_json',
           label: '新增事件 JSON'
         },
         {
-          valueType: WorkflowIOValueTypeEnum.string,
+          valueType: WorkflowIOValueTypeEnum.object,
           key: 'next_state_json',
           label: '下一次状态 JSON'
         },
@@ -109,18 +134,8 @@ export default defineTool({
           label: '检查摘要'
         },
         {
-          valueType: WorkflowIOValueTypeEnum.number,
-          key: 'count',
-          label: '新增数量'
-        },
-        {
-          valueType: WorkflowIOValueTypeEnum.string,
-          key: 'newest_post_id',
-          label: '最新 Post ID'
-        },
-        {
           type: FlowNodeOutputTypeEnum.error,
-          valueType: WorkflowIOValueTypeEnum.string,
+          valueType: WorkflowIOValueTypeEnum.object,
           key: 'system_error',
           label: '错误'
         }

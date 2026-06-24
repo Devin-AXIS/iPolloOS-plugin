@@ -50,6 +50,7 @@ describe('tool runtime capability metadata', () => {
           type: 'polling',
           minIntervalSeconds: 60,
           defaultIntervalSeconds: 300,
+          configurableInterval: true,
           outputEventKey: 'events_json',
           outputStateKey: 'next_state_json'
         }
@@ -58,6 +59,7 @@ describe('tool runtime capability metadata', () => {
 
     expect(parsed.runtime?.kind).toBe('trigger');
     expect(parsed.runtime?.trigger?.type).toBe('polling');
+    expect(parsed.runtime?.trigger?.configurableInterval).toBe(true);
   });
 
   it('rejects trigger runtime declarations without trigger config', () => {
