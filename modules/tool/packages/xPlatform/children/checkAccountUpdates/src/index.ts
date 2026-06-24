@@ -159,7 +159,12 @@ export async function tool(props: In): Promise<Out> {
     const input = InputType.parse(props);
     const state = parseWatchState(input.state_json);
     const usernames = parseUsernames(input.username || state.username);
-    if (!usernames.length) throw new Error('username is required');
+    if (!usernames.length) {
+      return emptyOutput('当前没有配置 X 监控账号，轮询已保持运行。', {
+        ...state,
+        checkedAt: startedAt
+      });
+    }
 
     const nextAccounts: Record<string, XWatchAccountState> = {};
     const allEvents: ReturnType<typeof normalizePostEvents> = [];

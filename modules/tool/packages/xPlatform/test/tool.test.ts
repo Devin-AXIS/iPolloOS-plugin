@@ -25,6 +25,29 @@ afterEach(() => {
 });
 
 describe('X platform tools', () => {
+  test('keeps monitor polling active when account list is empty', async () => {
+    let requestCount = 0;
+    globalThis.fetch = (async () => {
+      requestCount += 1;
+      return new Response('{}', { status: 500 });
+    }) as unknown as typeof fetch;
+
+    const result = await checkAccountUpdates({
+      ...base,
+      username: '',
+      state_json: '{}',
+      max_results: 5,
+      include_replies: false,
+      include_retweets: false
+    });
+
+    expect(requestCount).toBe(0);
+    expect(JSON.parse(result.events_json)).toEqual([]);
+    expect(result.count).toBe(0);
+    expect(result.system_error).toBeUndefined();
+    expect(result.summary_markdown).toContain('没有配置 X 监控账号');
+  });
+
   test('checks account updates and returns events plus next state', async () => {
     globalThis.fetch = (async (url: FetchInput) => {
       const textUrl = String(url);

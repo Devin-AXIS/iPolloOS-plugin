@@ -11,8 +11,8 @@ export default defineTool({
     en: 'Monitor X content changes'
   },
   description: {
-    'zh-CN': '监控一个或多个 X 账号的内容变化，并输出新增事件和下一次状态。',
-    en: 'Monitor content changes for one or more X accounts, then return new events and next state.'
+    'zh-CN': '监控 X 账号内容变化，并输出新增事件和下一次状态。未配置账号时保持轮询但不产生事件。',
+    en: 'Monitor X account content changes, then return new events and next state. If no account is configured, polling stays active without emitting events.'
   },
   toolDescription:
     'Trigger-friendly X polling check. It accepts one or more usernames, reads state_json, fetches user posts with since_id per account, returns events_json and next_state_json. Use this in monitor workflows.',
@@ -56,17 +56,18 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.1',
-      description: '状态化检查账号新增内容',
+      value: '1.0.2',
+      description: '允许空监控名单保持轮询',
       inputs: [
         {
           key: 'username',
           label: '用户名列表',
-          required: true,
+          required: false,
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.textarea, FlowNodeInputTypeEnum.reference],
           placeholder: 'xdevelopers\nopenai\nelonmusk',
-          toolDescription: 'X 用户名列表，可带或不带 @。多个账号用换行、逗号或空格分隔。'
+          toolDescription:
+            'X 用户名列表，可带或不带 @。多个账号用换行、逗号或空格分隔。为空时保持轮询但不产生事件。'
         },
         {
           key: 'state_json',
