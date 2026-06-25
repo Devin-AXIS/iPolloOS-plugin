@@ -7,7 +7,12 @@ import {
   parseWatchState,
   stringifyJson
 } from '../../../lib/format';
-import { XReadConfigSchema, cleanUsername, type XWatchAccountState } from '../../../lib/schemas';
+import {
+  XConfigSchema,
+  XReadConfigSchema,
+  cleanUsername,
+  type XWatchAccountState
+} from '../../../lib/schemas';
 
 const emptyToUndefined = (value: unknown) =>
   value === '' || value === null || value === undefined ? undefined : value;
@@ -20,7 +25,7 @@ const booleanInput = z.preprocess((value) => {
   return value;
 }, z.boolean());
 
-export const InputType = XReadConfigSchema.and(
+export const InputType = XConfigSchema.and(
   z.object({
     username: z.preprocess(emptyToUndefined, z.string().max(4096).optional()),
     state_json: z.preprocess(
@@ -128,18 +133,50 @@ function buildNextState(accounts: Record<string, XWatchAccountState>) {
   return state;
 }
 
-function formatSummary(results: Array<{ username: string; count: number; newestPostId: string }>) {
-  const total = results.reduce((sum, item) => sum + item.count, 0);
-  const watched = results.map((item) => `@${item.username}`).join('、');
-  if (!total) return `未发现 ${watched} 的新增 X 内容。`;
+type AccountRunResult = {
+  username: string;
+  count: number;
+  newestPostId: string;
+  events: ReturnType<typeof normalizePostEvents>;
+};
 
-  const lines = [`发现 ${total} 条新增 X 内容。`, ''];
+function formatPostText(text: string) {
+  const cleaned = text.replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '新增 X 内容';
+  return cleaned.length > 280 ? `${cleaned.slice(0, 280)}...` : cleaned;
+}
+
+function formatReferencedTweetLabel(event: ReturnType<typeof normalizePostEvents>[number]) {
+  const first = event.referencedTweets?.[0];
+  if (!first?.type) return '';
+  if (first.type === 'retweeted') return '转发';
+  if (first.type === 'quoted') return '引用';
+  if (first.type === 'replied_to') return '回复';
+  return '相关内容';
+}
+
+function formatSummary(results: AccountRunResult[]) {
+  const total = results.reduce((sum, item) => sum + item.count, 0);
+  if (!total) {
+    return results.map((item) => `@${item.username}：暂无新内容`).join('\n');
+  }
+
+  const lines: string[] = [];
   results.forEach((item) => {
-    lines.push(
-      `- @${item.username}: ${item.count} 条${item.newestPostId ? `，最新 Post ID：${item.newestPostId}` : ''}`
-    );
+    if (!item.count) {
+      lines.push(`@${item.username}：暂无新内容`, '');
+      return;
+    }
+
+    lines.push(`@${item.username} 有 ${item.count} 条新内容：`, '');
+    item.events.forEach((event) => {
+      const label = formatReferencedTweetLabel(event);
+      const prefix = label ? `${label}：` : '';
+      lines.push(`${prefix}${formatPostText(event.text)}`);
+      lines.push(`链接：${event.url}`, '');
+    });
   });
-  return lines.join('\n');
+  return lines.join('\n').trim();
 }
 
 function emptyOutput(summary: string, state: unknown, systemError?: string): Out {
@@ -165,10 +202,21 @@ export async function tool(props: In): Promise<Out> {
         checkedAt: startedAt
       });
     }
+    const readConfig = XReadConfigSchema.safeParse(input);
+    if (!readConfig.success) {
+      return emptyOutput(
+        `X 账号监控检查失败：${readConfig.error.issues[0]?.message || 'X read token is required'}`,
+        {
+          ...state,
+          checkedAt: startedAt
+        },
+        readConfig.error.issues[0]?.message || 'X read token is required'
+      );
+    }
 
     const nextAccounts: Record<string, XWatchAccountState> = {};
     const allEvents: ReturnType<typeof normalizePostEvents> = [];
-    const results: Array<{ username: string; count: number; newestPostId: string }> = [];
+    const results: AccountRunResult[] = [];
     const errors: string[] = [];
 
     for (const requestedUsername of usernames) {
@@ -191,7 +239,10 @@ export async function tool(props: In): Promise<Out> {
           includeRetweets: input.include_retweets
         });
 
-        const events = normalizePostEvents(data);
+        const events = normalizePostEvents(data).map((event) => ({
+          ...event,
+          eventType: 'x.post.created'
+        }));
         allEvents.push(...events);
         const newestPostId = latestPostId(data.data, previousAccountState.lastPostId);
         const resolvedKey = accountKey(username);
@@ -204,7 +255,8 @@ export async function tool(props: In): Promise<Out> {
         results.push({
           username,
           count: events.length,
-          newestPostId
+          newestPostId,
+          events
         });
       } catch (e: unknown) {
         const key = accountKey(username);
@@ -216,7 +268,8 @@ export async function tool(props: In): Promise<Out> {
         results.push({
           username,
           count: 0,
-          newestPostId: previousAccountState.newestPostId ?? previousAccountState.lastPostId ?? ''
+          newestPostId: previousAccountState.newestPostId ?? previousAccountState.lastPostId ?? '',
+          events: []
         });
         errors.push(`@${username}: ${getErrText(e)}`);
       }
@@ -225,9 +278,26 @@ export async function tool(props: In): Promise<Out> {
     const nextState = buildNextState(nextAccounts);
     const summary = formatSummary(results);
     const systemError = errors.length ? errors.join('\n') : undefined;
+    const eventsForOutput =
+      allEvents.length > 0
+        ? allEvents
+        : [
+            {
+              dedupeKey: `x:monitor-check:${startedAt}:${usernames.join(',')}`,
+              eventType: 'x.monitor.checked',
+              checkedAt: startedAt,
+              summary_markdown: summary,
+              count: 0,
+              accounts: results.map(({ username, count, newestPostId }) => ({
+                username,
+                count,
+                newestPostId
+              }))
+            }
+          ];
 
     return {
-      events_json: stringifyJson(allEvents),
+      events_json: stringifyJson(eventsForOutput),
       next_state_json: stringifyJson(nextState),
       summary_markdown: systemError ? `${summary}\n\n部分账号检查失败：\n${systemError}` : summary,
       count: allEvents.length,
