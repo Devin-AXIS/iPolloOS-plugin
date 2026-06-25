@@ -25,6 +25,73 @@ afterEach(() => {
 });
 
 describe('X platform tools', () => {
+  test('keeps monitor polling active when account list is empty', async () => {
+    let requestCount = 0;
+    globalThis.fetch = (async () => {
+      requestCount += 1;
+      return new Response('{}', { status: 500 });
+    }) as unknown as typeof fetch;
+
+    const result = await checkAccountUpdates({
+      ...base,
+      username: '',
+      state_json: '{}',
+      max_results: 5,
+      include_replies: false,
+      include_retweets: false
+    });
+
+    expect(requestCount).toBe(0);
+    expect(JSON.parse(result.events_json)).toEqual([]);
+    expect(result.count).toBe(0);
+    expect(result.system_error).toBeUndefined();
+    expect(result.summary_markdown).toContain('没有配置 X 监控账号');
+  });
+
+  test('does not require X read token for an empty monitor list', async () => {
+    let requestCount = 0;
+    globalThis.fetch = (async () => {
+      requestCount += 1;
+      return new Response('{}', { status: 500 });
+    }) as unknown as typeof fetch;
+
+    const result = await checkAccountUpdates({
+      username: '',
+      state_json: '{}',
+      max_results: 5,
+      include_replies: false,
+      include_retweets: false
+    });
+
+    expect(requestCount).toBe(0);
+    expect(JSON.parse(result.events_json)).toEqual([]);
+    expect(result.count).toBe(0);
+    expect(result.system_error).toBeUndefined();
+    expect(result.summary_markdown).toContain('没有配置 X 监控账号');
+  });
+
+  test('keeps polling alive with an error summary when accounts need a missing X token', async () => {
+    let requestCount = 0;
+    globalThis.fetch = (async () => {
+      requestCount += 1;
+      return new Response('{}', { status: 500 });
+    }) as unknown as typeof fetch;
+
+    const result = await checkAccountUpdates({
+      username: 'xdevelopers',
+      state_json: '{}',
+      max_results: 5,
+      include_replies: false,
+      include_retweets: false
+    });
+
+    expect(requestCount).toBe(0);
+    expect(JSON.parse(result.events_json)).toEqual([]);
+    expect(result.count).toBe(0);
+    expect(result.system_error).toBe('X read token is required');
+    expect(result.summary_markdown).toContain('X read token is required');
+  });
+
   test('checks account updates and returns events plus next state', async () => {
     globalThis.fetch = (async (url: FetchInput) => {
       const textUrl = String(url);
@@ -85,6 +152,48 @@ describe('X platform tools', () => {
     expect(events[0].dedupeKey).toBe('x:post:101');
     expect(state.lastPostId).toBe('101');
     expect(result.count).toBe(1);
+  });
+
+  test('emits a monitor check event and readable summary when watched accounts have no new posts', async () => {
+    globalThis.fetch = (async (url: FetchInput) => {
+      const textUrl = String(url);
+      if (textUrl.includes('/2/users/by/username/xdevelopers')) {
+        return new Response(
+          JSON.stringify({ data: { id: '2244994945', username: 'xdevelopers' } }),
+          { status: 200 }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          data: [],
+          includes: { users: [{ id: '2244994945', username: 'xdevelopers' }] },
+          meta: { result_count: 0 }
+        }),
+        { status: 200 }
+      );
+    }) as unknown as typeof fetch;
+
+    const result = await checkAccountUpdates({
+      ...base,
+      username: 'xdevelopers',
+      state_json: JSON.stringify({
+        accounts: {
+          xdevelopers: { userId: '2244994945', username: 'xdevelopers', lastPostId: '101' }
+        }
+      }),
+      max_results: 5,
+      include_replies: false,
+      include_retweets: false
+    });
+
+    const events = JSON.parse(result.events_json);
+
+    expect(result.count).toBe(0);
+    expect(result.summary_markdown).toBe('@xdevelopers：暂无新内容');
+    expect(events).toHaveLength(1);
+    expect(events[0].eventType).toBe('x.monitor.checked');
+    expect(events[0].summary_markdown).toBe('@xdevelopers：暂无新内容');
   });
 
   test('checks multiple accounts with separate cursors in one monitor run', async () => {
