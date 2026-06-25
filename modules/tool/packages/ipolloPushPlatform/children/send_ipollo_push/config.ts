@@ -42,8 +42,8 @@ export default defineTool({
           label: '推送内容',
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
-          required: true,
-          toolDescription: '要推送到智能体聊天里的正文内容。'
+          toolDescription:
+            '要推送到智能体聊天里的正文内容。为空时会依次使用摘要、标题、payload_json.text / summary / content。'
         },
         {
           key: 'title',
@@ -134,8 +134,8 @@ export default defineTool({
           label: '推送内容',
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
-          required: true,
-          toolDescription: '要推送到智能体聊天里的正文内容。'
+          toolDescription:
+            '要推送到智能体聊天里的正文内容。为空时会依次使用摘要、标题、payload_json.text / summary / content。'
         },
         {
           key: 'title',

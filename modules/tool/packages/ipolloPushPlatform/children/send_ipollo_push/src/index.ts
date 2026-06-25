@@ -9,7 +9,7 @@ const optionalText = z.preprocess(emptyToUndefined, z.string().max(100_000).opti
 export const InputType = z.object({
   agent_id: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
   hook_url: z.preprocess(emptyToUndefined, z.string().max(4000).optional()),
-  text: z.string().min(1).max(500_000),
+  text: z.preprocess(emptyToUndefined, z.string().max(500_000).optional()),
   title: optionalText,
   summary: optionalText,
   event_type: z
@@ -106,7 +106,38 @@ function parseJsonObject(
   }
 }
 
-async function postLegacyHook(input: In, eventId: string): Promise<Out> {
+function pickString(payload: Record<string, unknown> | undefined, keys: string[]): string {
+  if (!payload) return '';
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return '';
+}
+
+function hasPayload(
+  payload: Record<string, unknown> | undefined
+): payload is Record<string, unknown> {
+  return Boolean(payload && Object.keys(payload).length > 0);
+}
+
+function resolvePushText(input: In, payload: Record<string, unknown> | undefined): string {
+  return (
+    input.text?.trim() ||
+    input.summary?.trim() ||
+    input.title?.trim() ||
+    pickString(payload, ['text', 'summary', 'content', 'message', 'title', 'description']) ||
+    (hasPayload(payload) ? JSON.stringify(payload) : '')
+  );
+}
+
+async function postLegacyHook(
+  input: In,
+  eventId: string,
+  payload: Record<string, unknown> | undefined,
+  text: string
+): Promise<Out> {
   const hookUrl = input.hook_url?.trim();
   if (!hookUrl) throw new Error('缺少 Hook 地址');
   const response = await fetch(hookUrl, {
@@ -117,7 +148,8 @@ async function postLegacyHook(input: In, eventId: string): Promise<Out> {
       eventType: input.event_type?.trim() || 'ipolloos.push',
       title: input.title?.trim() || undefined,
       summary: input.summary?.trim() || undefined,
-      text: input.text,
+      text,
+      payload: hasPayload(payload) ? payload : undefined,
       source: 'ipolloos_plugin'
     })
   });
@@ -143,7 +175,15 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
       : createEventId();
   try {
     const input = InputType.parse(props);
-    if (input.hook_url?.trim()) return postLegacyHook(input, eventId);
+    const payload = parseJsonObject(input.payload_json, 'payload_json');
+    const text = resolvePushText(input, payload);
+    if (!text) {
+      throw new Error(
+        '缺少推送内容：请填写“推送内容”，或提供标题、摘要、payload_json.text、payload_json.summary、payload_json.content。'
+      );
+    }
+
+    if (input.hook_url?.trim()) return await postLegacyHook(input, eventId, payload, text);
 
     const agentId = input.agent_id?.trim();
     if (!agentId) throw new Error('缺少 Hook 地址');
@@ -176,8 +216,8 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
         eventType: input.event_type?.trim() || 'ipolloos.push',
         title: input.title?.trim() || undefined,
         summary: input.summary?.trim() || undefined,
-        text: input.text,
-        payload: parseJsonObject(input.payload_json, 'payload_json') ?? {},
+        text,
+        payload: payload ?? {},
         targetUserIds: input.target_user_ids,
         perUserPayload: parseJsonObject(input.per_user_payload_json, 'per_user_payload_json')
       })
