@@ -55,6 +55,7 @@ const SystemErrorSchema = z
 
 export const OutputType = z.object({
   events_json: z.array(TriggerEventSchema),
+  count: z.number().int().nonnegative(),
   next_state_json: z.record(z.string(), z.any()),
   summary_markdown: z.string().optional(),
   system_error: SystemErrorSchema.optional()
@@ -203,6 +204,7 @@ function toTriggerEvent(input: {
     source: 'xPlatform_xapito',
     occurredAt: input.event.postedAt || undefined,
     data: {
+      content_text: input.event.text,
       account: {
         userId: input.userId,
         username: input.username
@@ -210,7 +212,6 @@ function toTriggerEvent(input: {
       post: {
         id: postId,
         text: input.event.text,
-        url: input.event.url,
         createdAt: input.event.postedAt || null,
         postType: eventType(input.event),
         authorUsername: input.event.authorUsername || input.username
@@ -372,6 +373,7 @@ export async function tool(props: In): Promise<Out> {
     const error = { code: 'INVALID_INPUT', message: 'username is required', retryable: false };
     return {
       events_json: [],
+      count: 0,
       next_state_json: buildState({
         previous: previousState,
         username: previousState.username ?? '',
@@ -392,6 +394,7 @@ export async function tool(props: In): Promise<Out> {
     };
     return {
       events_json: [],
+      count: 0,
       next_state_json: {
         version: STATE_VERSION,
         accounts: previousState.accounts ?? {},
@@ -415,10 +418,12 @@ export async function tool(props: In): Promise<Out> {
 
   if (results.length === 1) {
     const result = results[0];
+    const count = result.events.length;
     return {
       events_json: result.events,
+      count,
       next_state_json: result.state,
-      summary_markdown: result.summary,
+      summary_markdown: count > 0 || result.systemError ? result.summary : '',
       system_error: result.systemError
     };
   }
@@ -429,6 +434,7 @@ export async function tool(props: In): Promise<Out> {
 
   return {
     events_json: events,
+    count: events.length,
     next_state_json: {
       version: STATE_VERSION,
       accounts,
@@ -444,7 +450,8 @@ export async function tool(props: In): Promise<Out> {
             }
           : null
     },
-    summary_markdown: results.map((result) => result.summary).join('\n'),
+    summary_markdown:
+      events.length > 0 || failed.length > 0 ? results.map((result) => result.summary).join('\n') : '',
     system_error: failed.length === results.length ? failed[0].systemError : null
   };
 }

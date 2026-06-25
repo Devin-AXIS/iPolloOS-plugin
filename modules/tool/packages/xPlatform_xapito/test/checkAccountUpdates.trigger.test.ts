@@ -122,12 +122,12 @@ afterEach(() => {
 });
 
 describe('checkAccountUpdates standard polling trigger', () => {
-  it('declares itself as a 300 second polling trigger', () => {
+  it('declares itself as a 60 second polling trigger', () => {
     expect(config.runtime?.kind).toBe('trigger');
     expect(config.runtime?.trigger?.type).toBe('polling');
     expect(config.runtime?.trigger?.configurableInterval).toBe(true);
-    expect(config.runtime?.trigger?.schedule?.defaultIntervalSeconds).toBe(300);
-    expect(config.runtime?.trigger?.schedule?.minIntervalSeconds).toBe(300);
+    expect(config.runtime?.trigger?.schedule?.defaultIntervalSeconds).toBe(60);
+    expect(config.runtime?.trigger?.schedule?.minIntervalSeconds).toBe(60);
     expect(config.runtime?.trigger?.schedule?.maxIntervalSeconds).toBe(86400);
   });
 
@@ -141,6 +141,8 @@ describe('checkAccountUpdates standard polling trigger', () => {
     });
 
     expect(result.events_json).toEqual([]);
+    expect(result.count).toBe(0);
+    expect(result.summary_markdown).toBe('');
     expect(result.next_state_json.userId).toBe('44196397');
     expect(result.next_state_json.lastPostId).toBe('2067623442514386944');
     expect(result.next_state_json.seenPostIds).toEqual(['2067623442514386944']);
@@ -181,11 +183,19 @@ describe('checkAccountUpdates standard polling trigger', () => {
     });
 
     expect(result.events_json.map((event) => event.data)).toHaveLength(2);
+    expect(result.count).toBe(2);
     expect(result.events_json.map((event) => event.eventId)).toEqual([
       'x:44196397:2067623442514386945',
       'x:44196397:2067623442514386946'
     ]);
     expect(result.events_json[0].dedupeKey).toBe('x:44196397:2067623442514386945');
+    expect(result.events_json[0].data).toMatchObject({
+      content_text: 'post 2067623442514386945',
+      post: {
+        text: 'post 2067623442514386945'
+      }
+    });
+    expect((result.events_json[0].data as { post: { url?: string } }).post.url).toBeUndefined();
     expect(result.next_state_json.lastPostId).toBe('2067623442514386946');
   });
 
@@ -266,7 +276,7 @@ describe('checkAccountUpdates standard polling trigger', () => {
     });
 
     expect(setIntervalSpy).not.toHaveBeenCalled();
-    expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 300_000);
+    expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 60_000);
     expect(urls.some((url) => url.includes('plugin-hooks'))).toBe(false);
   });
 });

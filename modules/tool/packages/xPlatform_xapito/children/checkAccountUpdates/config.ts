@@ -23,8 +23,8 @@ export default defineTool({
       type: 'polling',
       configurableInterval: true,
       schedule: {
-        minIntervalSeconds: 300,
-        defaultIntervalSeconds: 300,
+        minIntervalSeconds: 60,
+        defaultIntervalSeconds: 60,
         maxIntervalSeconds: 86400,
         timeoutSeconds: 60,
         jitterSeconds: 15
@@ -122,6 +122,11 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.arrayAny,
           key: 'events_json',
           label: '新增事件 JSON'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.number,
+          key: 'count',
+          label: '新增数量'
         },
         {
           valueType: WorkflowIOValueTypeEnum.object,
