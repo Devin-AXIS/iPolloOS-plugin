@@ -10,6 +10,21 @@ export const cleanUsername = (value: unknown) =>
     .trim()
     .replace(/^@+/, '');
 
+export const parseXUsernames = (value: unknown): string[] => {
+  const normalized = String(value ?? '')
+    .replace(/\\r\\n|\\n|\\r/g, '\n')
+    .replace(/\/r\/n|\/n|\/r/g, '\n');
+
+  return Array.from(
+    new Set(
+      normalized
+        .split(/[,\uFF0C\u3001;\uFF1B\s]+/)
+        .map((item) => cleanUsername(item).toLowerCase())
+        .filter(Boolean)
+    )
+  );
+};
+
 export const XConfigSchema = z.object({
   bearerToken: z.preprocess(emptyToUndefined, z.string().min(10).optional()),
   userAccessToken: z.preprocess(emptyToUndefined, z.string().min(10).optional()),

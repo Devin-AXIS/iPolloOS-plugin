@@ -25,7 +25,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.3',
+      value: '1.0.4',
       description: '帖子动作管理',
       inputs: [
         {

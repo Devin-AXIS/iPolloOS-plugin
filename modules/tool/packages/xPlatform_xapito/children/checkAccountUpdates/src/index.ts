@@ -3,10 +3,11 @@ import { z } from 'zod';
 import { getUserPosts, lookupUserByUsername } from '../../../lib/client';
 import { normalizePostEvents } from '../../../lib/format';
 import { comparePostIds, normalizePostId } from '../../../lib/postId';
-import { XReadConfigSchema, cleanUsername } from '../../../lib/schemas';
+import { XReadConfigSchema, cleanUsername, parseXUsernames } from '../../../lib/schemas';
 
 const STATE_VERSION = 1;
 const MAX_SEEN_POST_IDS = 200;
+const MAX_USERNAMES = 20;
 
 const emptyToUndefined = (value: unknown) =>
   value === '' || value === null || value === undefined ? undefined : value;
@@ -75,22 +76,27 @@ type PollingState = {
   lastError?: { code: string; message: string } | null;
 };
 
+type ParsedState = PollingState & {
+  accounts?: Record<string, PollingState>;
+};
+
+type AccountCheckResult = {
+  username: string;
+  events: ReturnType<typeof toTriggerEvent>[];
+  state: Record<string, unknown>;
+  summary: string;
+  systemError: z.infer<typeof SystemErrorSchema>;
+};
+
 function accountKey(username: string): string {
   return cleanUsername(username).toLowerCase();
 }
 
-function parseState(value: unknown): PollingState {
-  if (!value) return { version: STATE_VERSION };
-  const raw = typeof value === 'string' ? JSON.parse(value || '{}') : value;
-  const record = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-  const legacyAccounts =
-    record.accounts && typeof record.accounts === 'object'
-      ? (record.accounts as Record<string, Record<string, unknown>>)
-      : undefined;
-  const legacyUsername = accountKey(record.username as string);
-  const legacyAccount = legacyUsername ? legacyAccounts?.[legacyUsername] : undefined;
-  const source = legacyAccount ?? record;
+function emptyState(): PollingState {
+  return { version: STATE_VERSION, seenPostIds: [], lastError: null };
+}
 
+function stateFromRecord(source: Record<string, unknown>): PollingState {
   return {
     version: STATE_VERSION,
     userId: typeof source.userId === 'string' ? source.userId : undefined,
@@ -109,6 +115,34 @@ function parseState(value: unknown): PollingState {
             message: String((source.lastError as Record<string, unknown>).message ?? '')
           }
         : null
+  };
+}
+
+function parseState(value: unknown): ParsedState {
+  if (!value) return emptyState();
+  const raw = typeof value === 'string' ? JSON.parse(value || '{}') : value;
+  const record = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const legacyAccounts =
+    record.accounts && typeof record.accounts === 'object'
+      ? (record.accounts as Record<string, Record<string, unknown>>)
+      : undefined;
+  const legacyUsername = accountKey(record.username as string);
+  const legacyAccount = legacyUsername ? legacyAccounts?.[legacyUsername] : undefined;
+  const source = legacyAccount ?? record;
+  const state = stateFromRecord(source);
+
+  if (!legacyAccounts) return state;
+
+  const accounts = Object.fromEntries(
+    Object.entries(legacyAccounts).map(([key, account]) => {
+      const accountState = stateFromRecord(account);
+      return [accountKey(accountState.username ?? key), accountState];
+    })
+  );
+
+  return {
+    ...state,
+    accounts
   };
 }
 
@@ -220,28 +254,23 @@ function classifyError(error: unknown) {
   };
 }
 
-export async function tool(props: In): Promise<Out> {
-  const checkedAt = new Date().toISOString();
-  const input = InputType.parse(props);
-  const previousState = parseState(input.state_json);
-  const username = accountKey(input.username || previousState.username || '');
+function previousStateForUsername(
+  state: ParsedState,
+  username: string,
+  hasSingleRequestedUsername: boolean
+): PollingState {
+  if (state.accounts?.[username]) return state.accounts[username];
+  if (state.username === username) return state;
+  if (hasSingleRequestedUsername && !state.accounts) return state;
+  return emptyState();
+}
 
-  if (!username) {
-    const error = { code: 'INVALID_INPUT', message: 'username is required', retryable: false };
-    return {
-      events_json: [],
-      next_state_json: buildState({
-        previous: previousState,
-        username: previousState.username ?? '',
-        checkedAt,
-        success: false,
-        error
-      }),
-      summary_markdown: 'Failed to check X account: username is required.',
-      system_error: error
-    };
-  }
-
+async function checkAccount(
+  input: In,
+  previousState: PollingState,
+  username: string,
+  checkedAt: string
+): Promise<AccountCheckResult> {
   try {
     let userId = previousState.userId;
     let resolvedUsername = previousState.username ?? username;
@@ -263,8 +292,9 @@ export async function tool(props: In): Promise<Out> {
 
     if (!previousState.lastPostId && input.initial_mode === 'baseline') {
       return {
-        events_json: [],
-        next_state_json: buildState({
+        username: resolvedUsername,
+        events: [],
+        state: buildState({
           previous: previousState,
           userId,
           username: resolvedUsername,
@@ -274,8 +304,8 @@ export async function tool(props: In): Promise<Out> {
           checkedAt,
           success: true
         }),
-        summary_markdown: `Initialized polling baseline for @${resolvedUsername}.`,
-        system_error: null
+        summary: `Initialized polling baseline for @${resolvedUsername}.`,
+        systemError: null
       };
     }
 
@@ -293,8 +323,9 @@ export async function tool(props: In): Promise<Out> {
     );
 
     return {
-      events_json: triggerEvents,
-      next_state_json: buildState({
+      username: resolvedUsername,
+      events: triggerEvents,
+      state: buildState({
         previous: previousState,
         userId,
         username: resolvedUsername,
@@ -304,16 +335,17 @@ export async function tool(props: In): Promise<Out> {
         checkedAt,
         success: true
       }),
-      summary_markdown: triggerEvents.length
+      summary: triggerEvents.length
         ? `Found ${triggerEvents.length} new X post(s) for @${resolvedUsername}.`
         : `No new X posts found for @${resolvedUsername}.`,
-      system_error: null
+      systemError: null
     };
   } catch (error: unknown) {
     const systemError = classifyError(error);
     return {
-      events_json: [],
-      next_state_json: buildState({
+      username,
+      events: [],
+      state: buildState({
         previous: previousState,
         username,
         checkedAt,
@@ -323,8 +355,96 @@ export async function tool(props: In): Promise<Out> {
           message: systemError.message
         }
       }),
-      summary_markdown: `Failed to check @${username}.`,
-      system_error: systemError
+      summary: `Failed to check @${username}.`,
+      systemError
     };
   }
+}
+
+export async function tool(props: In): Promise<Out> {
+  const checkedAt = new Date().toISOString();
+  const input = InputType.parse(props);
+  const previousState = parseState(input.state_json);
+  const usernames = parseXUsernames(input.username);
+  if (!usernames.length && previousState.username) usernames.push(previousState.username);
+
+  if (!usernames.length) {
+    const error = { code: 'INVALID_INPUT', message: 'username is required', retryable: false };
+    return {
+      events_json: [],
+      next_state_json: buildState({
+        previous: previousState,
+        username: previousState.username ?? '',
+        checkedAt,
+        success: false,
+        error
+      }),
+      summary_markdown: 'Failed to check X account: username is required.',
+      system_error: error
+    };
+  }
+
+  if (usernames.length > MAX_USERNAMES) {
+    const error = {
+      code: 'INVALID_INPUT',
+      message: `Too many usernames: received ${usernames.length}, maximum is ${MAX_USERNAMES}.`,
+      retryable: false
+    };
+    return {
+      events_json: [],
+      next_state_json: {
+        version: STATE_VERSION,
+        accounts: previousState.accounts ?? {},
+        checkedAt,
+        lastError: { code: error.code, message: error.message }
+      },
+      summary_markdown: `Failed to check X accounts: maximum ${MAX_USERNAMES} usernames are allowed.`,
+      system_error: error
+    };
+  }
+
+  const results: AccountCheckResult[] = [];
+  for (const username of usernames) {
+    const previousAccountState = previousStateForUsername(
+      previousState,
+      username,
+      usernames.length === 1
+    );
+    results.push(await checkAccount(input, previousAccountState, username, checkedAt));
+  }
+
+  if (results.length === 1) {
+    const result = results[0];
+    return {
+      events_json: result.events,
+      next_state_json: result.state,
+      summary_markdown: result.summary,
+      system_error: result.systemError
+    };
+  }
+
+  const accounts = Object.fromEntries(results.map((result) => [result.username, result.state]));
+  const events = results.flatMap((result) => result.events);
+  const failed = results.filter((result) => result.systemError);
+
+  return {
+    events_json: events,
+    next_state_json: {
+      version: STATE_VERSION,
+      accounts,
+      checkedAt,
+      lastSuccessAt: failed.length === results.length ? previousState.lastSuccessAt : checkedAt,
+      lastError:
+        failed.length > 0
+          ? {
+              code: failed.length === results.length ? 'X_API_ERROR' : 'X_PARTIAL_ACCOUNT_ERROR',
+              message: failed
+                .map((result) => `@${result.username}: ${result.systemError?.message}`)
+                .join('; ')
+            }
+          : null
+    },
+    summary_markdown: results.map((result) => result.summary).join('\n'),
+    system_error: failed.length === results.length ? failed[0].systemError : null
+  };
 }

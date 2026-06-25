@@ -25,7 +25,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.3',
+      value: '1.0.4',
       description: '最新、相关、高互动内容搜索',
       inputs: [
         {

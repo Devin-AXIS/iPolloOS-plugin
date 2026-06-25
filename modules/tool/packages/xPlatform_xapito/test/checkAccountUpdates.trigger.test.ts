@@ -89,6 +89,32 @@ function mockXapi(ids: string[], options: { failTweets?: boolean } = {}) {
   return urls;
 }
 
+function mockMultiAccountXapi() {
+  const urls: string[] = [];
+  const users: Record<string, { id: string; username: string; posts: string[] }> = {
+    saijin0525: { id: '1001', username: 'saijin0525', posts: ['301'] },
+    web3ammmyyy: { id: '1002', username: 'web3ammmyyy', posts: ['402'] }
+  };
+
+  globalThis.fetch = (async (url: FetchInput) => {
+    const textUrl = String(url);
+    urls.push(textUrl);
+    const parsed = new URL(textUrl);
+
+    if (textUrl.includes('userByScreenNameV2')) {
+      const screenName = parsed.searchParams.get('screenName') ?? '';
+      const user = users[screenName];
+      return new Response(JSON.stringify(userResponse(user.id, user.username)), { status: 200 });
+    }
+
+    const userId = parsed.searchParams.get('userId') ?? '';
+    const user = Object.values(users).find((item) => item.id === userId);
+    return new Response(JSON.stringify(postsResponse(user?.posts ?? [])), { status: 200 });
+  }) as unknown as typeof fetch;
+
+  return urls;
+}
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
   vi.useRealTimers();
@@ -119,6 +145,24 @@ describe('checkAccountUpdates standard polling trigger', () => {
     expect(result.next_state_json.lastPostId).toBe('2067623442514386944');
     expect(result.next_state_json.seenPostIds).toEqual(['2067623442514386944']);
     expect(result.system_error).toBeNull();
+  });
+
+  it('checks multiple usernames split by escaped slash newline instead of one combined username', async () => {
+    const urls = mockMultiAccountXapi();
+
+    const result = await checkAccountUpdates({
+      ...base,
+      username: '@saijin0525/n@web3ammmyyy',
+      state_json: {}
+    });
+
+    expect(result.events_json).toEqual([]);
+    expect(result.system_error).toBeNull();
+    expect(result.next_state_json.accounts.saijin0525.lastPostId).toBe('301');
+    expect(result.next_state_json.accounts.web3ammmyyy.lastPostId).toBe('402');
+    expect(urls.some((url) => url.includes('saijin0525%2Fn'))).toBe(false);
+    expect(urls.some((url) => url.includes('screenName=saijin0525'))).toBe(true);
+    expect(urls.some((url) => url.includes('screenName=web3ammmyyy'))).toBe(true);
   });
 
   it('returns new post events from old to new with userId based dedupeKey', async () => {

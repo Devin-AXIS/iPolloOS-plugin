@@ -25,7 +25,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.3',
+      value: '1.0.4',
       description: '发布新内容或引用内容',
       inputs: [
         {

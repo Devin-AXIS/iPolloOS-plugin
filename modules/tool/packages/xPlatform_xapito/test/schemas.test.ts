@@ -4,7 +4,8 @@ import {
   XConfigSchema,
   XPostListResponseSchema,
   XReadConfigSchema,
-  cleanUsername
+  cleanUsername,
+  parseXUsernames
 } from '../lib/schemas';
 
 describe('X platform schemas', () => {
@@ -18,6 +19,29 @@ describe('X platform schemas', () => {
     expect(config.timeoutMs).toBe(15000);
     expect(config.defaultMaxResults).toBe(10);
     expect(cleanUsername('@xdevelopers')).toBe('xdevelopers');
+  });
+
+  test('parses usernames separated by commas, spaces, real newlines, and escaped newlines', () => {
+    expect(parseXUsernames('@saijin0525,@web3ammmyyy')).toEqual([
+      'saijin0525',
+      'web3ammmyyy'
+    ]);
+    expect(parseXUsernames('@saijin0525 @web3ammmyyy')).toEqual([
+      'saijin0525',
+      'web3ammmyyy'
+    ]);
+    expect(parseXUsernames('@saijin0525\n@web3ammmyyy')).toEqual([
+      'saijin0525',
+      'web3ammmyyy'
+    ]);
+    expect(parseXUsernames('@saijin0525/n@web3ammmyyy')).toEqual([
+      'saijin0525',
+      'web3ammmyyy'
+    ]);
+    expect(parseXUsernames('@saijin0525\\n@web3ammmyyy，@SAIJIN0525')).toEqual([
+      'saijin0525',
+      'web3ammmyyy'
+    ]);
   });
 
   test('accepts optional proxy URL for restricted network environments', () => {
