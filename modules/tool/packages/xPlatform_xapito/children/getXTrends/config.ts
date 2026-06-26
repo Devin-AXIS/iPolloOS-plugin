@@ -25,7 +25,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.4',
+      value: '1.0.5',
       description: '地区热门趋势和主题过滤',
       inputs: [
         {
