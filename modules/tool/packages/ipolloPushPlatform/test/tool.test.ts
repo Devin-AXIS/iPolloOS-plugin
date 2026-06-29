@@ -17,6 +17,7 @@ describe('ipolloPushPlatform', () => {
     const inputs = config.versionList[0].inputs;
     const hookUrl = inputs.find((item) => item.key === 'hook_url');
     const applicationId = inputs.find((item) => item.key === 'application_id');
+    const pushContent = inputs.find((item) => item.key === 'push_content');
     const monitorObject = inputs.find((item) => item.key === 'monitor_object');
     const monitorObjectName = inputs.find((item) => item.key === 'monitor_object_name');
     const aiSummary = inputs.find((item) => item.key === 'ai_summary');
@@ -26,6 +27,11 @@ describe('ipolloPushPlatform', () => {
     expect(hookUrl?.required).toBeUndefined();
     expect(hookUrl?.renderTypeList[0]).toBe(FlowNodeInputTypeEnum.hidden);
     expect(applicationId?.renderTypeList).toEqual([FlowNodeInputTypeEnum.hidden]);
+    expect(pushContent?.label).toBe('监控内容');
+    expect(pushContent?.renderTypeList).toEqual([
+      FlowNodeInputTypeEnum.reference,
+      FlowNodeInputTypeEnum.textarea
+    ]);
     expect(monitorObject?.renderTypeList).toEqual([
       FlowNodeInputTypeEnum.reference,
       FlowNodeInputTypeEnum.input
@@ -115,8 +121,12 @@ describe('ipolloPushPlatform', () => {
     );
     const body = JSON.parse(String(init?.body));
     expect(body.agentId).toBe('aino-bot-1');
-    expect(body.appCard).toEqual(card);
-    expect(body.payload.app_card).toEqual(card);
+    expect(body.text).toBe('本次监控内容已更新，查看卡片获取摘要和变化。');
+    expect(body.appCard.componentName).toBe('MarketMonitorEventCard');
+    expect(body.appCard.data.monitorObject).toBe('Tesla');
+    expect(body.appCard.data.monitorObjectName).toBe('Tesla');
+    expect(body.appCard.data.changeContent).toBe('Tesla 盘前波动放大，需要跟踪成交量确认。');
+    expect(body.payload.app_card).toEqual(body.appCard);
   });
 
   it('falls back to applicationId from the App register URL for scheduled system runs', async () => {
@@ -174,6 +184,8 @@ describe('ipolloPushPlatform', () => {
     );
     const body = JSON.parse(String(init?.body));
     expect(body.applicationId).toBe('aino-app-from-register');
+    expect(body.text).toBe('本次监控内容已更新，查看卡片获取摘要和变化。');
+    expect(body.appCard.data.changeContent).toBe('SpaceX 发射节奏出现新变化。');
   });
 
   it('builds a native monitor card from structured push fields', async () => {
@@ -203,7 +215,7 @@ describe('ipolloPushPlatform', () => {
         monitor_object: 'SpaceX',
         ai_summary: '发射节奏提升，商业航天供给侧变化需要关注。',
         event_time: '2026-06-29T10:30:00.000Z',
-        text: 'SpaceX 发射节奏提升，可能影响商业航天产业链。'
+        push_content: 'SpaceX 发射节奏提升，可能影响商业航天产业链。'
       },
       {
         systemVar: {
@@ -231,11 +243,80 @@ describe('ipolloPushPlatform', () => {
     expect(body.appCard.data.monitorObjectName).toBe('SpaceX');
     expect(body.appCard.data.summary).toBe('发射节奏提升，商业航天供给侧变化需要关注。');
     expect(body.appCard.data.metrics).toEqual(['SpaceX']);
+    expect(body.appCard.data.changeContent).toBe('SpaceX 发射节奏提升，可能影响商业航天产业链。');
+    expect(body.text).toBe('本次监控内容已更新，查看卡片获取摘要和变化。');
     expect(body.payload.monitor_object).toBe('SpaceX');
     expect(body.payload.monitor_object_name).toBe('SpaceX');
     expect(body.payload.monitorObjectName).toBe('SpaceX');
     expect(body.payload.ai_summary).toBe('发射节奏提升，商业航天供给侧变化需要关注。');
     expect(body.payload.event_time).toBe('2026-06-29T10:30:00.000Z');
+    expect(body.payload.push_content).toBe('SpaceX 发射节奏提升，可能影响商业航天产业链。');
     expect(body.payload.app_card).toEqual(body.appCard);
+  });
+
+  it('keeps only the short chat text while preserving many monitor objects in the card', async () => {
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
+    process.env.IPOLLO_APP_REGISTER_URL =
+      'https://studio.ipollo.net/api/app-publish-callback?applicationId=aino-app-from-register';
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            eventId: 'evt-4',
+            matchedUserCount: 1,
+            deliveredCount: 1,
+            skippedCount: 0
+          }),
+          { status: 200 }
+        )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await sendIPolloPush(
+      {
+        agent_id: 'aino-bot-1',
+        monitor_object: '@elonmusk @sama @tim_cook @satyanadella',
+        ai_summary: '重点账号密集更新，需要关注科技主线变化。',
+        push_content:
+          '1. @elonmusk 提到 Starship。\n2. @sama 更新 AI 产品。\n3. @tim_cook 发布供应链动态。'
+      },
+      {
+        systemVar: {
+          app: { id: 'fastgpt-app-1', name: 'Market Agent' },
+          user: {
+            id: 'user-1',
+            username: 'user',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: 'team-1',
+            name: 'User'
+          },
+          tool: { id: 'ipolloPushPlatform/send_ipollo_push', version: '1.2.0' },
+          time: '2026-06-29T00:00:00.000Z'
+        }
+      } as any
+    );
+
+    expect(result.ok).toBe(true);
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(init?.body));
+    expect(body.text).toBe('本次监控内容已更新，查看卡片获取摘要和变化。');
+    expect(body.appCard.data.monitorObjectNames).toEqual([
+      '@elonmusk',
+      '@sama',
+      '@tim_cook',
+      '@satyanadella'
+    ]);
+    expect(body.appCard.data.changeContent).toContain('@elonmusk');
+    expect(body.payload.monitor_objects).toEqual([
+      '@elonmusk',
+      '@sama',
+      '@tim_cook',
+      '@satyanadella'
+    ]);
   });
 });

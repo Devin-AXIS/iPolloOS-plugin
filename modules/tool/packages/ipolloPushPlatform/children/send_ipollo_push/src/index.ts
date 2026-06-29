@@ -11,8 +11,9 @@ export const InputType = z.object({
   application_id: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
   hook_url: z.preprocess(emptyToUndefined, z.string().max(4000).optional()),
   text: z.preprocess(emptyToUndefined, z.string().max(500_000).optional()),
-  monitor_object: z.preprocess(emptyToUndefined, z.string().max(500).optional()),
-  monitor_object_name: z.preprocess(emptyToUndefined, z.string().max(500).optional()),
+  push_content: z.preprocess(emptyToUndefined, z.string().max(500_000).optional()),
+  monitor_object: z.preprocess(emptyToUndefined, z.string().max(4000).optional()),
+  monitor_object_name: z.preprocess(emptyToUndefined, z.string().max(4000).optional()),
   ai_summary: optionalText,
   event_time: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
   title: optionalText,
@@ -40,6 +41,9 @@ export const OutputType = z.object({
 
 type In = z.infer<typeof InputType>;
 type Out = z.infer<typeof OutputType>;
+
+const DEFAULT_MONITOR_PUSH_TEXT = '本次监控内容已更新，查看卡片获取摘要和变化。';
+const INTERNAL_LABELS = new Set(['ipolloos.push', 'agent.monitor', 'monitor.updated', 'ipolloos']);
 
 function getErrorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -153,6 +157,78 @@ function pickString(payload: Record<string, unknown> | undefined, keys: string[]
   return '';
 }
 
+function cleanMonitorLabel(value: string): string {
+  const text = value.replace(/\s+/g, ' ').trim();
+  return text && !INTERNAL_LABELS.has(text.toLowerCase()) ? text : '';
+}
+
+function splitMonitorLabelText(value: string): string[] {
+  const text = value.trim();
+  if (!text) return [];
+  const delimiterParts = text
+    .split(/[\n,，;；|]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const parts = delimiterParts.length > 1 ? delimiterParts : [text];
+  return parts.flatMap((part) => {
+    const words = part
+      .split(/\s+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const looksLikeHandleList =
+      words.length > 1 && words.filter((item) => item.startsWith('@')).length >= 2;
+    const looksLikeTickerList =
+      words.length > 1 && words.every((item) => /^[A-Z][A-Z0-9.:-]{0,12}$/.test(item));
+    return looksLikeHandleList || looksLikeTickerList ? words : [part];
+  });
+}
+
+function monitorLabelsFromValue(value: unknown): string[] {
+  if (typeof value === 'string')
+    return splitMonitorLabelText(value).map(cleanMonitorLabel).filter(Boolean);
+  if (typeof value === 'number' && Number.isFinite(value))
+    return [cleanMonitorLabel(String(value))].filter(Boolean);
+  if (Array.isArray(value)) return value.flatMap(monitorLabelsFromValue);
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return monitorLabelsFromValue(
+      record.name ??
+        record.displayName ??
+        record.display_name ??
+        record.targetName ??
+        record.target_name ??
+        record.targetKey ??
+        record.target_key ??
+        record.symbol ??
+        record.ticker
+    );
+  }
+  return [];
+}
+
+function resolveMonitorObjects(input: In, payload: Record<string, unknown> | undefined): string[] {
+  const values = [
+    input.monitor_object_name,
+    input.monitor_object,
+    payload?.monitor_object_names,
+    payload?.monitorObjectNames,
+    payload?.monitor_objects,
+    payload?.monitorObjects,
+    payload?.monitor_object_name,
+    payload?.monitorObjectName,
+    payload?.monitor_object,
+    payload?.monitorObject,
+    payload?.target_name,
+    payload?.targetName,
+    payload?.target,
+    payload?.targets,
+    payload?.symbol,
+    payload?.ticker,
+    payload?.name
+  ];
+  return Array.from(new Set(values.flatMap(monitorLabelsFromValue))).slice(0, 50);
+}
+
 function pickNestedString(
   payload: Record<string, unknown> | undefined,
   key: string,
@@ -215,21 +291,14 @@ function normalizeAppCard(input: In, payload: Record<string, unknown> | undefine
 
 function resolveMonitorObject(input: In, payload: Record<string, unknown> | undefined): string {
   return (
-    input.monitor_object_name?.trim() ||
-    input.monitor_object?.trim() ||
-    pickString(payload, [
-      'monitor_object_name',
-      'monitorObjectName',
-      'monitor_object',
-      'monitorObject',
-      'target_name',
+    resolveMonitorObjects(input, payload)[0] ||
+    pickNestedString(payload, 'target', [
+      'name',
+      'displayName',
       'targetName',
-      'target',
-      'symbol',
-      'ticker',
-      'name'
+      'targetKey',
+      'symbol'
     ]) ||
-    pickNestedString(payload, 'target', ['name', 'displayName', 'targetName', 'targetKey', 'symbol']) ||
     pickNestedString(payload, 'alert', ['target', 'name', 'symbol']) ||
     ''
   );
@@ -268,11 +337,40 @@ function resolveEventTime(input: In, payload: Record<string, unknown> | undefine
   );
 }
 
-function buildMonitorAppCard(input: In, payload: Record<string, unknown> | undefined, text: string) {
-  const monitorObject = resolveMonitorObject(input, payload);
-  const aiSummary = resolveAiSummary(input, payload) || text;
+function resolvePushContent(input: In, payload: Record<string, unknown> | undefined): string {
+  return (
+    input.push_content?.trim() ||
+    input.text?.trim() ||
+    pickString(payload, [
+      'push_content',
+      'pushContent',
+      'change_content',
+      'changeContent',
+      'content',
+      'message',
+      'text',
+      'sourceMarkdown',
+      'source_markdown'
+    ]) ||
+    input.ai_summary?.trim() ||
+    input.summary?.trim() ||
+    input.title?.trim() ||
+    pickString(payload, ['ai_summary', 'aiSummary', 'summary', 'title', 'description']) ||
+    (hasPayload(payload) ? JSON.stringify(payload) : '')
+  );
+}
+
+function buildMonitorAppCard(
+  input: In,
+  payload: Record<string, unknown> | undefined,
+  pushContent: string
+) {
+  const monitorObjects = resolveMonitorObjects(input, payload);
+  const monitorObject = monitorObjects[0] || resolveMonitorObject(input, payload);
+  const aiSummary = resolveAiSummary(input, payload) || pushContent;
   const eventTime = resolveEventTime(input, payload) || new Date().toISOString();
-  const rawTitle = input.title?.trim() || pickString(payload, ['title', 'eventTitle', 'event_title']);
+  const rawTitle =
+    input.title?.trim() || pickString(payload, ['title', 'eventTitle', 'event_title']);
   const title =
     rawTitle && !isInternalTitle(rawTitle)
       ? rawTitle
@@ -287,10 +385,14 @@ function buildMonitorAppCard(input: In, payload: Record<string, unknown> | undef
       summary: aiSummary,
       monitorObject,
       monitorObjectName: monitorObject,
+      monitorObjects,
+      monitorObjectNames: monitorObjects,
       eventTime,
       occurredAt: eventTime,
       generatedAt: eventTime,
-      metrics: monitorObject ? [monitorObject] : [],
+      metrics: monitorObjects.length ? monitorObjects : monitorObject ? [monitorObject] : [],
+      changeContent: pushContent,
+      pushContent,
       aiBlocks: [
         {
           title: 'AI 总结',
@@ -298,29 +400,49 @@ function buildMonitorAppCard(input: In, payload: Record<string, unknown> | undef
           content: aiSummary
         }
       ],
-      sourceMarkdown: text
+      sourceMarkdown: pushContent
     }
   };
 }
 
-function resolvePushText(input: In, payload: Record<string, unknown> | undefined): string {
-  return (
-    input.text?.trim() ||
-    input.ai_summary?.trim() ||
-    input.summary?.trim() ||
-    input.title?.trim() ||
-    pickString(payload, [
-      'text',
-      'ai_summary',
-      'aiSummary',
-      'summary',
-      'content',
-      'message',
-      'title',
-      'description'
-    ]) ||
-    (hasPayload(payload) ? JSON.stringify(payload) : '')
-  );
+function enrichMonitorAppCard(
+  appCard: Record<string, unknown>,
+  input: In,
+  payload: Record<string, unknown> | undefined,
+  pushContent: string
+) {
+  if (appCard.componentName !== 'MarketMonitorEventCard') return appCard;
+  const data = parseJsonObjectOrString(appCard.data, 'app_card_json.data') ?? {};
+  const monitorObjects = resolveMonitorObjects(input, { ...payload, ...data });
+  const monitorObject = monitorObjects[0] || resolveMonitorObject(input, { ...payload, ...data });
+  const aiSummary = resolveAiSummary(input, { ...payload, ...data });
+  const eventTime = resolveEventTime(input, { ...payload, ...data }) || new Date().toISOString();
+  return {
+    ...appCard,
+    data: {
+      ...data,
+      ...(monitorObject ? { monitorObject, monitorObjectName: monitorObject } : {}),
+      ...(monitorObjects.length
+        ? { monitorObjects, monitorObjectNames: monitorObjects, metrics: monitorObjects }
+        : {}),
+      ...(aiSummary
+        ? { aiSummary, ai_summary: aiSummary, summary: data.summary || aiSummary }
+        : {}),
+      eventTime: data.eventTime || eventTime,
+      occurredAt: data.occurredAt || eventTime,
+      generatedAt: data.generatedAt || eventTime,
+      changeContent: data.changeContent || pushContent,
+      pushContent: data.pushContent || pushContent,
+      sourceMarkdown: data.sourceMarkdown || pushContent
+    }
+  };
+}
+
+function resolveChatText(
+  appCard: Record<string, unknown> | undefined,
+  pushContent: string
+): string {
+  return appCard ? DEFAULT_MONITOR_PUSH_TEXT : pushContent;
 }
 
 async function postLegacyHook(
@@ -367,26 +489,41 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
   try {
     const input = InputType.parse(props);
     const payload = parseJsonObject(input.payload_json, 'payload_json');
-    const text = resolvePushText(input, payload);
-    if (!text) {
+    const pushContent = resolvePushContent(input, payload);
+    if (!pushContent) {
       throw new Error(
-        '缺少推送内容：请填写“推送内容”，或提供标题、摘要、payload_json.text、payload_json.summary、payload_json.content。'
+        '缺少推送内容：请填写“监控内容”或“推送内容”，或提供标题、摘要、payload_json.text、payload_json.summary、payload_json.content。'
       );
     }
-    const appCard = normalizeAppCard(input, payload) || buildMonitorAppCard(input, payload, text);
+    const appCard = enrichMonitorAppCard(
+      normalizeAppCard(input, payload) || buildMonitorAppCard(input, payload, pushContent),
+      input,
+      payload,
+      pushContent
+    );
+    const text = resolveChatText(appCard, pushContent);
     const monitorObject = resolveMonitorObject(input, payload);
+    const monitorObjects = resolveMonitorObjects(input, payload);
     const aiSummary = resolveAiSummary(input, payload);
     const eventTime = resolveEventTime(input, payload);
     const outboundPayload = {
       ...(payload ?? {}),
       ...(monitorObject ? { monitor_object: monitorObject, monitorObject } : {}),
-      ...(monitorObject ? { monitor_object_name: monitorObject, monitorObjectName: monitorObject } : {}),
+      ...(monitorObject
+        ? { monitor_object_name: monitorObject, monitorObjectName: monitorObject }
+        : {}),
+      ...(monitorObjects.length
+        ? { monitor_objects: monitorObjects, monitorObjectNames: monitorObjects }
+        : {}),
       ...(aiSummary ? { ai_summary: aiSummary, aiSummary } : {}),
       ...(eventTime ? { event_time: eventTime, eventTime } : {}),
+      push_content: pushContent,
+      pushContent,
       ...(appCard ? { app_card: appCard } : {})
     };
 
-    if (input.hook_url?.trim()) return await postLegacyHook(input, eventId, outboundPayload, text);
+    if (input.hook_url?.trim())
+      return await postLegacyHook(input, eventId, outboundPayload, pushContent);
 
     const agentId = input.agent_id?.trim() || getCurrentIPolloAgentId(runtime?.systemVar);
     if (!agentId) throw new Error('缺少当前 iPollo App Agent ID。');
