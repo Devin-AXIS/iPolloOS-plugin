@@ -17,6 +17,7 @@ export const InputType = z.object({
     .default('ipolloos.push'),
   event_id: z.preprocess(emptyToUndefined, z.string().max(500).optional()),
   target_user_ids: z.preprocess(emptyToUndefined, z.string().max(20_000).optional()),
+  app_card_json: z.preprocess(emptyToUndefined, z.string().max(500_000).optional()),
   payload_json: z.preprocess(emptyToUndefined, z.string().max(200_000).optional()),
   per_user_payload_json: z.preprocess(emptyToUndefined, z.string().max(500_000).optional())
 });
@@ -90,6 +91,15 @@ function getCurrentIPolloUserId(systemVar?: RunToolSecondParamsType['systemVar']
   return String(user?.appUserId || user?.id || '').trim();
 }
 
+function getCurrentIPolloAgentId(systemVar?: RunToolSecondParamsType['systemVar']): string {
+  const app = systemVar?.app as RunToolSecondParamsType['systemVar']['app'] & {
+    agentId?: string;
+    appBotId?: string;
+    upstreamAppId?: string;
+  };
+  return String(app?.agentId || app?.appBotId || app?.upstreamAppId || app?.id || '').trim();
+}
+
 function parseJsonObject(
   raw: string | undefined,
   label: string
@@ -120,6 +130,45 @@ function hasPayload(
   payload: Record<string, unknown> | undefined
 ): payload is Record<string, unknown> {
   return Boolean(payload && Object.keys(payload).length > 0);
+}
+
+function parseJsonObjectOrString(
+  value: unknown,
+  label: string
+): Record<string, unknown> | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'string') return parseJsonObject(value, label);
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  throw new Error(`${label} 必须是 JSON 对象`);
+}
+
+function normalizeAppCard(input: In, payload: Record<string, unknown> | undefined) {
+  const fromInput = parseJsonObjectOrString(input.app_card_json, 'app_card_json');
+  const fromPayload = parseJsonObjectOrString(
+    payload?.app_card ?? payload?.appCard ?? payload?.aiCardData,
+    'payload_json.app_card'
+  );
+  const appCard = fromInput ?? fromPayload;
+  if (!appCard) return undefined;
+
+  const componentName =
+    typeof appCard.componentName === 'string'
+      ? appCard.componentName.trim()
+      : typeof appCard.component_name === 'string'
+        ? appCard.component_name.trim()
+        : '';
+  const data = parseJsonObjectOrString(appCard.data, 'app_card_json.data');
+  if (!componentName || !data) {
+    throw new Error('app_card_json 必须包含 componentName 和 data。');
+  }
+
+  return {
+    ...appCard,
+    componentName,
+    data
+  };
 }
 
 function resolvePushText(input: In, payload: Record<string, unknown> | undefined): string {
@@ -176,6 +225,11 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
   try {
     const input = InputType.parse(props);
     const payload = parseJsonObject(input.payload_json, 'payload_json');
+    const appCard = normalizeAppCard(input, payload);
+    const outboundPayload = {
+      ...(payload ?? {}),
+      ...(appCard ? { app_card: appCard } : {})
+    };
     const text = resolvePushText(input, payload);
     if (!text) {
       throw new Error(
@@ -183,10 +237,10 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
       );
     }
 
-    if (input.hook_url?.trim()) return await postLegacyHook(input, eventId, payload, text);
+    if (input.hook_url?.trim()) return await postLegacyHook(input, eventId, outboundPayload, text);
 
-    const agentId = input.agent_id?.trim();
-    if (!agentId) throw new Error('缺少 Hook 地址');
+    const agentId = input.agent_id?.trim() || getCurrentIPolloAgentId(runtime?.systemVar);
+    if (!agentId) throw new Error('缺少当前 iPollo App Agent ID。');
 
     const baseUrl = resolvePushApiBaseUrl();
     const secret = resolvePushApiSecret();
@@ -217,7 +271,8 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
         title: input.title?.trim() || undefined,
         summary: input.summary?.trim() || undefined,
         text,
-        payload: payload ?? {},
+        payload: outboundPayload,
+        ...(appCard ? { appCard } : {}),
         targetUserIds: input.target_user_ids,
         perUserPayload: parseJsonObject(input.per_user_payload_json, 'per_user_payload_json')
       })
