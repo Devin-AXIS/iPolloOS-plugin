@@ -16,11 +16,13 @@ describe('ipolloPushPlatform', () => {
   it('keeps hook_url hidden and exposes app_card_json as a hidden reference input', () => {
     const inputs = config.versionList[0].inputs;
     const hookUrl = inputs.find((item) => item.key === 'hook_url');
+    const applicationId = inputs.find((item) => item.key === 'application_id');
     const appCard = inputs.find((item) => item.key === 'app_card_json');
 
     expect(config.versionList[0].value).toBe('1.2.0');
     expect(hookUrl?.required).toBeUndefined();
     expect(hookUrl?.renderTypeList[0]).toBe(FlowNodeInputTypeEnum.hidden);
+    expect(applicationId?.renderTypeList).toEqual([FlowNodeInputTypeEnum.hidden]);
     expect(appCard?.renderTypeList).toEqual([
       FlowNodeInputTypeEnum.hidden,
       FlowNodeInputTypeEnum.reference
@@ -99,5 +101,62 @@ describe('ipolloPushPlatform', () => {
     expect(body.agentId).toBe('aino-bot-1');
     expect(body.appCard).toEqual(card);
     expect(body.payload.app_card).toEqual(card);
+  });
+
+  it('falls back to applicationId from the App register URL for scheduled system runs', async () => {
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
+    process.env.IPOLLO_APP_REGISTER_URL =
+      'https://studio.ipollo.net/api/app-publish-callback?applicationId=aino-app-from-register';
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            eventId: 'evt-2',
+            matchedUserCount: 1,
+            deliveredCount: 1,
+            skippedCount: 0
+          }),
+          { status: 200 }
+        )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await sendIPolloPush(
+      {
+        agent_id: 'aino-bot-1',
+        title: 'SpaceX 监控更新',
+        text: 'SpaceX 发射节奏出现新变化。'
+      },
+      {
+        systemVar: {
+          app: {
+            id: 'fastgpt-app-1',
+            name: 'Market Agent'
+          },
+          user: {
+            id: 'user-1',
+            username: 'user',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: 'team-1',
+            name: 'User'
+          },
+          tool: { id: 'ipolloPushPlatform/send_ipollo_push', version: '1.2.0' },
+          time: '2026-06-29T00:00:00.000Z'
+        }
+      } as any
+    );
+
+    expect(result.ok).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe(
+      'https://aino.example.com/api/ai/agent/push-events?applicationId=aino-app-from-register'
+    );
+    const body = JSON.parse(String(init?.body));
+    expect(body.applicationId).toBe('aino-app-from-register');
   });
 });

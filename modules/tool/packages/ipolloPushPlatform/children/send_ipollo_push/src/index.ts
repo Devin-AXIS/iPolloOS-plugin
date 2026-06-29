@@ -8,6 +8,7 @@ const optionalText = z.preprocess(emptyToUndefined, z.string().max(100_000).opti
 
 export const InputType = z.object({
   agent_id: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  application_id: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
   hook_url: z.preprocess(emptyToUndefined, z.string().max(4000).optional()),
   text: z.preprocess(emptyToUndefined, z.string().max(500_000).optional()),
   title: optionalText,
@@ -63,6 +64,16 @@ function resolvePushApiSecret(): string {
   );
 }
 
+function readEnvUrlSearchParam(envKey: string, paramKey: string): string {
+  const raw = readEnv(envKey);
+  if (!raw) return '';
+  try {
+    return new URL(raw).searchParams.get(paramKey)?.trim() || '';
+  } catch {
+    return '';
+  }
+}
+
 function createEventId(): string {
   const random =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -71,7 +82,11 @@ function createEventId(): string {
   return `ipolloos-${random}`;
 }
 
-function getCurrentIPolloApplicationId(systemVar?: RunToolSecondParamsType['systemVar']): string {
+function getCurrentIPolloApplicationId(
+  input: In,
+  payload: Record<string, unknown> | undefined,
+  systemVar?: RunToolSecondParamsType['systemVar']
+): string {
   const app = systemVar?.app as RunToolSecondParamsType['systemVar']['app'] & {
     applicationId?: string;
     iPolloApplicationId?: string;
@@ -80,7 +95,15 @@ function getCurrentIPolloApplicationId(systemVar?: RunToolSecondParamsType['syst
     iPolloApplicationId?: string;
   };
   return String(
-    app?.iPolloApplicationId || app?.applicationId || user?.iPolloApplicationId || ''
+    input.application_id ||
+      payload?.application_id ||
+      payload?.applicationId ||
+      app?.iPolloApplicationId ||
+      app?.applicationId ||
+      user?.iPolloApplicationId ||
+      readEnv('IPOLLO_APP_APPLICATION_ID') ||
+      readEnvUrlSearchParam('IPOLLO_APP_REGISTER_URL', 'applicationId') ||
+      ''
   ).trim();
 }
 
@@ -248,7 +271,7 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
       throw new Error('缺少 IPOLLO_APP_TASK_API_BASE_URL，无法访问 iPollo App 推送接口。');
     if (!secret) throw new Error('缺少 IPOLLO_APP_TASK_API_SECRET，无法访问 iPollo App 推送接口。');
 
-    const applicationId = getCurrentIPolloApplicationId(runtime?.systemVar);
+    const applicationId = getCurrentIPolloApplicationId(input, payload, runtime?.systemVar);
     if (!applicationId) throw new Error('缺少当前 iPollo App applicationId。');
     const currentUserId = getCurrentIPolloUserId(runtime?.systemVar);
     const url = new URL(`${normalizeBaseUrl(baseUrl)}/api/ai/agent/push-events`);

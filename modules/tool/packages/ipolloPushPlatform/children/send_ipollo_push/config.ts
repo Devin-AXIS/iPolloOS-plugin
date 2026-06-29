@@ -36,6 +36,13 @@ export default defineTool({
           toolDescription: '默认从当前 iPollo App 运行时读取；通常不需要填写。'
         },
         {
+          key: 'application_id',
+          label: 'Application ID',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.hidden],
+          toolDescription: '默认从当前 iPollo App 运行时或系统环境读取；通常不需要填写。'
+        },
+        {
           key: 'text',
           label: '推送内容',
           valueType: WorkflowIOValueTypeEnum.string,
