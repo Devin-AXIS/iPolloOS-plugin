@@ -49,6 +49,14 @@ export default defineTool({
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.input],
           placeholder: 'xdevelopers',
           toolDescription: 'Target X username, with or without @.'
+        },
+        {
+          key: 'mask_sensitive_info',
+          label: '屏蔽敏感信息',
+          defaultValue: true,
+          valueType: WorkflowIOValueTypeEnum.boolean,
+          renderTypeList: [FlowNodeInputTypeEnum.switch, FlowNodeInputTypeEnum.reference],
+          toolDescription: '开启后会屏蔽社交平台敏感词和链接。'
         }
       ],
       outputs: [

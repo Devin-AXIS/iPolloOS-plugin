@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getUserPosts, lookupUserByUsername } from '../../../lib/client';
 import { normalizePostEvents } from '../../../lib/format';
 import { comparePostIds, normalizePostId } from '../../../lib/postId';
+import { sanitizeOutput } from '../../../lib/sanitize';
 import { XReadConfigSchema, cleanUsername, parseXUsernames } from '../../../lib/schemas';
 
 const STATE_VERSION = 1;
@@ -32,7 +33,9 @@ export const InputType = XReadConfigSchema.and(
     max_results: z.coerce.number().int().min(5).max(100).default(20),
     include_replies: booleanInput.default(false),
     include_retweets: booleanInput.default(false),
-    initial_mode: InitialModeSchema.default('baseline')
+    initial_mode: InitialModeSchema.default('baseline'),
+    enable_ai_summary: booleanInput.default(false),
+    summary_model: z.preprocess(emptyToUndefined, z.string().max(128).optional())
   })
 );
 
@@ -56,7 +59,9 @@ const SystemErrorSchema = z
 export const OutputType = z.object({
   events_json: z.array(TriggerEventSchema),
   count: z.number().int().nonnegative(),
+  should_push: z.boolean(),
   next_state_json: z.record(z.string(), z.any()),
+  summary_prompt: z.string().optional(),
   summary_markdown: z.string().optional(),
   system_error: SystemErrorSchema.optional()
 });
@@ -221,6 +226,21 @@ function toTriggerEvent(input: {
   };
 }
 
+function buildSummaryPrompt(input: { events: ReturnType<typeof toTriggerEvent>[] }): string {
+  if (!input.events.length) return '';
+  const posts = input.events.map((event) => event.data);
+  return [
+    '请总结以下社交平台新增内容，面向金融资讯轮询场景。',
+    '要求：',
+    '1. 用中文输出，简洁列出关键信息。',
+    '2. 不要输出原始链接。',
+    '3. 如果内容不足以形成结论，只做事实摘要，不要臆测。',
+    '4. 如存在明显风险或不适合推送的内容，请在最后用一句话说明。',
+    '',
+    JSON.stringify(posts, null, 2)
+  ].join('\n');
+}
+
 function buildState(input: {
   previous: PollingState;
   userId?: string;
@@ -371,9 +391,10 @@ export async function tool(props: In): Promise<Out> {
 
   if (!usernames.length) {
     const error = { code: 'INVALID_INPUT', message: 'username is required', retryable: false };
-    return {
+    return sanitizeOutput(input, {
       events_json: [],
       count: 0,
+      should_push: false,
       next_state_json: buildState({
         previous: previousState,
         username: previousState.username ?? '',
@@ -381,9 +402,10 @@ export async function tool(props: In): Promise<Out> {
         success: false,
         error
       }),
+      summary_prompt: '',
       summary_markdown: 'Failed to check X account: username is required.',
       system_error: error
-    };
+    });
   }
 
   if (usernames.length > MAX_USERNAMES) {
@@ -392,18 +414,20 @@ export async function tool(props: In): Promise<Out> {
       message: `Too many usernames: received ${usernames.length}, maximum is ${MAX_USERNAMES}.`,
       retryable: false
     };
-    return {
+    return sanitizeOutput(input, {
       events_json: [],
       count: 0,
+      should_push: false,
       next_state_json: {
         version: STATE_VERSION,
         accounts: previousState.accounts ?? {},
         checkedAt,
         lastError: { code: error.code, message: error.message }
       },
+      summary_prompt: '',
       summary_markdown: `Failed to check X accounts: maximum ${MAX_USERNAMES} usernames are allowed.`,
       system_error: error
-    };
+    });
   }
 
   const results: AccountCheckResult[] = [];
@@ -419,22 +443,31 @@ export async function tool(props: In): Promise<Out> {
   if (results.length === 1) {
     const result = results[0];
     const count = result.events.length;
-    return {
+    const summaryPrompt =
+      input.enable_ai_summary && count > 0 ? buildSummaryPrompt({ events: result.events }) : '';
+    return sanitizeOutput(input, {
       events_json: result.events,
       count,
+      should_push: count > 0,
       next_state_json: result.state,
+      summary_prompt: summaryPrompt,
       summary_markdown: count > 0 || result.systemError ? result.summary : '',
       system_error: result.systemError
-    };
+    });
   }
 
   const accounts = Object.fromEntries(results.map((result) => [result.username, result.state]));
   const events = results.flatMap((result) => result.events);
   const failed = results.filter((result) => result.systemError);
 
-  return {
+  const count = events.length;
+  const summaryPrompt =
+    input.enable_ai_summary && count > 0 ? buildSummaryPrompt({ events }) : '';
+
+  return sanitizeOutput(input, {
     events_json: events,
-    count: events.length,
+    count,
+    should_push: count > 0,
     next_state_json: {
       version: STATE_VERSION,
       accounts,
@@ -450,8 +483,9 @@ export async function tool(props: In): Promise<Out> {
             }
           : null
     },
+    summary_prompt: summaryPrompt,
     summary_markdown:
       events.length > 0 || failed.length > 0 ? results.map((result) => result.summary).join('\n') : '',
     system_error: failed.length === results.length ? failed[0].systemError : null
-  };
+  });
 }

@@ -44,6 +44,14 @@ export default defineTool({
           renderTypeList: [FlowNodeInputTypeEnum.textarea, FlowNodeInputTypeEnum.reference],
           placeholder: '输入回复内容',
           toolDescription: 'The reply text.'
+        },
+        {
+          key: 'mask_sensitive_info',
+          label: '屏蔽敏感信息',
+          defaultValue: true,
+          valueType: WorkflowIOValueTypeEnum.boolean,
+          renderTypeList: [FlowNodeInputTypeEnum.switch, FlowNodeInputTypeEnum.reference],
+          toolDescription: '开启后会屏蔽社交平台敏感词和链接。'
         }
       ],
       outputs: [

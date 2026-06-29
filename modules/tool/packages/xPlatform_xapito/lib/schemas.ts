@@ -33,9 +33,10 @@ export const XConfigSchema = z.object({
   consumerSecret: z.preprocess(emptyToUndefined, z.string().min(10).optional()),
   baseUrl: z.preprocess(
     emptyToUndefined,
-    z.string().url().max(2048).optional().default('https://api.x.com')
+    z.string().url().max(2048).optional().default('https://x.p.xapi.to')
   ),
   proxyUrl: z.preprocess(emptyToUndefined, z.string().url().max(2048).optional()),
+  mask_sensitive_info: z.preprocess(emptyToUndefined, z.coerce.boolean().default(true)),
   timeoutMs: z.preprocess(
     emptyToUndefined,
     z.coerce.number().int().min(1000).max(60_000).optional().default(15_000)

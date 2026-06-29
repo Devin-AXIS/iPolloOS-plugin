@@ -142,6 +142,7 @@ describe('checkAccountUpdates standard polling trigger', () => {
 
     expect(result.events_json).toEqual([]);
     expect(result.count).toBe(0);
+    expect(result.should_push).toBe(false);
     expect(result.summary_markdown).toBe('');
     expect(result.next_state_json.userId).toBe('44196397');
     expect(result.next_state_json.lastPostId).toBe('2067623442514386944');
@@ -184,6 +185,7 @@ describe('checkAccountUpdates standard polling trigger', () => {
 
     expect(result.events_json.map((event) => event.data)).toHaveLength(2);
     expect(result.count).toBe(2);
+    expect(result.should_push).toBe(true);
     expect(result.events_json.map((event) => event.eventId)).toEqual([
       'x:44196397:2067623442514386945',
       'x:44196397:2067623442514386946'
@@ -239,6 +241,8 @@ describe('checkAccountUpdates standard polling trigger', () => {
     });
 
     expect(result.events_json).toEqual([]);
+    expect(result.count).toBe(0);
+    expect(result.should_push).toBe(false);
     expect(result.next_state_json.lastPostId).toBe('2067623442514386944');
     expect(result.next_state_json.lastError).toMatchObject({ code: 'X_API_RETRYABLE_ERROR' });
     expect(result.system_error).toMatchObject({ retryable: true });
