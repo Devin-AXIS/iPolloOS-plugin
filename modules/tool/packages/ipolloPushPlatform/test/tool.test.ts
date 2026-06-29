@@ -17,12 +17,22 @@ describe('ipolloPushPlatform', () => {
     const inputs = config.versionList[0].inputs;
     const hookUrl = inputs.find((item) => item.key === 'hook_url');
     const applicationId = inputs.find((item) => item.key === 'application_id');
+    const monitorObject = inputs.find((item) => item.key === 'monitor_object');
+    const aiSummary = inputs.find((item) => item.key === 'ai_summary');
     const appCard = inputs.find((item) => item.key === 'app_card_json');
 
     expect(config.versionList[0].value).toBe('1.2.0');
     expect(hookUrl?.required).toBeUndefined();
     expect(hookUrl?.renderTypeList[0]).toBe(FlowNodeInputTypeEnum.hidden);
     expect(applicationId?.renderTypeList).toEqual([FlowNodeInputTypeEnum.hidden]);
+    expect(monitorObject?.renderTypeList).toEqual([
+      FlowNodeInputTypeEnum.reference,
+      FlowNodeInputTypeEnum.input
+    ]);
+    expect(aiSummary?.renderTypeList).toEqual([
+      FlowNodeInputTypeEnum.reference,
+      FlowNodeInputTypeEnum.textarea
+    ]);
     expect(appCard?.renderTypeList).toEqual([
       FlowNodeInputTypeEnum.hidden,
       FlowNodeInputTypeEnum.reference
@@ -158,5 +168,65 @@ describe('ipolloPushPlatform', () => {
     );
     const body = JSON.parse(String(init?.body));
     expect(body.applicationId).toBe('aino-app-from-register');
+  });
+
+  it('builds a native monitor card from structured push fields', async () => {
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
+    process.env.IPOLLO_APP_REGISTER_URL =
+      'https://studio.ipollo.net/api/app-publish-callback?applicationId=aino-app-from-register';
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            eventId: 'evt-3',
+            matchedUserCount: 1,
+            deliveredCount: 1,
+            skippedCount: 0
+          }),
+          { status: 200 }
+        )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await sendIPolloPush(
+      {
+        agent_id: 'aino-bot-1',
+        monitor_object: 'SpaceX',
+        ai_summary: '发射节奏提升，商业航天供给侧变化需要关注。',
+        event_time: '2026-06-29T10:30:00.000Z',
+        text: 'SpaceX 发射节奏提升，可能影响商业航天产业链。'
+      },
+      {
+        systemVar: {
+          app: { id: 'fastgpt-app-1', name: 'Market Agent' },
+          user: {
+            id: 'user-1',
+            username: 'user',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: 'team-1',
+            name: 'User'
+          },
+          tool: { id: 'ipolloPushPlatform/send_ipollo_push', version: '1.2.0' },
+          time: '2026-06-29T00:00:00.000Z'
+        }
+      } as any
+    );
+
+    expect(result.ok).toBe(true);
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(init?.body));
+    expect(body.appCard.componentName).toBe('MarketMonitorEventCard');
+    expect(body.appCard.data.monitorObject).toBe('SpaceX');
+    expect(body.appCard.data.summary).toBe('发射节奏提升，商业航天供给侧变化需要关注。');
+    expect(body.appCard.data.metrics).toEqual(['SpaceX']);
+    expect(body.payload.monitor_object).toBe('SpaceX');
+    expect(body.payload.ai_summary).toBe('发射节奏提升，商业航天供给侧变化需要关注。');
+    expect(body.payload.event_time).toBe('2026-06-29T10:30:00.000Z');
+    expect(body.payload.app_card).toEqual(body.appCard);
   });
 });

@@ -51,6 +51,30 @@ export default defineTool({
             '要推送到智能体聊天里的正文内容。为空时会依次使用摘要、标题、payload_json.text / summary / content。'
         },
         {
+          key: 'monitor_object',
+          label: '监控对象',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.input],
+          toolDescription:
+            '本次变化对应的具体对象名称，例如 TSLA、SpaceX、某主题或某机构。会作为卡片重点标签展示。'
+        },
+        {
+          key: 'ai_summary',
+          label: 'AI 总结',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
+          toolDescription:
+            '给 APP 卡片展示的核心总结。为空时使用摘要或推送内容。'
+        },
+        {
+          key: 'event_time',
+          label: '变化时间',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.input],
+          toolDescription:
+            '监控变化发生或生成时间，建议传 ISO 时间字符串。为空时由插件自动生成。'
+        },
+        {
           key: 'app_card_json',
           label: 'APP 原生卡片 JSON',
           valueType: WorkflowIOValueTypeEnum.string,
