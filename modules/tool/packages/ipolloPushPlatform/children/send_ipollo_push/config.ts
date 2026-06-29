@@ -56,7 +56,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
           toolDescription:
-            '本次监控变化的完整内容，会进入 APP 卡片的“监控变化”区域；有卡片时不会在聊天文字里重复展示。'
+            '本次监控变化的完整内容，会进入 APP 卡片的“监控变化”区域；有卡片时不会在聊天文字里重复展示。若未单独传监控对象名称，插件会尝试从每行开头的对象名和时间中提取标签。'
         },
         {
           key: 'monitor_object',
@@ -64,7 +64,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.input],
           toolDescription:
-            '本次变化对应的具体对象名称，例如 TSLA、SpaceX、某主题或某机构；多个对象可用逗号、换行或空格分隔。APP 卡片最多展示 3 个并显示 +N。'
+            '本次变化对应的具体对象名称，例如 TSLA、SpaceX、某主题或某机构；建议接脚本提取出的对象名称字段。多个对象可用逗号、换行或空格分隔。APP 卡片最多展示 3 个并显示 +N。'
         },
         {
           key: 'monitor_object_name',

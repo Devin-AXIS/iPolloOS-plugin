@@ -206,6 +206,19 @@ function monitorLabelsFromValue(value: unknown): string[] {
   return [];
 }
 
+function monitorLabelsFromContent(value: string): string[] {
+  const labels: string[] = [];
+  for (const line of value.split(/\n+/)) {
+    const text = line.trim();
+    const match = text.match(
+      /^(@?[A-Za-z][A-Za-z0-9_.-]{1,40})\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun|\d{4}-\d{2}-\d{2})\b/
+    );
+    const label = match ? cleanMonitorLabel(match[1]) : '';
+    if (label) labels.push(label);
+  }
+  return labels;
+}
+
 function resolveMonitorObjects(input: In, payload: Record<string, unknown> | undefined): string[] {
   const values = [
     input.monitor_object_name,
@@ -226,7 +239,20 @@ function resolveMonitorObjects(input: In, payload: Record<string, unknown> | und
     payload?.ticker,
     payload?.name
   ];
-  return Array.from(new Set(values.flatMap(monitorLabelsFromValue))).slice(0, 50);
+  const explicit = values.flatMap(monitorLabelsFromValue);
+  const content = [
+    input.push_content,
+    input.text,
+    payload?.push_content,
+    payload?.pushContent,
+    payload?.changeContent,
+    payload?.change_content,
+    payload?.sourceMarkdown,
+    payload?.source_markdown
+  ]
+    .filter((item): item is string => typeof item === 'string')
+    .join('\n');
+  return Array.from(new Set([...explicit, ...monitorLabelsFromContent(content)])).slice(0, 50);
 }
 
 function pickNestedString(

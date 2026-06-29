@@ -319,4 +319,73 @@ describe('ipolloPushPlatform', () => {
       '@satyanadella'
     ]);
   });
+
+  it('infers monitor object labels from line-based monitor content', async () => {
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
+    process.env.IPOLLO_APP_REGISTER_URL =
+      'https://studio.ipollo.net/api/app-publish-callback?applicationId=aino-app-from-register';
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            eventId: 'evt-5',
+            matchedUserCount: 1,
+            deliveredCount: 1,
+            skippedCount: 0
+          }),
+          { status: 200 }
+        )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await sendIPolloPush(
+      {
+        agent_id: 'aino-bot-1',
+        ai_summary: '重点账号更新密集，关注加密与 AI 主线变化。',
+        push_content:
+          'elonmusk Mon Jun 29 14:46:07 +0000 2026 发了：Interesting\n' +
+          'saylor Mon Jun 29 12:03:17 +0000 2026 发了：Bitcoin update\n' +
+          'brian_armstrong 2026-06-29 发了：Coinbase update\n' +
+          'billackman Mon Jun 29 09:00:00 +0000 2026 发了：Market note'
+      },
+      {
+        systemVar: {
+          app: { id: 'fastgpt-app-1', name: 'Market Agent' },
+          user: {
+            id: 'user-1',
+            username: 'user',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: 'team-1',
+            name: 'User'
+          },
+          tool: { id: 'ipolloPushPlatform/send_ipollo_push', version: '1.2.0' },
+          time: '2026-06-29T00:00:00.000Z'
+        }
+      } as any
+    );
+
+    expect(result.ok).toBe(true);
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(init?.body));
+    expect(body.text).toBe('本次监控内容已更新，查看卡片获取摘要和变化。');
+    expect(body.appCard.data.monitorObjectName).toBe('elonmusk');
+    expect(body.appCard.data.monitorObjectNames).toEqual([
+      'elonmusk',
+      'saylor',
+      'brian_armstrong',
+      'billackman'
+    ]);
+    expect(body.payload.monitor_object_name).toBe('elonmusk');
+    expect(body.payload.monitor_objects).toEqual([
+      'elonmusk',
+      'saylor',
+      'brian_armstrong',
+      'billackman'
+    ]);
+  });
 });
