@@ -72,7 +72,8 @@ export function normalizePostEvents(response: XPostListResponse) {
         url: postUrl(post, author),
         publicMetrics: post.public_metrics ?? {},
         conversationId: post.conversation_id ?? '',
-        referencedTweets: post.referenced_tweets ?? []
+        referencedTweets: post.referenced_tweets ?? [],
+        media: post.media ?? []
       };
     })
     .sort((a, b) => comparePostIds(a.id, b.id));

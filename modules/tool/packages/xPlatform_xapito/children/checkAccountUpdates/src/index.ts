@@ -221,21 +221,58 @@ function toTriggerEvent(input: {
         postType: eventType(input.event),
         authorUsername: input.event.authorUsername || input.username
       },
+      media: input.event.media ?? [],
       detectedAt: input.detectedAt
     }
   };
 }
 
-function buildSummaryPrompt(input: { events: ReturnType<typeof toTriggerEvent>[] }): string {
+function buildSummaryInput(events: ReturnType<typeof toTriggerEvent>[]) {
+  return events.map((event) => {
+    const data = event.data;
+    return {
+      text: cleanSummaryText(data.content_text),
+      createdAt: data.post.createdAt,
+      media: (data.media ?? [])
+        .filter((item) => item.type === 'photo')
+        .map((item) => ({
+          type: item.type,
+          altText: item.altText,
+          caption: item.caption,
+          description: item.description,
+          ocrText: item.ocrText
+        }))
+        .filter((item) => item.altText || item.caption || item.description || item.ocrText)
+    };
+  });
+}
+
+function cleanSummaryText(value: string): string {
+  return value
+    .replace(/https?:\/\/[^\s)"'<>]+/gi, '')
+    .replace(/\b(?:www\.)?(?:x|twitter)\.com\/[^\s)"'<>]+/gi, '')
+    .replace(/\bt\.co\/[^\s)"'<>]+/gi, '')
+    .replace(/@[\w_]+/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+}
+
+function buildFilteredSummaryPrompt(input: { events: ReturnType<typeof toTriggerEvent>[] }): string {
   if (!input.events.length) return '';
-  const posts = input.events.map((event) => event.data);
+  const posts = buildSummaryInput(input.events);
   return [
-    '请总结以下社交平台新增内容，面向金融资讯轮询场景。',
-    '要求：',
-    '1. 用中文输出，简洁列出关键信息。',
-    '2. 不要输出原始链接。',
-    '3. 如果内容不足以形成结论，只做事实摘要，不要臆测。',
-    '4. 如存在明显风险或不适合推送的内容，请在最后用一句话说明。',
+    '你是面向用户的内容摘要与过滤节点。',
+    '',
+    '任务：根据以下新增内容生成简洁中文摘要，输出将直接发送给用户。',
+    '',
+    '硬性规则：',
+    '1. 不得出现任何平台相关字样或信息，包括 X、Twitter、推特、tweet、post、帖子、转发、引用推文、账号名、用户名、@handle、用户 ID、内容 ID、事件 ID。',
+    '2. 不得输出任何链接，包括 x.com、twitter.com、t.co、http/https 链接。',
+    '3. 如果内容包含视频或 GIF，完全忽略视频/GIF 本身，不要描述、不要总结。',
+    '4. 如果内容包含图片，只能基于输入 JSON 中已有的图片 alt 文本、OCR、caption 或媒体描述总结图片；不能根据图片链接或缺失信息猜测图片内容。',
+    '5. 图片信息如果与正文主题无关，不要写进摘要。例如图片是树、花、风景，但正文是股票或金融观点，则忽略图片。',
+    '6. 按以上规则过滤后，如果没有可展示给用户的真实新增正文，只输出 NO_PUSH。',
+    '7. 输出正文时不要加标题、解释、总结说明、状态说明、代码块或 JSON。',
     '',
     JSON.stringify(posts, null, 2)
   ].join('\n');
@@ -444,7 +481,7 @@ export async function tool(props: In): Promise<Out> {
     const result = results[0];
     const count = result.events.length;
     const summaryPrompt =
-      input.enable_ai_summary && count > 0 ? buildSummaryPrompt({ events: result.events }) : '';
+      input.enable_ai_summary && count > 0 ? buildFilteredSummaryPrompt({ events: result.events }) : '';
     return sanitizeOutput(input, {
       events_json: result.events,
       count,
@@ -462,7 +499,7 @@ export async function tool(props: In): Promise<Out> {
 
   const count = events.length;
   const summaryPrompt =
-    input.enable_ai_summary && count > 0 ? buildSummaryPrompt({ events }) : '';
+    input.enable_ai_summary && count > 0 ? buildFilteredSummaryPrompt({ events }) : '';
 
   return sanitizeOutput(input, {
     events_json: events,

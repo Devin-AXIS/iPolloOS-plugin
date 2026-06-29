@@ -454,6 +454,25 @@ function normalizeReferencedTweets(legacy: Record<string, unknown>) {
   return refs;
 }
 
+function normalizeXapiMedia(value: unknown) {
+  return asArray(value)
+    .map((item) => {
+      const media = asRecord(item);
+      if (!media) return undefined;
+      const type = textValue(media.type);
+      return {
+        type,
+        altText: textValue(media.ext_alt_text, media.alt_text, media.altText),
+        caption: textValue(media.caption),
+        description: textValue(media.description, media.mediaDescription),
+        ocrText: textValue(media.ocr_text, media.ocrText)
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> =>
+      Boolean(item?.type || item?.altText || item?.caption || item?.description || item?.ocrText)
+    );
+}
+
 function normalizeXapiPost(value: unknown): XPostListResponse['data'][number] | undefined {
   const node = asRecord(unwrapResult(value));
   if (!node) return undefined;
@@ -479,6 +498,12 @@ function normalizeXapiPost(value: unknown): XPostListResponse['data'][number] | 
     getPath(node, ['core', 'user_results', 'result', 'rest_id'])
   );
   const referencedTweets = normalizeReferencedTweets(legacy);
+  const media = normalizeXapiMedia(
+    getPath(legacy, ['extended_entities', 'media']) ??
+      getPath(legacy, ['entities', 'media']) ??
+      getPath(node, ['extended_entities', 'media']) ??
+      getPath(node, ['entities', 'media'])
+  );
 
   return {
     id,
@@ -494,7 +519,8 @@ function normalizeXapiPost(value: unknown): XPostListResponse['data'][number] | 
       quote_count: numberValue(legacy.quote_count),
       impression_count: numberValue(legacy.view_count ?? getPath(node, ['views', 'count']))
     },
-    referenced_tweets: referencedTweets.length ? referencedTweets : undefined
+    referenced_tweets: referencedTweets.length ? referencedTweets : undefined,
+    media: media.length ? media : undefined
   };
 }
 

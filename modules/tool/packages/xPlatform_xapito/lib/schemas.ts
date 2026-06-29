@@ -119,6 +119,17 @@ export const XPostSchema = z
         })
       )
       .optional(),
+    media: z
+      .array(
+        z.object({
+          type: z.string().optional(),
+          altText: z.string().optional(),
+          caption: z.string().optional(),
+          description: z.string().optional(),
+          ocrText: z.string().optional()
+        })
+      )
+      .optional(),
     edit_history_tweet_ids: z.array(z.string()).optional()
   })
   .passthrough();
