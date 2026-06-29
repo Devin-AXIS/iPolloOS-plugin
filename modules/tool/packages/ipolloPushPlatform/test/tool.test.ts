@@ -18,6 +18,7 @@ describe('ipolloPushPlatform', () => {
     const hookUrl = inputs.find((item) => item.key === 'hook_url');
     const applicationId = inputs.find((item) => item.key === 'application_id');
     const monitorObject = inputs.find((item) => item.key === 'monitor_object');
+    const monitorObjectName = inputs.find((item) => item.key === 'monitor_object_name');
     const aiSummary = inputs.find((item) => item.key === 'ai_summary');
     const appCard = inputs.find((item) => item.key === 'app_card_json');
 
@@ -28,6 +29,11 @@ describe('ipolloPushPlatform', () => {
     expect(monitorObject?.renderTypeList).toEqual([
       FlowNodeInputTypeEnum.reference,
       FlowNodeInputTypeEnum.input
+    ]);
+    expect(monitorObject?.label).toBe('监控对象名称');
+    expect(monitorObjectName?.renderTypeList).toEqual([
+      FlowNodeInputTypeEnum.hidden,
+      FlowNodeInputTypeEnum.reference
     ]);
     expect(aiSummary?.renderTypeList).toEqual([
       FlowNodeInputTypeEnum.reference,
@@ -222,9 +228,12 @@ describe('ipolloPushPlatform', () => {
     const body = JSON.parse(String(init?.body));
     expect(body.appCard.componentName).toBe('MarketMonitorEventCard');
     expect(body.appCard.data.monitorObject).toBe('SpaceX');
+    expect(body.appCard.data.monitorObjectName).toBe('SpaceX');
     expect(body.appCard.data.summary).toBe('发射节奏提升，商业航天供给侧变化需要关注。');
     expect(body.appCard.data.metrics).toEqual(['SpaceX']);
     expect(body.payload.monitor_object).toBe('SpaceX');
+    expect(body.payload.monitor_object_name).toBe('SpaceX');
+    expect(body.payload.monitorObjectName).toBe('SpaceX');
     expect(body.payload.ai_summary).toBe('发射节奏提升，商业航天供给侧变化需要关注。');
     expect(body.payload.event_time).toBe('2026-06-29T10:30:00.000Z');
     expect(body.payload.app_card).toEqual(body.appCard);

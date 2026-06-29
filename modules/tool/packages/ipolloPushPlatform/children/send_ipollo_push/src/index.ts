@@ -12,6 +12,7 @@ export const InputType = z.object({
   hook_url: z.preprocess(emptyToUndefined, z.string().max(4000).optional()),
   text: z.preprocess(emptyToUndefined, z.string().max(500_000).optional()),
   monitor_object: z.preprocess(emptyToUndefined, z.string().max(500).optional()),
+  monitor_object_name: z.preprocess(emptyToUndefined, z.string().max(500).optional()),
   ai_summary: optionalText,
   event_time: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
   title: optionalText,
@@ -214,8 +215,11 @@ function normalizeAppCard(input: In, payload: Record<string, unknown> | undefine
 
 function resolveMonitorObject(input: In, payload: Record<string, unknown> | undefined): string {
   return (
+    input.monitor_object_name?.trim() ||
     input.monitor_object?.trim() ||
     pickString(payload, [
+      'monitor_object_name',
+      'monitorObjectName',
       'monitor_object',
       'monitorObject',
       'target_name',
@@ -282,6 +286,7 @@ function buildMonitorAppCard(input: In, payload: Record<string, unknown> | undef
       title,
       summary: aiSummary,
       monitorObject,
+      monitorObjectName: monitorObject,
       eventTime,
       occurredAt: eventTime,
       generatedAt: eventTime,
@@ -375,6 +380,7 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
     const outboundPayload = {
       ...(payload ?? {}),
       ...(monitorObject ? { monitor_object: monitorObject, monitorObject } : {}),
+      ...(monitorObject ? { monitor_object_name: monitorObject, monitorObjectName: monitorObject } : {}),
       ...(aiSummary ? { ai_summary: aiSummary, aiSummary } : {}),
       ...(eventTime ? { event_time: eventTime, eventTime } : {}),
       ...(appCard ? { app_card: appCard } : {})

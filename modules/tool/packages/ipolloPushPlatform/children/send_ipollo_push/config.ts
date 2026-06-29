@@ -52,11 +52,19 @@ export default defineTool({
         },
         {
           key: 'monitor_object',
-          label: '监控对象',
+          label: '监控对象名称',
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.input],
           toolDescription:
             '本次变化对应的具体对象名称，例如 TSLA、SpaceX、某主题或某机构。会作为卡片重点标签展示。'
+        },
+        {
+          key: 'monitor_object_name',
+          label: '监控对象名称',
+          valueType: WorkflowIOValueTypeEnum.string,
+          renderTypeList: [FlowNodeInputTypeEnum.hidden, FlowNodeInputTypeEnum.reference],
+          toolDescription:
+            '监控对象名称的兼容字段；优先使用监控对象名称，通常不需要和 monitor_object 同时填写。'
         },
         {
           key: 'ai_summary',
