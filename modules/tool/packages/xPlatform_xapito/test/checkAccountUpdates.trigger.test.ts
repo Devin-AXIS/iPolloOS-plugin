@@ -79,28 +79,6 @@ function postsResponse(ids: string[]) {
   };
 }
 
-function postsResponseWithNodes(nodes: unknown[]) {
-  return {
-    data: {
-      timeline: {
-        instructions: nodes.map((node) => ({
-          entries: [
-            {
-              content: {
-                itemContent: {
-                  tweet_results: {
-                    result: node
-                  }
-                }
-              }
-            }
-          ]
-        }))
-      }
-    }
-  };
-}
-
 function mockXapi(ids: string[], options: { failTweets?: boolean } = {}) {
   const urls: string[] = [];
   globalThis.fetch = (async (url: FetchInput) => {
@@ -115,16 +93,6 @@ function mockXapi(ids: string[], options: { failTweets?: boolean } = {}) {
     return new Response(JSON.stringify(postsResponse(ids)), { status: 200 });
   }) as unknown as typeof fetch;
   return urls;
-}
-
-function mockXapiNodes(nodes: unknown[]) {
-  globalThis.fetch = (async (url: FetchInput) => {
-    const textUrl = String(url);
-    if (textUrl.includes('userByScreenNameV2')) {
-      return new Response(JSON.stringify(userResponse()), { status: 200 });
-    }
-    return new Response(JSON.stringify(postsResponseWithNodes(nodes)), { status: 200 });
-  }) as unknown as typeof fetch;
 }
 
 function mockMultiAccountXapi() {
@@ -181,7 +149,6 @@ describe('checkAccountUpdates standard polling trigger', () => {
     expect(result.events_json).toEqual([]);
     expect(result.count).toBe(0);
     expect(result.should_push).toBe(false);
-    expect(result.summary_markdown).toBe('');
     expect(result.next_state_json.userId).toBe('44196397');
     expect(result.next_state_json.lastPostId).toBe('2067623442514386944');
     expect(result.next_state_json.seenPostIds).toEqual(['2067623442514386944']);
@@ -237,53 +204,6 @@ describe('checkAccountUpdates standard polling trigger', () => {
     });
     expect((result.events_json[0].data as { post: { url?: string } }).post.url).toBeUndefined();
     expect(result.next_state_json.lastPostId).toBe('2067623442514386946');
-  });
-
-  it('builds a filtered summary prompt without account identifiers or links in the model payload', async () => {
-    mockXapiNodes([
-      postNode(
-        '2067623442514386945',
-        'Small-cap stocks are starting to outperform. https://t.co/example',
-        '44196397',
-        [
-          {
-            type: 'photo',
-            ext_alt_text: 'A chart showing small-cap stocks rising faster than large-cap stocks.',
-            media_url_https: 'https://pbs.twimg.com/media/example.jpg'
-          },
-          {
-            type: 'video',
-            ext_alt_text: 'Market commentary video'
-          }
-        ]
-      )
-    ]);
-
-    const result = await checkAccountUpdates({
-      ...base,
-      username: 'openai',
-      state_json: {
-        version: 1,
-        userId: '44196397',
-        username: 'openai',
-        lastPostId: '2067623442514386944',
-        seenPostIds: ['2067623442514386944']
-      },
-      enable_ai_summary: true
-    });
-
-    expect(result.summary_prompt).toContain('不得输出任何链接');
-    expect(result.summary_prompt).toContain('视频或 GIF');
-    expect(result.summary_prompt).toContain('Small-cap stocks are starting to outperform.');
-    expect(result.summary_prompt).toContain(
-      'A chart showing small-cap stocks rising faster than large-cap stocks.'
-    );
-    expect(result.summary_prompt).not.toContain('openai');
-    expect(result.summary_prompt).not.toContain('44196397');
-    expect(result.summary_prompt).not.toContain('2067623442514386945');
-    expect(result.summary_prompt).not.toContain('https://t.co/example');
-    expect(result.summary_prompt).not.toContain('pbs.twimg.com');
-    expect(result.summary_prompt).not.toContain('Market commentary video');
   });
 
   it('does not repeat seen posts', async () => {

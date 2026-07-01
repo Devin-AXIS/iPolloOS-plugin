@@ -147,8 +147,6 @@ describe('X platform tools', () => {
     expect(state.accounts.openai.lastPostId).toBe('202');
     expect(timelineRequests[0]).toContain('since_id=100');
     expect(timelineRequests[1]).toContain('since_id=200');
-    expect(result.summary_markdown).toContain('@xdevelopers');
-    expect(result.summary_markdown).toContain('@openai');
   });
 
   test('queries profile mode without making timeline requests', async () => {

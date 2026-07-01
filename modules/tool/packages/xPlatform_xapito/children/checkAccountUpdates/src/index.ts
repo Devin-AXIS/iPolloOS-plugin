@@ -33,9 +33,7 @@ export const InputType = XReadConfigSchema.and(
     max_results: z.coerce.number().int().min(5).max(100).default(20),
     include_replies: booleanInput.default(false),
     include_retweets: booleanInput.default(false),
-    initial_mode: InitialModeSchema.default('baseline'),
-    enable_ai_summary: booleanInput.default(false),
-    summary_model: z.preprocess(emptyToUndefined, z.string().max(128).optional())
+    initial_mode: InitialModeSchema.default('baseline')
   })
 );
 
@@ -61,8 +59,6 @@ export const OutputType = z.object({
   count: z.number().int().nonnegative(),
   should_push: z.boolean(),
   next_state_json: z.record(z.string(), z.any()),
-  summary_prompt: z.string().optional(),
-  summary_markdown: z.string().optional(),
   system_error: SystemErrorSchema.optional()
 });
 
@@ -90,7 +86,6 @@ type AccountCheckResult = {
   username: string;
   events: ReturnType<typeof toTriggerEvent>[];
   state: Record<string, unknown>;
-  summary: string;
   systemError: z.infer<typeof SystemErrorSchema>;
 };
 
@@ -227,57 +222,6 @@ function toTriggerEvent(input: {
   };
 }
 
-function buildSummaryInput(events: ReturnType<typeof toTriggerEvent>[]) {
-  return events.map((event) => {
-    const data = event.data;
-    return {
-      text: cleanSummaryText(data.content_text),
-      createdAt: data.post.createdAt,
-      media: (data.media ?? [])
-        .filter((item) => item.type === 'photo')
-        .map((item) => ({
-          type: item.type,
-          altText: item.altText,
-          caption: item.caption,
-          description: item.description,
-          ocrText: item.ocrText
-        }))
-        .filter((item) => item.altText || item.caption || item.description || item.ocrText)
-    };
-  });
-}
-
-function cleanSummaryText(value: string): string {
-  return value
-    .replace(/https?:\/\/[^\s)"'<>]+/gi, '')
-    .replace(/\b(?:www\.)?(?:x|twitter)\.com\/[^\s)"'<>]+/gi, '')
-    .replace(/\bt\.co\/[^\s)"'<>]+/gi, '')
-    .replace(/@[\w_]+/g, '')
-    .replace(/[ \t]+/g, ' ')
-    .trim();
-}
-
-function buildFilteredSummaryPrompt(input: { events: ReturnType<typeof toTriggerEvent>[] }): string {
-  if (!input.events.length) return '';
-  const posts = buildSummaryInput(input.events);
-  return [
-    '你是面向用户的内容摘要与过滤节点。',
-    '',
-    '任务：根据以下新增内容生成简洁中文摘要，输出将直接发送给用户。',
-    '',
-    '硬性规则：',
-    '1. 不得出现任何平台相关字样或信息，包括 X、Twitter、推特、tweet、post、帖子、转发、引用推文、账号名、用户名、@handle、用户 ID、内容 ID、事件 ID。',
-    '2. 不得输出任何链接，包括 x.com、twitter.com、t.co、http/https 链接。',
-    '3. 如果内容包含视频或 GIF，完全忽略视频/GIF 本身，不要描述、不要总结。',
-    '4. 如果内容包含图片，只能基于输入 JSON 中已有的图片 alt 文本、OCR、caption 或媒体描述总结图片；不能根据图片链接或缺失信息猜测图片内容。',
-    '5. 图片信息如果与正文主题无关，不要写进摘要。例如图片是树、花、风景，但正文是股票或金融观点，则忽略图片。',
-    '6. 按以上规则过滤后，如果没有可展示给用户的真实新增正文，只输出 NO_PUSH。',
-    '7. 输出正文时不要加标题、解释、总结说明、状态说明、代码块或 JSON。',
-    '',
-    JSON.stringify(posts, null, 2)
-  ].join('\n');
-}
-
 function buildState(input: {
   previous: PollingState;
   userId?: string;
@@ -362,7 +306,6 @@ async function checkAccount(
           checkedAt,
           success: true
         }),
-        summary: `Initialized polling baseline for @${resolvedUsername}.`,
         systemError: null
       };
     }
@@ -393,9 +336,6 @@ async function checkAccount(
         checkedAt,
         success: true
       }),
-      summary: triggerEvents.length
-        ? `Found ${triggerEvents.length} new X post(s) for @${resolvedUsername}.`
-        : `No new X posts found for @${resolvedUsername}.`,
       systemError: null
     };
   } catch (error: unknown) {
@@ -413,7 +353,6 @@ async function checkAccount(
           message: systemError.message
         }
       }),
-      summary: `Failed to check @${username}.`,
       systemError
     };
   }
@@ -439,8 +378,6 @@ export async function tool(props: In): Promise<Out> {
         success: false,
         error
       }),
-      summary_prompt: '',
-      summary_markdown: 'Failed to check X account: username is required.',
       system_error: error
     });
   }
@@ -461,8 +398,6 @@ export async function tool(props: In): Promise<Out> {
         checkedAt,
         lastError: { code: error.code, message: error.message }
       },
-      summary_prompt: '',
-      summary_markdown: `Failed to check X accounts: maximum ${MAX_USERNAMES} usernames are allowed.`,
       system_error: error
     });
   }
@@ -480,15 +415,11 @@ export async function tool(props: In): Promise<Out> {
   if (results.length === 1) {
     const result = results[0];
     const count = result.events.length;
-    const summaryPrompt =
-      input.enable_ai_summary && count > 0 ? buildFilteredSummaryPrompt({ events: result.events }) : '';
     return sanitizeOutput(input, {
       events_json: result.events,
       count,
       should_push: count > 0,
       next_state_json: result.state,
-      summary_prompt: summaryPrompt,
-      summary_markdown: count > 0 || result.systemError ? result.summary : '',
       system_error: result.systemError
     });
   }
@@ -498,8 +429,6 @@ export async function tool(props: In): Promise<Out> {
   const failed = results.filter((result) => result.systemError);
 
   const count = events.length;
-  const summaryPrompt =
-    input.enable_ai_summary && count > 0 ? buildFilteredSummaryPrompt({ events }) : '';
 
   return sanitizeOutput(input, {
     events_json: events,
@@ -520,9 +449,6 @@ export async function tool(props: In): Promise<Out> {
             }
           : null
     },
-    summary_prompt: summaryPrompt,
-    summary_markdown:
-      events.length > 0 || failed.length > 0 ? results.map((result) => result.summary).join('\n') : '',
     system_error: failed.length === results.length ? failed[0].systemError : null
   });
 }

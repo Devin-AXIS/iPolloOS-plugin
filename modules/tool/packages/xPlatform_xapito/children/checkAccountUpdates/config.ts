@@ -2,7 +2,6 @@ import { defineTool } from '@tool/type';
 import {
   FlowNodeInputTypeEnum,
   FlowNodeOutputTypeEnum,
-  LLMModelTypeEnum,
   WorkflowIOValueTypeEnum
 } from '@tool/type/ipolloos';
 
@@ -59,7 +58,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.6',
+      value: '1.0.7',
       description: '状态化检查账号新增内容',
       inputs: [
         {
@@ -125,23 +124,6 @@ export default defineTool({
           renderTypeList: [FlowNodeInputTypeEnum.switch, FlowNodeInputTypeEnum.reference],
           toolDescription: '开启后会屏蔽社交平台敏感词和链接，适合传给模型或用户端展示。'
         },
-        {
-          key: 'enable_ai_summary',
-          label: '生成新增内容总结',
-          defaultValue: false,
-          valueType: WorkflowIOValueTypeEnum.boolean,
-          renderTypeList: [FlowNodeInputTypeEnum.switch, FlowNodeInputTypeEnum.reference],
-          toolDescription: '开启后在有新增内容时输出 summary_prompt，供主系统模型节点总结。'
-        },
-        {
-          key: 'summary_model',
-          label: '总结模型',
-          valueType: WorkflowIOValueTypeEnum.string,
-          renderTypeList: [FlowNodeInputTypeEnum.selectLLMModel, FlowNodeInputTypeEnum.reference],
-          llmModelType: LLMModelTypeEnum.all,
-          required: false,
-          toolDescription: '从主系统模型中心选择模型，例如 DeepSeek；插件不单独收模型 API Key。'
-        }
       ],
       outputs: [
         {
@@ -163,16 +145,6 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.object,
           key: 'next_state_json',
           label: '下一次状态 JSON'
-        },
-        {
-          valueType: WorkflowIOValueTypeEnum.string,
-          key: 'summary_prompt',
-          label: '新增内容总结提示词'
-        },
-        {
-          valueType: WorkflowIOValueTypeEnum.string,
-          key: 'summary_markdown',
-          label: '检查摘要'
         },
         {
           type: FlowNodeOutputTypeEnum.error,
