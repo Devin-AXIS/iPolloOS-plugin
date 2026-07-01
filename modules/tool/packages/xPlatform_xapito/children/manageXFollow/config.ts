@@ -25,7 +25,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.6',
+      value: '1.0.7',
       description: '关注关系管理',
       inputs: [
         {
