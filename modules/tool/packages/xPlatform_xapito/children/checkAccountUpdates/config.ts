@@ -1,4 +1,4 @@
-import { defineTool } from '@tool/type';
+﻿import { defineTool } from '@tool/type';
 import {
   FlowNodeInputTypeEnum,
   FlowNodeOutputTypeEnum,
@@ -58,7 +58,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.7',
+      value: '1.0.8',
       description: '状态化检查账号新增内容',
       inputs: [
         {
@@ -115,15 +115,7 @@ export default defineTool({
           ],
           toolDescription:
             'baseline 首次运行只建立游标，不产生历史事件；backfill 会将首次查询结果作为事件返回。'
-        },
-        {
-          key: 'mask_sensitive_info',
-          label: '屏蔽敏感信息',
-          defaultValue: true,
-          valueType: WorkflowIOValueTypeEnum.boolean,
-          renderTypeList: [FlowNodeInputTypeEnum.switch, FlowNodeInputTypeEnum.reference],
-          toolDescription: '开启后会屏蔽社交平台敏感词和链接，适合传给模型或用户端展示。'
-        },
+        }
       ],
       outputs: [
         {
@@ -132,19 +124,24 @@ export default defineTool({
           label: '新增事件 JSON'
         },
         {
-          valueType: WorkflowIOValueTypeEnum.number,
           key: 'count',
-          label: '新增数量'
+          label: '新增数量',
+          valueType: WorkflowIOValueTypeEnum.number
         },
         {
-          valueType: WorkflowIOValueTypeEnum.boolean,
           key: 'should_push',
-          label: '是否有新增需推送'
+          label: '是否有新增需推送',
+          valueType: WorkflowIOValueTypeEnum.boolean
         },
         {
           valueType: WorkflowIOValueTypeEnum.object,
           key: 'next_state_json',
           label: '下一次状态 JSON'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.object,
+          key: 'debug_json',
+          label: '调试信息 JSON'
         },
         {
           type: FlowNodeOutputTypeEnum.error,

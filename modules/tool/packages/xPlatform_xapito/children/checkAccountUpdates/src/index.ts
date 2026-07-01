@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { getUserPosts, lookupUserByUsername } from '../../../lib/client';
 import { normalizePostEvents } from '../../../lib/format';
 import { comparePostIds, normalizePostId } from '../../../lib/postId';
-import { sanitizeOutput } from '../../../lib/sanitize';
 import { XReadConfigSchema, cleanUsername, parseXUsernames } from '../../../lib/schemas';
 
 const STATE_VERSION = 1;
@@ -59,6 +58,7 @@ export const OutputType = z.object({
   count: z.number().int().nonnegative(),
   should_push: z.boolean(),
   next_state_json: z.record(z.string(), z.any()),
+  debug_json: z.record(z.string(), z.any()).optional(),
   system_error: SystemErrorSchema.optional()
 });
 
@@ -86,8 +86,13 @@ type AccountCheckResult = {
   username: string;
   events: ReturnType<typeof toTriggerEvent>[];
   state: Record<string, unknown>;
+  debug: Record<string, unknown>;
   systemError: z.infer<typeof SystemErrorSchema>;
 };
+
+function debugPollingState(label: string, data: Record<string, unknown>) {
+  console.info(`[xPlatform_xapito/checkAccountUpdates] ${label}`, data);
+}
 
 function accountKey(username: string): string {
   return cleanUsername(username).toLowerCase();
@@ -181,14 +186,6 @@ function keepSeenPostIds(existing: string[], incoming: string[]): string[] {
     .slice(-MAX_SEEN_POST_IDS);
 }
 
-function eventType(event: PostEvent): 'original' | 'retweet' | 'reply' | 'quote' {
-  const refs = event.referencedTweets ?? [];
-  if (refs.some((ref) => ref.type === 'retweeted')) return 'retweet';
-  if (refs.some((ref) => ref.type === 'replied_to')) return 'reply';
-  if (refs.some((ref) => ref.type === 'quoted')) return 'quote';
-  return 'original';
-}
-
 function toTriggerEvent(input: {
   userId: string;
   username: string;
@@ -204,20 +201,9 @@ function toTriggerEvent(input: {
     source: 'xPlatform_xapito',
     occurredAt: input.event.postedAt || undefined,
     data: {
-      content_text: input.event.text,
-      account: {
-        userId: input.userId,
-        username: input.username
-      },
-      post: {
-        id: postId,
-        text: input.event.text,
-        createdAt: input.event.postedAt || null,
-        postType: eventType(input.event),
-        authorUsername: input.event.authorUsername || input.username
-      },
-      media: input.event.media ?? [],
-      detectedAt: input.detectedAt
+      user: input.event.authorUsername || input.username,
+      postedAt: input.event.postedAt || null,
+      text: input.event.text
     }
   };
 }
@@ -274,6 +260,22 @@ async function checkAccount(
   checkedAt: string
 ): Promise<AccountCheckResult> {
   try {
+    const oldLastPostId = previousState.lastPostId;
+    const oldSeenPostIds = previousState.seenPostIds ?? [];
+    const debug: Record<string, unknown> = {
+      username,
+      stateReceived: Boolean(previousState.lastPostId || previousState.userId || oldSeenPostIds.length),
+      oldLastPostId,
+      oldSeenPostIds,
+      isInitialized: Boolean(oldLastPostId)
+    };
+    debugPollingState('state received', {
+      username,
+      oldLastPostId,
+      oldSeenPostIds,
+      isInitialized: Boolean(oldLastPostId)
+    });
+
     let userId = previousState.userId;
     let resolvedUsername = previousState.username ?? username;
     if (!userId || accountKey(resolvedUsername) !== username) {
@@ -291,8 +293,31 @@ async function checkAccount(
     });
     const allEvents = sortEventsOldestFirst(normalizePostEvents(data));
     const newestPostId = latestPostId(allEvents, previousState.lastPostId);
+    Object.assign(debug, {
+      resolvedUsername,
+      latestPostId: newestPostId,
+      fetchedPostIds: allEvents.map((event) => event.id)
+    });
+    debugPollingState('posts fetched', {
+      username: resolvedUsername,
+      oldLastPostId,
+      latestPostId: newestPostId,
+      fetchedPostIds: allEvents.map((event) => event.id)
+    });
 
     if (!previousState.lastPostId && input.initial_mode === 'baseline') {
+      debugPollingState('baseline initialized', {
+        username: resolvedUsername,
+        latestPostId: newestPostId,
+        eventCreated: false,
+        stateAdvanced: Boolean(newestPostId)
+      });
+      Object.assign(debug, {
+        baselineInitialized: true,
+        isNewPost: false,
+        eventCreated: false,
+        stateAdvanced: Boolean(newestPostId)
+      });
       return {
         username: resolvedUsername,
         events: [],
@@ -306,6 +331,7 @@ async function checkAccount(
           checkedAt,
           success: true
         }),
+        debug,
         systemError: null
       };
     }
@@ -315,13 +341,37 @@ async function checkAccount(
       if (previousState.lastPostId && comparePostIds(event.id, previousState.lastPostId) <= 0) {
         return false;
       }
-      if (seen.has(event.id)) return false;
-      seen.add(event.id);
+      if (
+        seen.has(event.id) &&
+        (!previousState.newestPostId || comparePostIds(event.id, previousState.newestPostId) <= 0)
+      ) {
+        return false;
+      }
       return true;
     });
     const triggerEvents = newEvents.map((event) =>
       toTriggerEvent({ userId, username: resolvedUsername, event, detectedAt: checkedAt })
     );
+    const emittedPostIds = newEvents.map((event) => event.id);
+    const emittedNewestPostId = latestPostId(newEvents, previousState.lastPostId);
+    const eventCreated = triggerEvents.length > 0;
+    Object.assign(debug, {
+      baselineInitialized: false,
+      candidatePostIds: newEvents.map((event) => event.id),
+      isNewPost: newEvents.length > 0,
+      eventCreated,
+      stateAdvanced: eventCreated
+    });
+    debugPollingState('events evaluated', {
+      username: resolvedUsername,
+      oldLastPostId,
+      oldSeenPostIds,
+      latestPostId: newestPostId,
+      candidatePostIds: newEvents.map((event) => event.id),
+      isNewPost: newEvents.length > 0,
+      eventCreated,
+      stateAdvanced: eventCreated
+    });
 
     return {
       username: resolvedUsername,
@@ -330,16 +380,37 @@ async function checkAccount(
         previous: previousState,
         userId,
         username: resolvedUsername,
-        lastPostId: newestPostId || previousState.lastPostId,
-        newestPostId: newestPostId || previousState.newestPostId,
-        seenPostIds: allEvents.map((event) => event.id),
+        lastPostId: eventCreated ? emittedNewestPostId : previousState.lastPostId,
+        newestPostId: eventCreated ? emittedNewestPostId : previousState.newestPostId,
+        seenPostIds: emittedPostIds,
         checkedAt,
         success: true
       }),
+      debug,
       systemError: null
     };
   } catch (error: unknown) {
     const systemError = classifyError(error);
+    const debug = {
+      username,
+      stateReceived: Boolean(
+        previousState.lastPostId || previousState.userId || (previousState.seenPostIds ?? []).length
+      ),
+      oldLastPostId: previousState.lastPostId,
+      oldSeenPostIds: previousState.seenPostIds ?? [],
+      isInitialized: Boolean(previousState.lastPostId),
+      eventCreated: false,
+      stateAdvanced: false,
+      error: systemError.message
+    };
+    debugPollingState('check failed', {
+      username,
+      oldLastPostId: previousState.lastPostId,
+      oldSeenPostIds: previousState.seenPostIds ?? [],
+      eventCreated: false,
+      stateAdvanced: false,
+      error: systemError.message
+    });
     return {
       username,
       events: [],
@@ -353,6 +424,7 @@ async function checkAccount(
           message: systemError.message
         }
       }),
+      debug,
       systemError
     };
   }
@@ -367,7 +439,7 @@ export async function tool(props: In): Promise<Out> {
 
   if (!usernames.length) {
     const error = { code: 'INVALID_INPUT', message: 'username is required', retryable: false };
-    return sanitizeOutput(input, {
+    return {
       events_json: [],
       count: 0,
       should_push: false,
@@ -378,8 +450,12 @@ export async function tool(props: In): Promise<Out> {
         success: false,
         error
       }),
+      debug_json: {
+        stateJsonInputPresent: Boolean(input.state_json),
+        reason: 'username is required'
+      },
       system_error: error
-    });
+    };
   }
 
   if (usernames.length > MAX_USERNAMES) {
@@ -388,7 +464,7 @@ export async function tool(props: In): Promise<Out> {
       message: `Too many usernames: received ${usernames.length}, maximum is ${MAX_USERNAMES}.`,
       retryable: false
     };
-    return sanitizeOutput(input, {
+    return {
       events_json: [],
       count: 0,
       should_push: false,
@@ -398,8 +474,12 @@ export async function tool(props: In): Promise<Out> {
         checkedAt,
         lastError: { code: error.code, message: error.message }
       },
+      debug_json: {
+        stateJsonInputPresent: Boolean(input.state_json),
+        reason: 'too many usernames'
+      },
       system_error: error
-    });
+    };
   }
 
   const results: AccountCheckResult[] = [];
@@ -415,22 +495,25 @@ export async function tool(props: In): Promise<Out> {
   if (results.length === 1) {
     const result = results[0];
     const count = result.events.length;
-    return sanitizeOutput(input, {
+    return {
       events_json: result.events,
       count,
       should_push: count > 0,
       next_state_json: result.state,
+      debug_json: {
+        stateJsonInputPresent: Boolean(input.state_json),
+        ...result.debug
+      },
       system_error: result.systemError
-    });
+    };
   }
 
   const accounts = Object.fromEntries(results.map((result) => [result.username, result.state]));
   const events = results.flatMap((result) => result.events);
   const failed = results.filter((result) => result.systemError);
-
   const count = events.length;
 
-  return sanitizeOutput(input, {
+  return {
     events_json: events,
     count,
     should_push: count > 0,
@@ -449,6 +532,10 @@ export async function tool(props: In): Promise<Out> {
             }
           : null
     },
+    debug_json: {
+      stateJsonInputPresent: Boolean(input.state_json),
+      accounts: Object.fromEntries(results.map((result) => [result.username, result.debug]))
+    },
     system_error: failed.length === results.length ? failed[0].systemError : null
-  });
+  };
 }

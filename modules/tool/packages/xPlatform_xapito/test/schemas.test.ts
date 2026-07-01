@@ -14,7 +14,7 @@ describe('X platform schemas', () => {
       bearerToken: 'xox_test_bearer_token'
     });
 
-    expect(config.baseUrl).toBe('https://x.p.xapi.to');
+    expect(config.baseUrl).toBe('https://api.x.com');
     expect(config.proxyUrl).toBeUndefined();
     expect(config.timeoutMs).toBe(15000);
     expect(config.defaultMaxResults).toBe(10);

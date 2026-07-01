@@ -41,16 +41,54 @@ export default defineToolSet({
       key: 'bearerToken',
       label: 'xapi.to 读取令牌',
       description: '填写 xapi.to 的 sk 开头 API Key，用于账号查询、内容搜索和低频轮询检查。',
-      required: true,
+      required: false,
+      inputType: 'secret'
+    },
+    {
+      key: 'userAccessToken',
+      label: 'X 用户操作令牌',
+      description:
+        '保留兼容旧配置。xapi.to 低频读取和监控检查通常不需要填写用户操作令牌。',
+      required: false,
+      inputType: 'secret'
+    },
+    {
+      key: 'userAccessTokenSecret',
+      label: 'X 用户操作令牌 Secret',
+      description: '保留兼容旧配置。xapi.to 低频读取和监控检查通常不需要填写。',
+      required: false,
+      inputType: 'secret'
+    },
+    {
+      key: 'consumerKey',
+      label: 'X Consumer Key',
+      description: '保留兼容旧配置。xapi.to 低频读取和监控检查通常不需要填写。',
+      required: false,
+      inputType: 'secret'
+    },
+    {
+      key: 'consumerSecret',
+      label: 'X Consumer Secret',
+      description: '保留兼容旧配置。xapi.to 低频读取和监控检查通常不需要填写。',
+      required: false,
       inputType: 'secret'
     },
     {
       key: 'baseUrl',
       label: 'X API Base URL',
-      description: 'xapi.to 版读取接口请填写 https://x.p.xapi.to。',
-      required: true,
+      description:
+        'xapi.to 版读取接口请填写 https://x.p.xapi.to。默认值保留为官方地址以兼容旧配置。',
+      required: false,
       inputType: 'input',
-      defaultValue: 'https://x.p.xapi.to'
+      defaultValue: 'https://api.x.com'
+    },
+    {
+      key: 'proxyUrl',
+      label: 'X API 代理地址',
+      description:
+        '服务器不能直连接口时填写 HTTP/HTTPS 代理，例如 http://host:port。留空时读取 X_API_PROXY_URL、HTTPS_PROXY、HTTP_PROXY 或 ALL_PROXY。',
+      required: false,
+      inputType: 'input'
     }
   ]
 });

@@ -25,7 +25,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.7',
+      value: '1.0.4',
       description: '发布新内容或引用内容',
       inputs: [
         {
@@ -43,14 +43,6 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.input],
           toolDescription: 'Optional X post id to quote.'
-        },
-        {
-          key: 'mask_sensitive_info',
-          label: '屏蔽敏感信息',
-          defaultValue: true,
-          valueType: WorkflowIOValueTypeEnum.boolean,
-          renderTypeList: [FlowNodeInputTypeEnum.switch, FlowNodeInputTypeEnum.reference],
-          toolDescription: '开启后会屏蔽社交平台敏感词和链接。'
         }
       ],
       outputs: [

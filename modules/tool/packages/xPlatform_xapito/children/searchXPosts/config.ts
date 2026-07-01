@@ -25,7 +25,7 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.7',
+      value: '1.0.4',
       description: '最新、相关、高互动内容搜索',
       inputs: [
         {
@@ -65,14 +65,6 @@ export default defineTool({
           ],
           toolDescription:
             'recent uses the generally available recent search endpoint. all uses full-archive search and requires eligible paid X API access.'
-        },
-        {
-          key: 'mask_sensitive_info',
-          label: '屏蔽敏感信息',
-          defaultValue: true,
-          valueType: WorkflowIOValueTypeEnum.boolean,
-          renderTypeList: [FlowNodeInputTypeEnum.switch, FlowNodeInputTypeEnum.reference],
-          toolDescription: '开启后会屏蔽社交平台敏感词和链接。'
         }
       ],
       outputs: [

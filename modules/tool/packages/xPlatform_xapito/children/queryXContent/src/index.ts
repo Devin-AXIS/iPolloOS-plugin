@@ -7,7 +7,6 @@ import {
   formatUserMarkdown,
   stringifyJson
 } from '../../../lib/format';
-import { sanitizeOutput } from '../../../lib/sanitize';
 import { XQueryModeSchema, XReadConfigSchema, cleanUsername } from '../../../lib/schemas';
 
 const emptyToUndefined = (value: unknown) =>
@@ -68,14 +67,14 @@ export async function tool(props: In): Promise<Out> {
       const username = cleanUsername(input.username);
       if (!username) throw new Error('username is required for user_by_username mode');
       const user = await lookupUserByUsername(input, username);
-      return sanitizeOutput(input, {
+      return {
         answer_markdown: formatUserMarkdown(user),
         posts_json: '[]',
         users_json: stringifyJson([user]),
         source_links: user.username ? `https://x.com/${user.username}` : '',
         next_token: '',
         result_count: 1
-      });
+      };
     }
 
     if (input.mode === 'recent_search') {

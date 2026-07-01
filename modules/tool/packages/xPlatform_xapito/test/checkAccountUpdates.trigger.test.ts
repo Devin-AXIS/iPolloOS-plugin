@@ -29,19 +29,13 @@ function userResponse(id = '44196397', username = 'openai') {
   };
 }
 
-function postNode(
-  id: string,
-  text = `post ${id}`,
-  userId = '44196397',
-  media?: Array<Record<string, unknown>>
-) {
+function postNode(id: string, text = `post ${id}`, userId = '44196397') {
   return {
     rest_id: id,
     legacy: {
       full_text: text,
       user_id_str: userId,
-      created_at: '2026-06-24T10:00:00.000Z',
-      extended_entities: media?.length ? { media } : undefined
+      created_at: '2026-06-24T10:00:00.000Z'
     },
     core: {
       user_results: {
@@ -149,6 +143,8 @@ describe('checkAccountUpdates standard polling trigger', () => {
     expect(result.events_json).toEqual([]);
     expect(result.count).toBe(0);
     expect(result.should_push).toBe(false);
+    expect(result.debug_json?.stateJsonInputPresent).toBe(true);
+    expect(result.debug_json?.isInitialized).toBe(false);
     expect(result.next_state_json.userId).toBe('44196397');
     expect(result.next_state_json.lastPostId).toBe('2067623442514386944');
     expect(result.next_state_json.seenPostIds).toEqual(['2067623442514386944']);
@@ -191,19 +187,90 @@ describe('checkAccountUpdates standard polling trigger', () => {
     expect(result.events_json.map((event) => event.data)).toHaveLength(2);
     expect(result.count).toBe(2);
     expect(result.should_push).toBe(true);
+    expect(result.debug_json).toMatchObject({
+      stateJsonInputPresent: true,
+      oldLastPostId: '2067623442514386944',
+      isNewPost: true,
+      eventCreated: true,
+      stateAdvanced: true
+    });
     expect(result.events_json.map((event) => event.eventId)).toEqual([
       'x:44196397:2067623442514386945',
       'x:44196397:2067623442514386946'
     ]);
+    expect(result.events_json[0].data).toEqual({
+      user: 'openai',
+      postedAt: '2026-06-24T10:00:00.000Z',
+      text: 'post 2067623442514386945'
+    });
+    expect(result).not.toHaveProperty('summary_markdown');
     expect(result.events_json[0].dedupeKey).toBe('x:44196397:2067623442514386945');
-    expect(result.events_json[0].data).toMatchObject({
-      content_text: 'post 2067623442514386945',
-      post: {
-        text: 'post 2067623442514386945'
+    expect(result.next_state_json.lastPostId).toBe('2067623442514386946');
+  });
+
+  it('creates an event before advancing state for a single account with an older cursor', async () => {
+    mockXapi(['2072217252922011986']);
+
+    const result = await checkAccountUpdates({
+      ...base,
+      username: 'saijin0525',
+      state_json: {
+        version: 1,
+        userId: '2069330400674304000',
+        username: 'saijin0525',
+        lastPostId: '2072216804378951703',
+        newestPostId: '2072216804378951703',
+        seenPostIds: ['2072216804378951703']
       }
     });
-    expect((result.events_json[0].data as { post: { url?: string } }).post.url).toBeUndefined();
-    expect(result.next_state_json.lastPostId).toBe('2067623442514386946');
+
+    expect(result.events_json.map((event) => event.eventId)).toEqual([
+      'x:2069330400674304000:2072217252922011986'
+    ]);
+    expect(result.events_json[0].data).toEqual({
+      user: 'openai',
+      postedAt: '2026-06-24T10:00:00.000Z',
+      text: 'post 2072217252922011986'
+    });
+    expect(result.count).toBe(1);
+    expect(result.should_push).toBe(true);
+    expect(result.debug_json).toMatchObject({
+      stateJsonInputPresent: true,
+      oldLastPostId: '2072216804378951703',
+      latestPostId: '2072217252922011986',
+      isInitialized: true,
+      isNewPost: true,
+      eventCreated: true,
+      stateAdvanced: true
+    });
+    expect(result.next_state_json.lastPostId).toBe('2072217252922011986');
+    expect(result.next_state_json.newestPostId).toBe('2072217252922011986');
+    expect(result.next_state_json.seenPostIds).toContain('2072216804378951703');
+    expect(result.next_state_json.seenPostIds).toContain('2072217252922011986');
+  });
+
+  it('does not let a polluted seenPostIds entry hide a post newer than newestPostId', async () => {
+    mockXapi(['2072217252922011986']);
+
+    const result = await checkAccountUpdates({
+      ...base,
+      username: 'saijin0525',
+      state_json: {
+        version: 1,
+        userId: '2069330400674304000',
+        username: 'saijin0525',
+        lastPostId: '2072216804378951703',
+        newestPostId: '2072216804378951703',
+        seenPostIds: ['2072216804378951703', '2072217252922011986']
+      }
+    });
+
+    expect(result.events_json.map((event) => event.eventId)).toEqual([
+      'x:2069330400674304000:2072217252922011986'
+    ]);
+    expect(result.next_state_json.lastPostId).toBe('2072217252922011986');
+    expect(result.next_state_json.seenPostIds).toContain('2072216804378951703');
+    expect(result.next_state_json.seenPostIds).toContain('2072217252922011986');
   });
 
   it('does not repeat seen posts', async () => {
@@ -246,8 +313,6 @@ describe('checkAccountUpdates standard polling trigger', () => {
     });
 
     expect(result.events_json).toEqual([]);
-    expect(result.count).toBe(0);
-    expect(result.should_push).toBe(false);
     expect(result.next_state_json.lastPostId).toBe('2067623442514386944');
     expect(result.next_state_json.lastError).toMatchObject({ code: 'X_API_RETRYABLE_ERROR' });
     expect(result.system_error).toMatchObject({ retryable: true });

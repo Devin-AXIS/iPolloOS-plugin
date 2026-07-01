@@ -47,7 +47,7 @@ Runtime flow:
 1. Install or import this plugin.
 2. The main system discovers `checkAccountUpdates` as `runtime.kind = trigger` and `trigger.type = polling`.
 3. A user creates a Trigger Instance and sets `username`.
-4. The default interval is 60 seconds. The minimum interval is also `60` seconds; users may increase it up to `86400` seconds.
+4. The default interval is 5 minutes (`300` seconds). The minimum interval is also `300` seconds; users may increase it up to `86400` seconds.
 5. For every run, the main system calls this tool once and passes the previously saved `state_json`.
 6. The plugin checks xapi.to once, returns `events_json` and `next_state_json`, then exits.
 7. The main system transparently stores `next_state_json`, deduplicates by `dedupeKey`, and dispatches downstream workflows.

@@ -38,7 +38,7 @@ function config(overrides: Partial<XPollingConfig> = {}): XPollingConfig {
 
   return {
     enabled: true,
-    intervalMs: 60_000,
+    intervalMs: 300_000,
     runImmediately: false,
     concurrency: 2,
     accounts: ['openai'],
@@ -79,13 +79,13 @@ describe('xPlatform_xapito polling service', () => {
     vi.unstubAllEnvs();
   });
 
-  it('uses the default 60 second polling interval and rejects unsafe intervals', () => {
+  it('uses the default 5 minute polling interval and rejects unsafe intervals', () => {
     vi.stubEnv('X_BEARER_TOKEN', '1234567890');
     vi.stubEnv('X_POLLING_INTERVAL_MS', '');
-    expect(loadXPollingConfig().intervalMs).toBe(60_000);
+    expect(loadXPollingConfig().intervalMs).toBe(300_000);
 
     vi.stubEnv('X_POLLING_INTERVAL_MS', '1000');
-    expect(loadXPollingConfig().intervalMs).toBe(60_000);
+    expect(loadXPollingConfig().intervalMs).toBe(300_000);
   });
 
   it('starts only one timer and stop clears it', async () => {

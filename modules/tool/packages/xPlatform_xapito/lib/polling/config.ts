@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { XReadConfigSchema } from '../schemas';
 import type { XPollingConfig } from './types';
 
-const DEFAULT_INTERVAL_MS = 60_000;
+const DEFAULT_INTERVAL_MS = 300_000;
 const MIN_INTERVAL_MS = 60_000;
 const DEFAULT_HOOK_TIMEOUT_MS = 10_000;
 const DEFAULT_HOOK_RETRIES = 3;
