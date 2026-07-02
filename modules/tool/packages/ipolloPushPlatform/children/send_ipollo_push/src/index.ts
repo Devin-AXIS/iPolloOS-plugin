@@ -158,6 +158,34 @@ function pickString(payload: Record<string, unknown> | undefined, keys: string[]
   return '';
 }
 
+function isAgentHookUrl(value: string | undefined): boolean {
+  const text = value?.trim();
+  if (!text) return false;
+  try {
+    const url = new URL(text);
+    return /\/api\/app\/agent-?hooks?\//i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function normalizeHookUrlInput(input: In): In {
+  const pushContent = input.push_content?.trim();
+  const text = input.text?.trim();
+  const hookUrlFromContent = isAgentHookUrl(pushContent)
+    ? pushContent
+    : isAgentHookUrl(text)
+      ? text
+      : undefined;
+  if (!hookUrlFromContent) return input;
+  return {
+    ...input,
+    hook_url: input.hook_url?.trim() || hookUrlFromContent,
+    push_content: isAgentHookUrl(pushContent) ? undefined : input.push_content,
+    text: isAgentHookUrl(text) ? undefined : input.text
+  };
+}
+
 function cleanMonitorLabel(value: string): string {
   const text = value.replace(/\s+/g, ' ').trim();
   return text && !INTERNAL_LABELS.has(text.toLowerCase()) ? text : '';
@@ -516,7 +544,7 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
       ? props.event_id.trim()
       : createEventId();
   try {
-    const input = InputType.parse(props);
+    const input = normalizeHookUrlInput(InputType.parse(props));
     const payload = parseJsonObject(input.payload_json, 'payload_json');
     const pushContent = resolvePushContent(input, payload);
     if (!pushContent) {

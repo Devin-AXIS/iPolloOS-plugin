@@ -182,6 +182,46 @@ describe('ipolloPushPlatform', () => {
     expect(body.delivery_mode).toBe('subscription_only');
   });
 
+  it('does not treat an agent hook URL in push_content as monitor content', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ success: true, eventId: 'evt-url-content' }), {
+          status: 200
+        })
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await sendIPolloPush(
+      {
+        push_content: 'https://aino.example.com/api/app/agent-hooks/abh_from_content',
+        ai_summary: 'Saibo Jin 关注科技股与美元走势。'
+      },
+      {
+        systemVar: {
+          app: { id: 'fastgpt-app-1', name: 'Market Agent' },
+          user: {
+            id: 'user-1',
+            username: 'user',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: 'team-1',
+            name: 'User'
+          },
+          tool: { id: 'ipolloPushPlatform/send_ipollo_push', version: '1.2.0' },
+          time: '2026-06-29T00:00:00.000Z'
+        }
+      } as any
+    );
+
+    expect(result.ok).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://aino.example.com/api/app/agent-hooks/abh_from_content');
+    const body = JSON.parse(String(init?.body));
+    expect(body.text).toBe('Saibo Jin 关注科技股与美元走势。');
+    expect(body.text).not.toContain('/api/app/agent-hooks/');
+  });
+
   it('falls back to applicationId from the App register URL for scheduled system runs', async () => {
     process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
     process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
