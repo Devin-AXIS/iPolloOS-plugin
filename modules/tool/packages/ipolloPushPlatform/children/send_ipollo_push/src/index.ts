@@ -386,6 +386,117 @@ function resolvePushContent(input: In, payload: Record<string, unknown> | undefi
   );
 }
 
+type StructuredPushItem = {
+  displayName: string;
+  postedAt: string;
+  text: string;
+};
+
+function parseJsonLikeArray(value: unknown): unknown[] | undefined {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('[')) return undefined;
+  try {
+    const parsed = JSON.parse(trimmed);
+    return Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeStructuredPushItems(value: unknown): StructuredPushItem[] {
+  const items = parseJsonLikeArray(value);
+  if (!items) return [];
+  return items
+    .map((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return undefined;
+      const record = item as Record<string, unknown>;
+      const displayName = pickString(record, [
+        'displayName',
+        'display_name',
+        'name',
+        'author',
+        'userName',
+        'username'
+      ]);
+      const postedAt = pickString(record, [
+        'postedAt',
+        'posted_at',
+        'time',
+        'createdAt',
+        'created_at'
+      ]);
+      const text = pickString(record, ['text', 'content', 'message', 'body']);
+      if (!text) return undefined;
+      return {
+        displayName: displayName || '监控对象',
+        postedAt,
+        text
+      };
+    })
+    .filter((item): item is StructuredPushItem => Boolean(item));
+}
+
+function resolveStructuredPushItems(
+  input: In,
+  payload: Record<string, unknown> | undefined
+): StructuredPushItem[] {
+  const candidates = [
+    input.push_content,
+    input.text,
+    payload?.push_content,
+    payload?.pushContent,
+    payload?.change_content,
+    payload?.changeContent,
+    payload?.content,
+    payload?.message,
+    payload?.text,
+    payload?.items,
+    payload?.records
+  ];
+  for (const candidate of candidates) {
+    const items = normalizeStructuredPushItems(candidate);
+    if (items.length) return items;
+  }
+  return [];
+}
+
+function formatStructuredPushContent(items: StructuredPushItem[], aiSummary: string): string {
+  if (!items.length) return '';
+  const grouped = new Map<string, StructuredPushItem[]>();
+  for (const item of items) {
+    const current = grouped.get(item.displayName) ?? [];
+    current.push(item);
+    grouped.set(item.displayName, current);
+  }
+
+  const sections = Array.from(grouped.entries()).map(([displayName, personItems]) => {
+    const lines = personItems.map((item, index) => {
+      const timeSuffix = item.postedAt ? `（${item.postedAt}）` : '';
+      return `（${index + 1}）${item.text}${timeSuffix}`;
+    });
+    return [displayName, ...lines].join('\n');
+  });
+
+  if (aiSummary.trim()) {
+    sections.push(`整体总结：${aiSummary.trim()}`);
+  }
+  return sections.join('\n\n');
+}
+
+function resolveCardContent(
+  input: In,
+  payload: Record<string, unknown> | undefined,
+  pushContent: string,
+  aiSummary: string
+): string {
+  return (
+    formatStructuredPushContent(resolveStructuredPushItems(input, payload), aiSummary) ||
+    pushContent
+  );
+}
+
 function buildMonitorAppCard(
   input: In,
   payload: Record<string, unknown> | undefined,
@@ -394,6 +505,7 @@ function buildMonitorAppCard(
   const monitorObjects = resolveMonitorObjects(input, payload);
   const monitorObject = monitorObjects[0] || resolveMonitorObject(input, payload);
   const aiSummary = resolveAiSummary(input, payload) || pushContent;
+  const cardContent = resolveCardContent(input, payload, pushContent, aiSummary);
   const eventTime = resolveEventTime(input, payload) || new Date().toISOString();
   const rawTitle =
     input.title?.trim() || pickString(payload, ['title', 'eventTitle', 'event_title']);
@@ -417,8 +529,8 @@ function buildMonitorAppCard(
       occurredAt: eventTime,
       generatedAt: eventTime,
       metrics: monitorObjects.length ? monitorObjects : monitorObject ? [monitorObject] : [],
-      changeContent: pushContent,
-      pushContent,
+      changeContent: cardContent,
+      pushContent: cardContent,
       aiBlocks: [
         {
           title: 'AI 总结',
@@ -426,7 +538,7 @@ function buildMonitorAppCard(
           content: aiSummary
         }
       ],
-      sourceMarkdown: pushContent
+      sourceMarkdown: cardContent
     }
   };
 }
@@ -443,6 +555,7 @@ function enrichMonitorAppCard(
   const monitorObject = monitorObjects[0] || resolveMonitorObject(input, { ...payload, ...data });
   const aiSummary = resolveAiSummary(input, { ...payload, ...data });
   const eventTime = resolveEventTime(input, { ...payload, ...data }) || new Date().toISOString();
+  const cardContent = resolveCardContent(input, payload, pushContent, aiSummary);
   return {
     ...appCard,
     data: {
@@ -457,9 +570,9 @@ function enrichMonitorAppCard(
       eventTime: data.eventTime || eventTime,
       occurredAt: data.occurredAt || eventTime,
       generatedAt: data.generatedAt || eventTime,
-      changeContent: data.changeContent || pushContent,
-      pushContent: data.pushContent || pushContent,
-      sourceMarkdown: data.sourceMarkdown || pushContent
+      changeContent: data.changeContent || cardContent,
+      pushContent: data.pushContent || cardContent,
+      sourceMarkdown: data.sourceMarkdown || cardContent
     }
   };
 }

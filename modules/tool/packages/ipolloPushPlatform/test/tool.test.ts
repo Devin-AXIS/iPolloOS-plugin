@@ -338,6 +338,86 @@ describe('ipolloPushPlatform', () => {
     ]);
   });
 
+  it('formats structured push rows by person before the overall summary', async () => {
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
+    process.env.IPOLLO_APP_REGISTER_URL =
+      'https://studio.ipollo.net/api/app-publish-callback?applicationId=aino-app-from-register';
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            eventId: 'evt-structured',
+            matchedUserCount: 1,
+            deliveredCount: 1,
+            skippedCount: 0
+          }),
+          { status: 200 }
+        )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await sendIPolloPush(
+      {
+        agent_id: 'aino-bot-1',
+        ai_summary: 'Saibo Jin 关注微软突破阻力和 ETH 支撑表现；OpenAI 关注模型更新。',
+        push_content: JSON.stringify([
+          {
+            displayName: 'Saibo Jin',
+            postedAt: '2026-07-02 07:56:45 UTC',
+            text: '$MSFT 正接近关键阻力区域。'
+          },
+          {
+            displayName: 'Saibo Jin',
+            postedAt: '2026-07-02 08:01:00 UTC',
+            text: '$ETH 仍守在短期支撑上方。'
+          },
+          {
+            displayName: 'OpenAI',
+            postedAt: '2026-07-02 09:00:00 UTC',
+            text: '发布了新的模型更新。'
+          }
+        ])
+      },
+      {
+        systemVar: {
+          app: { id: 'fastgpt-app-1', name: 'Market Agent' },
+          user: {
+            id: 'user-1',
+            username: 'user',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: 'team-1',
+            name: 'User'
+          },
+          tool: { id: 'ipolloPushPlatform/send_ipollo_push', version: '1.2.0' },
+          time: '2026-06-29T00:00:00.000Z'
+        }
+      } as any
+    );
+
+    expect(result.ok).toBe(true);
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(init?.body));
+    expect(body.appCard.data.changeContent).toBe(
+      [
+        'Saibo Jin',
+        '（1）$MSFT 正接近关键阻力区域。（2026-07-02 07:56:45 UTC）',
+        '（2）$ETH 仍守在短期支撑上方。（2026-07-02 08:01:00 UTC）',
+        '',
+        'OpenAI',
+        '（1）发布了新的模型更新。（2026-07-02 09:00:00 UTC）',
+        '',
+        '整体总结：Saibo Jin 关注微软突破阻力和 ETH 支撑表现；OpenAI 关注模型更新。'
+      ].join('\n')
+    );
+    expect(body.appCard.data.pushContent).toBe(body.appCard.data.changeContent);
+    expect(body.appCard.data.sourceMarkdown).toBe(body.appCard.data.changeContent);
+  });
+
   it('infers monitor object labels from line-based monitor content', async () => {
     process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
     process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
