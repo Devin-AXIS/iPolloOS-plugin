@@ -48,7 +48,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
           toolDescription:
-            '本次监控变化的完整内容，会进入 APP 卡片的“监控变化”区域和订阅载荷。若未单独传监控对象名称，插件会尝试从每行开头的对象名和时间中提取标签。'
+            '本次监控变化的完整内容。可传普通文本，也可传 {items,times,monitorObjects,summaries} 或事件数组 JSON；插件会标准化为对象、时间、内容、AI 总结四类订阅字段。'
         },
         {
           key: 'monitor_object',
@@ -71,7 +71,8 @@ export default defineTool({
           label: 'AI 总结',
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
-          toolDescription: '给 APP 卡片展示的核心总结。为空时使用摘要或监控内容。'
+          toolDescription:
+            '可选；给 APP 订阅展示的 AI 总结。为空时不展示 AI 总结，也不会用监控内容兜底。'
         },
         {
           key: 'event_time',

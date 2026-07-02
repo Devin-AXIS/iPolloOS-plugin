@@ -42,6 +42,29 @@ export const OutputType = z.object({
 type In = z.infer<typeof InputType>;
 type Out = z.infer<typeof OutputType>;
 
+type MonitorSourceItem = {
+  id: string;
+  objectId?: string;
+  timeId?: string;
+  objectName?: string;
+  timeValue?: string;
+  content: string;
+  aiSummary?: string;
+};
+
+type StandardMonitorPayload = {
+  items: Array<{ id: string; objectId?: string; timeId?: string; content: string }>;
+  monitorObjects: Array<{ id: string; name: string }>;
+  times: Array<{ id: string; value: string }>;
+  summaries: Array<{
+    id: string;
+    itemId: string;
+    objectId?: string;
+    timeId?: string;
+    summary: string;
+  }>;
+};
+
 const DEFAULT_MONITOR_PUSH_TEXT = '本次监控内容已更新，查看卡片获取摘要和变化。';
 const SUBSCRIPTION_ONLY_DELIVERY_MODE = 'subscription_only';
 const INTERNAL_LABELS = new Set(['ipolloos.push', 'agent.monitor', 'monitor.updated', 'ipolloos']);
@@ -158,6 +181,563 @@ function pickString(payload: Record<string, unknown> | undefined, keys: string[]
   return '';
 }
 
+function parseJsonLikeValue(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const text = value
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/```$/i, '')
+    .trim();
+  if (!text || (!text.startsWith('[') && !text.startsWith('{'))) return value;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return value;
+  }
+}
+
+function isWorkflowReferenceLabel(value: string): boolean {
+  const text = value.trim().replace(/^["']|["']$/g, '');
+  if (!text) return false;
+  if (/^\[\s*["']?[A-Za-z0-9_-]{8,}["']?\s*(?:,|、)/.test(text)) return true;
+  if (/^[A-Za-z0-9_-]{16,}$/.test(text)) return true;
+  return false;
+}
+
+function isWorkflowReferenceArray(value: unknown[]): boolean {
+  const parts = value.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean);
+  if (parts.length === 0 || parts.length !== value.length) return false;
+  if (parts.some(isWorkflowReferenceLabel)) return true;
+  return parts.length <= 3 && /^[A-Za-z0-9_-]{16,}$/.test(parts[0]);
+}
+
+function isWorkflowReferenceValue(value: unknown): boolean {
+  const parsed = parseJsonLikeValue(value);
+  if (parsed !== value) return isWorkflowReferenceValue(parsed);
+  if (typeof value === 'string') return isWorkflowReferenceLabel(value);
+  if (Array.isArray(value)) return isWorkflowReferenceArray(value);
+  return false;
+}
+
+function normalizeContentText(value: string | undefined): string {
+  const text = value?.trim() ?? '';
+  if (!text) return '';
+  if (['[]', '{}', 'null', 'undefined', 'no_push', 'nopush'].includes(text.toLowerCase()))
+    return '';
+  if (isWorkflowReferenceValue(text)) return '';
+  return text;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function valueToString(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'boolean') return String(value);
+  return '';
+}
+
+function readString(record: Record<string, unknown> | undefined, keys: string[]): string {
+  if (!record) return '';
+  for (const key of keys) {
+    const text = valueToString(record[key]);
+    if (text) return text;
+  }
+  return '';
+}
+
+function readCleanString(record: Record<string, unknown> | undefined, keys: string[]): string {
+  return normalizeContentText(readString(record, keys));
+}
+
+function parseRecordArray(value: unknown): Record<string, unknown>[] {
+  const parsed = parseJsonLikeValue(value);
+  return Array.isArray(parsed) ? parsed.filter(isPlainRecord) : [];
+}
+
+function parseLooseStringArray(value: unknown): string[] {
+  const parsed = parseJsonLikeValue(value);
+  if (Array.isArray(parsed)) {
+    return parsed.map((item) => normalizeContentText(valueToString(item))).filter(Boolean);
+  }
+  if (typeof parsed === 'string') {
+    return parsed
+      .split(/[,，、\n]/)
+      .map((item) => normalizeContentText(item))
+      .filter(Boolean);
+  }
+  return [];
+}
+
+const MONITOR_ITEM_ARRAY_KEYS = [
+  'items',
+  'contents',
+  'contentItems',
+  'content_items',
+  'posts',
+  'events',
+  'events_json',
+  'records',
+  'changes',
+  'updates'
+];
+
+const MONITOR_OBJECT_ARRAY_KEYS = [
+  'monitorObjects',
+  'monitor_objects',
+  'objects',
+  'targets',
+  'accounts',
+  'authors',
+  'users'
+];
+
+const MONITOR_TIME_ARRAY_KEYS = ['times', 'timeList', 'time_list', 'timestamps'];
+
+const MONITOR_SUMMARY_ARRAY_KEYS = [
+  'summaries',
+  'summaryList',
+  'summary_list',
+  'aiSummaries',
+  'ai_summaries'
+];
+
+const MONITOR_CONTENT_KEYS = [
+  'content',
+  'text',
+  'body',
+  'message',
+  'pushContent',
+  'push_content',
+  'changeContent',
+  'change_content',
+  'sourceMarkdown',
+  'source_markdown',
+  'latest_content_text',
+  'postText',
+  'post_text'
+];
+
+const MONITOR_OBJECT_ID_KEYS = [
+  'objectId',
+  'object_id',
+  'monitorObjectId',
+  'monitor_object_id',
+  'targetId',
+  'target_id',
+  'accountId',
+  'account_id',
+  'authorId',
+  'author_id',
+  'userId',
+  'user_id'
+];
+
+const MONITOR_OBJECT_NAME_KEYS = [
+  'objectName',
+  'object_name',
+  'monitorObjectName',
+  'monitor_object_name',
+  'authorName',
+  'author_name',
+  'author',
+  'authorUsername',
+  'author_username',
+  'accountUsername',
+  'account_username',
+  'latest_author_username',
+  'latest_account_username',
+  'username',
+  'handle',
+  'name',
+  'displayName',
+  'display_name',
+  'targetName',
+  'target_name',
+  'symbol',
+  'ticker'
+];
+
+const MONITOR_TIME_ID_KEYS = ['timeId', 'time_id', 'timestampId', 'timestamp_id'];
+
+const MONITOR_TIME_VALUE_KEYS = [
+  'value',
+  'time',
+  'timestamp',
+  'eventTime',
+  'event_time',
+  'occurredAt',
+  'occurred_at',
+  'publishedAt',
+  'published_at',
+  'postCreatedAt',
+  'post_created_at',
+  'latest_post_created_at',
+  'createdAt',
+  'created_at'
+];
+
+const MONITOR_ITEM_ID_KEYS = [
+  'id',
+  'itemId',
+  'item_id',
+  'contentId',
+  'content_id',
+  'eventId',
+  'event_id',
+  'postId',
+  'post_id',
+  'latest_post_id'
+];
+
+const MONITOR_EXPLICIT_AI_SUMMARY_KEYS = ['aiSummary', 'ai_summary'];
+const MONITOR_SUMMARY_TEXT_KEYS = ['summary', 'aiSummary', 'ai_summary'];
+
+const MONITOR_DATE_PATTERN =
+  '(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\s+\\w+\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}\\s+(?:\\+?\\d{4}\\s+)?\\d{4}|\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}(?:[ T]\\d{1,2}:\\d{2}(?::\\d{2})?(?:\\s*(?:UTC|Z))?)?|\\d{8}\\s+\\d{1,2}:\\d{2}:\\d{2}\\s*(?:UTC)?)';
+
+function readRecordArrayFromSources(sources: unknown[], keys: string[]): Record<string, unknown>[] {
+  for (const source of sources) {
+    const direct = parseRecordArray(source);
+    if (direct.length > 0) return direct;
+    const sourceRecord = isPlainRecord(source) ? source : undefined;
+    if (!sourceRecord) continue;
+    for (const key of keys) {
+      const records = parseRecordArray(sourceRecord[key]);
+      if (records.length > 0) return records;
+    }
+  }
+  return [];
+}
+
+function readMonitorObjectRecordsFromSources(
+  sources: unknown[]
+): Array<{ id: string; name: string }> {
+  for (const source of sources) {
+    const sourceRecord = isPlainRecord(source) ? source : undefined;
+    if (!sourceRecord) continue;
+    for (const key of MONITOR_OBJECT_ARRAY_KEYS) {
+      const rawRecords = parseRecordArray(sourceRecord[key]);
+      if (rawRecords.length > 0) {
+        const records = rawRecords
+          .map((record, index) => {
+            const name = monitorLabelsFromValue(record)[0];
+            if (!name) return undefined;
+            return {
+              id: readString(record, ['id', ...MONITOR_OBJECT_ID_KEYS]) || `o${index + 1}`,
+              name
+            };
+          })
+          .filter((item): item is { id: string; name: string } => Boolean(item));
+        if (records.length > 0) return records;
+      }
+      const names = parseLooseStringArray(sourceRecord[key]).flatMap(monitorLabelsFromValue);
+      if (names.length > 0) {
+        return Array.from(new Set(names)).map((name, index) => ({ id: `o${index + 1}`, name }));
+      }
+    }
+  }
+  return [];
+}
+
+function readMonitorTimeRecordsFromSources(
+  sources: unknown[]
+): Array<{ id: string; value: string }> {
+  for (const source of sources) {
+    const sourceRecord = isPlainRecord(source) ? source : undefined;
+    if (!sourceRecord) continue;
+    for (const key of MONITOR_TIME_ARRAY_KEYS) {
+      const rawRecords = parseRecordArray(sourceRecord[key]);
+      if (rawRecords.length > 0) {
+        const records = rawRecords
+          .map((record, index) => {
+            const value = readCleanString(record, MONITOR_TIME_VALUE_KEYS);
+            if (!value) return undefined;
+            return {
+              id: readString(record, ['id', ...MONITOR_TIME_ID_KEYS]) || `t${index + 1}`,
+              value
+            };
+          })
+          .filter((item): item is { id: string; value: string } => Boolean(item));
+        if (records.length > 0) return records;
+      }
+      const values = parseLooseStringArray(sourceRecord[key]);
+      if (values.length > 0) {
+        return values.map((value, index) => ({ id: `t${index + 1}`, value }));
+      }
+    }
+  }
+  return [];
+}
+
+function collectMonitorSources(input: In, payload: Record<string, unknown> | undefined): unknown[] {
+  const roots = [
+    payload,
+    parseJsonLikeValue(input.push_content),
+    parseJsonLikeValue(input.text),
+    parseJsonLikeValue(input.payload_json),
+    parseJsonLikeValue(input.app_card_json)
+  ].filter((item) => item !== undefined && item !== null);
+  const sources: unknown[] = [];
+  const queue = roots.map((value) => ({ value, depth: 0 }));
+  const nestedKeys = [
+    'data',
+    'result',
+    'payload',
+    'body',
+    'output',
+    'event',
+    'latest_event_json',
+    'response',
+    'app_card',
+    'appCard',
+    'aiCardData'
+  ];
+  while (queue.length > 0 && sources.length < 30) {
+    const current = queue.shift();
+    if (!current) break;
+    const parsed = parseJsonLikeValue(current.value);
+    sources.push(parsed);
+    if (current.depth >= 3 || !isPlainRecord(parsed)) continue;
+    for (const key of nestedKeys) {
+      const next = parsed[key];
+      if (next !== undefined && next !== null)
+        queue.push({ value: next, depth: current.depth + 1 });
+    }
+  }
+  return sources;
+}
+
+function extractMonitorMetadataFromText(value: string): {
+  objectName?: string;
+  timeValue?: string;
+} {
+  const text = value.replace(/\s+/g, ' ').trim();
+  if (!text) return {};
+  const dotPattern = new RegExp(`([^。.!！？?\\n·]{1,80}?)\\s*·\\s*(${MONITOR_DATE_PATTERN})`, 'u');
+  const dotMatch = text.match(dotPattern);
+  if (dotMatch) {
+    return {
+      objectName: cleanMonitorLabel(dotMatch[1].replace(/^\d+[.、]\s*/, '')),
+      timeValue: normalizeContentText(dotMatch[2])
+    };
+  }
+  const linePattern = new RegExp(
+    `^(?:\\d+[.、]\\s*)?(@?[\\p{L}][\\p{L}\\p{N}_.\\-\\s]{0,80}?)\\s+(${MONITOR_DATE_PATTERN})\\s*(?:发了[:：]?|发布[:：]?|[:：])?`,
+    'u'
+  );
+  const lineMatch = text.match(linePattern);
+  if (lineMatch) {
+    return {
+      objectName: cleanMonitorLabel(lineMatch[1]),
+      timeValue: normalizeContentText(lineMatch[2])
+    };
+  }
+  return {};
+}
+
+function extractLineMonitorItems(value: string): MonitorSourceItem[] {
+  const linePattern = new RegExp(
+    `^(?:\\d+[.、]\\s*)?(@?[\\p{L}][\\p{L}\\p{N}_.\\-\\s]{0,80}?)\\s+(${MONITOR_DATE_PATTERN})\\s*(?:发了[:：]?|发布[:：]?|[:：])?\\s*(.+)$`,
+    'u'
+  );
+  return value
+    .split(/\n+/)
+    .map((line, index) => {
+      const text = line.trim();
+      const match = text.match(linePattern);
+      if (!match) return undefined;
+      const objectName = cleanMonitorLabel(match[1]);
+      const timeValue = normalizeContentText(match[2]);
+      const content = normalizeContentText(match[3]) || normalizeContentText(text);
+      if (!content) return undefined;
+      return {
+        id: `c${index + 1}`,
+        objectName,
+        timeValue,
+        content
+      };
+    })
+    .filter((item): item is MonitorSourceItem => Boolean(item));
+}
+
+function buildStandardMonitorPayloadFromItems(items: MonitorSourceItem[]): StandardMonitorPayload {
+  const objectIdByName = new Map<string, string>();
+  const timeIdByValue = new Map<string, string>();
+  const monitorObjects: StandardMonitorPayload['monitorObjects'] = [];
+  const times: StandardMonitorPayload['times'] = [];
+  const summaries: StandardMonitorPayload['summaries'] = [];
+  const normalizedItems = items.map((item, index) => {
+    const id = item.id || `c${index + 1}`;
+    let objectId = item.objectId;
+    const objectName = cleanMonitorLabel(item.objectName ?? '');
+    if (objectName) {
+      const key = objectName.toLowerCase();
+      objectId = objectId || objectIdByName.get(key) || `o${objectIdByName.size + 1}`;
+      if (!objectIdByName.has(key)) {
+        objectIdByName.set(key, objectId);
+        monitorObjects.push({ id: objectId, name: objectName });
+      }
+    }
+
+    let timeId = item.timeId;
+    const timeValue = normalizeContentText(item.timeValue);
+    if (timeValue) {
+      timeId = timeId || timeIdByValue.get(timeValue) || `t${timeIdByValue.size + 1}`;
+      if (!timeIdByValue.has(timeValue)) {
+        timeIdByValue.set(timeValue, timeId);
+        times.push({ id: timeId, value: timeValue });
+      }
+    }
+
+    const aiSummary = normalizeContentText(item.aiSummary);
+    if (aiSummary) {
+      summaries.push({
+        id: `s${summaries.length + 1}`,
+        itemId: id,
+        ...(objectId ? { objectId } : {}),
+        ...(timeId ? { timeId } : {}),
+        summary: aiSummary
+      });
+    }
+
+    return {
+      id,
+      ...(objectId ? { objectId } : {}),
+      ...(timeId ? { timeId } : {}),
+      content: item.content
+    };
+  });
+
+  return {
+    items: normalizedItems,
+    monitorObjects,
+    times,
+    summaries
+  };
+}
+
+function buildStructuredMonitorItems(
+  input: In,
+  payload: Record<string, unknown> | undefined,
+  sources: unknown[]
+): MonitorSourceItem[] {
+  const itemRecords = readRecordArrayFromSources(sources, MONITOR_ITEM_ARRAY_KEYS);
+  if (itemRecords.length === 0) return [];
+
+  const objectRecords = readMonitorObjectRecordsFromSources(sources);
+  const timeRecords = readMonitorTimeRecordsFromSources(sources);
+  const summaryRecords = readRecordArrayFromSources(sources, MONITOR_SUMMARY_ARRAY_KEYS);
+  const objectById = new Map(objectRecords.map((record) => [record.id, record]));
+  const timeById = new Map(timeRecords.map((record) => [record.id, record]));
+  const explicitObjects = resolveMonitorObjects(input, payload);
+  const summaryByItemId = new Map<string, Record<string, unknown>>();
+  const summaryByObjectAndTime = new Map<string, Record<string, unknown>>();
+  summaryRecords.forEach((summary) => {
+    const itemId = readString(summary, ['itemId', 'item_id', 'contentId', 'content_id', 'id']);
+    if (itemId) summaryByItemId.set(itemId, summary);
+    const objectId = readString(summary, MONITOR_OBJECT_ID_KEYS);
+    const timeId = readString(summary, MONITOR_TIME_ID_KEYS);
+    if (objectId && timeId) summaryByObjectAndTime.set(`${objectId}:${timeId}`, summary);
+  });
+
+  return itemRecords
+    .map((record, index) => {
+      const content = readCleanString(record, MONITOR_CONTENT_KEYS);
+      if (!content) return undefined;
+      const id = readString(record, MONITOR_ITEM_ID_KEYS) || `c${index + 1}`;
+      const objectId = readString(record, MONITOR_OBJECT_ID_KEYS);
+      const timeId = readString(record, MONITOR_TIME_ID_KEYS);
+      const objectRecord = objectId ? objectById.get(objectId) : objectRecords[index];
+      const timeRecord = timeId ? timeById.get(timeId) : timeRecords[index];
+      const summaryRecord =
+        summaryByItemId.get(id) ||
+        (objectId && timeId ? summaryByObjectAndTime.get(`${objectId}:${timeId}`) : undefined) ||
+        summaryRecords[index];
+      const metadata = extractMonitorMetadataFromText(content);
+      const objectName =
+        monitorLabelsFromValue(record).find(Boolean) ||
+        objectRecord?.name ||
+        metadata.objectName ||
+        (itemRecords.length === 1 ? explicitObjects[0] : explicitObjects[index]) ||
+        '';
+      const timeValue =
+        readCleanString(record, MONITOR_TIME_VALUE_KEYS) ||
+        timeRecord?.value ||
+        metadata.timeValue ||
+        (itemRecords.length === 1 ? resolveEventTime(input, payload) : '');
+      const aiSummary =
+        readCleanString(record, MONITOR_EXPLICIT_AI_SUMMARY_KEYS) ||
+        normalizeContentText(readString(summaryRecord, MONITOR_SUMMARY_TEXT_KEYS)) ||
+        (itemRecords.length === 1 ? resolveAiSummary(input, payload) : '');
+      return {
+        id,
+        objectId,
+        timeId,
+        objectName,
+        timeValue,
+        content,
+        aiSummary
+      };
+    })
+    .filter((item): item is MonitorSourceItem => Boolean(item));
+}
+
+function buildFallbackMonitorItems(
+  input: In,
+  payload: Record<string, unknown> | undefined,
+  pushContent: string
+): MonitorSourceItem[] {
+  const lineItems = extractLineMonitorItems(pushContent);
+  if (lineItems.length > 0) return lineItems;
+  const metadata = extractMonitorMetadataFromText(pushContent);
+  const explicitObjects = resolveMonitorObjects(input, payload);
+  const content = normalizeContentText(pushContent);
+  if (!content) return [];
+  return [
+    {
+      id: 'c1',
+      objectName: explicitObjects[0] || metadata.objectName || '',
+      timeValue: metadata.timeValue || resolveEventTime(input, payload),
+      content,
+      aiSummary: resolveAiSummary(input, payload)
+    }
+  ];
+}
+
+function buildStandardMonitorPayload(
+  input: In,
+  payload: Record<string, unknown> | undefined,
+  pushContent: string
+): StandardMonitorPayload {
+  const sources = collectMonitorSources(input, payload);
+  const structuredItems = buildStructuredMonitorItems(input, payload, sources);
+  const items =
+    structuredItems.length > 0
+      ? structuredItems
+      : buildFallbackMonitorItems(input, payload, pushContent);
+  const standard = buildStandardMonitorPayloadFromItems(items);
+  if (structuredItems.length === 0 && standard.items.length === 1) {
+    const knownNames = new Set(standard.monitorObjects.map((item) => item.name.toLowerCase()));
+    for (const name of resolveMonitorObjects(input, payload)) {
+      const cleanName = cleanMonitorLabel(name);
+      if (!cleanName || knownNames.has(cleanName.toLowerCase())) continue;
+      const id = `o${standard.monitorObjects.length + 1}`;
+      knownNames.add(cleanName.toLowerCase());
+      standard.monitorObjects.push({ id, name: cleanName });
+    }
+    if (!standard.items[0].objectId && standard.monitorObjects[0]) {
+      standard.items[0] = {
+        ...standard.items[0],
+        objectId: standard.monitorObjects[0].id
+      };
+    }
+  }
+  return standard;
+}
+
 function isAgentHookUrl(value: string | undefined): boolean {
   const text = value?.trim();
   if (!text) return false;
@@ -188,7 +768,9 @@ function normalizeHookUrlInput(input: In): In {
 
 function cleanMonitorLabel(value: string): string {
   const text = value.replace(/\s+/g, ' ').trim();
-  return text && !INTERNAL_LABELS.has(text.toLowerCase()) ? text : '';
+  if (!text || INTERNAL_LABELS.has(text.toLowerCase())) return '';
+  if (!normalizeContentText(text)) return '';
+  return text;
 }
 
 function splitMonitorLabelText(value: string): string[] {
@@ -213,21 +795,38 @@ function splitMonitorLabelText(value: string): string[] {
 }
 
 function monitorLabelsFromValue(value: unknown): string[] {
+  const parsed = parseJsonLikeValue(value);
+  if (parsed !== value) return monitorLabelsFromValue(parsed);
   if (typeof value === 'string')
     return splitMonitorLabelText(value).map(cleanMonitorLabel).filter(Boolean);
   if (typeof value === 'number' && Number.isFinite(value))
     return [cleanMonitorLabel(String(value))].filter(Boolean);
-  if (Array.isArray(value)) return value.flatMap(monitorLabelsFromValue);
+  if (Array.isArray(value))
+    return isWorkflowReferenceArray(value) ? [] : value.flatMap(monitorLabelsFromValue);
   if (value && typeof value === 'object') {
     const record = value as Record<string, unknown>;
     return monitorLabelsFromValue(
       record.name ??
         record.displayName ??
         record.display_name ??
+        record.objectName ??
+        record.object_name ??
+        record.monitorObjectName ??
+        record.monitor_object_name ??
+        record.authorName ??
+        record.author_name ??
+        record.authorUsername ??
+        record.author_username ??
+        record.accountUsername ??
+        record.account_username ??
+        record.latest_author_username ??
+        record.latest_account_username ??
         record.targetName ??
         record.target_name ??
         record.targetKey ??
         record.target_key ??
+        record.username ??
+        record.handle ??
         record.symbol ??
         record.ticker
     );
@@ -361,16 +960,8 @@ function resolveMonitorObject(input: In, payload: Record<string, unknown> | unde
 
 function resolveAiSummary(input: In, payload: Record<string, unknown> | undefined): string {
   return (
-    input.ai_summary?.trim() ||
-    input.summary?.trim() ||
-    pickString(payload, [
-      'ai_summary',
-      'aiSummary',
-      'summary',
-      'changeSummary',
-      'change_summary',
-      'description'
-    ]) ||
+    normalizeContentText(input.ai_summary) ||
+    normalizeContentText(pickString(payload, ['ai_summary', 'aiSummary'])) ||
     ''
   );
 }
@@ -394,23 +985,25 @@ function resolveEventTime(input: In, payload: Record<string, unknown> | undefine
 
 function resolvePushContent(input: In, payload: Record<string, unknown> | undefined): string {
   return (
-    input.push_content?.trim() ||
-    input.text?.trim() ||
-    pickString(payload, [
-      'push_content',
-      'pushContent',
-      'change_content',
-      'changeContent',
-      'content',
-      'message',
-      'text',
-      'sourceMarkdown',
-      'source_markdown'
-    ]) ||
-    input.ai_summary?.trim() ||
-    input.summary?.trim() ||
-    input.title?.trim() ||
-    pickString(payload, ['ai_summary', 'aiSummary', 'summary', 'title', 'description']) ||
+    normalizeContentText(input.push_content) ||
+    normalizeContentText(input.text) ||
+    normalizeContentText(
+      pickString(payload, [
+        'push_content',
+        'pushContent',
+        'change_content',
+        'changeContent',
+        'content',
+        'message',
+        'text',
+        'sourceMarkdown',
+        'source_markdown'
+      ])
+    ) ||
+    normalizeContentText(input.summary) ||
+    normalizeContentText(input.title) ||
+    normalizeContentText(pickString(payload, ['summary', 'title', 'description'])) ||
+    (input.hook_url?.trim() ? resolveAiSummary(input, payload) : '') ||
     (hasPayload(payload) ? JSON.stringify(payload) : '')
   );
 }
@@ -418,11 +1011,12 @@ function resolvePushContent(input: In, payload: Record<string, unknown> | undefi
 function buildMonitorAppCard(
   input: In,
   payload: Record<string, unknown> | undefined,
-  pushContent: string
+  pushContent: string,
+  standardMonitor: StandardMonitorPayload
 ) {
-  const monitorObjects = resolveMonitorObjects(input, payload);
+  const monitorObjects = standardMonitor.monitorObjects.map((item) => item.name);
   const monitorObject = monitorObjects[0] || resolveMonitorObject(input, payload);
-  const aiSummary = resolveAiSummary(input, payload) || pushContent;
+  const aiSummary = resolveAiSummary(input, payload);
   const eventTime = resolveEventTime(input, payload) || new Date().toISOString();
   const rawTitle =
     input.title?.trim() || pickString(payload, ['title', 'eventTitle', 'event_title']);
@@ -437,10 +1031,9 @@ function buildMonitorAppCard(
     componentName: 'MarketMonitorEventCard',
     data: {
       title,
-      summary: aiSummary,
+      ...(aiSummary ? { summary: aiSummary, aiSummary, ai_summary: aiSummary } : {}),
       monitorObject,
       monitorObjectName: monitorObject,
-      monitorObjects,
       monitorObjectNames: monitorObjects,
       eventTime,
       occurredAt: eventTime,
@@ -448,13 +1041,21 @@ function buildMonitorAppCard(
       metrics: monitorObjects.length ? monitorObjects : monitorObject ? [monitorObject] : [],
       changeContent: pushContent,
       pushContent,
-      aiBlocks: [
-        {
-          title: 'AI 总结',
-          summary: aiSummary,
-          content: aiSummary
-        }
-      ],
+      items: standardMonitor.items,
+      times: standardMonitor.times,
+      monitorObjects: standardMonitor.monitorObjects,
+      summaries: standardMonitor.summaries,
+      ...(aiSummary
+        ? {
+            aiBlocks: [
+              {
+                title: 'AI 总结',
+                summary: aiSummary,
+                content: aiSummary
+              }
+            ]
+          }
+        : {}),
       sourceMarkdown: pushContent
     }
   };
@@ -464,18 +1065,29 @@ function enrichMonitorAppCard(
   appCard: Record<string, unknown>,
   input: In,
   payload: Record<string, unknown> | undefined,
-  pushContent: string
+  pushContent: string,
+  standardMonitor: StandardMonitorPayload
 ) {
   if (appCard.componentName !== 'MarketMonitorEventCard') return appCard;
   const data = parseJsonObjectOrString(appCard.data, 'app_card_json.data') ?? {};
-  const monitorObjects = resolveMonitorObjects(input, { ...payload, ...data });
+  const monitorObjects =
+    standardMonitor.monitorObjects.length > 0
+      ? standardMonitor.monitorObjects.map((item) => item.name)
+      : resolveMonitorObjects(input, { ...payload, ...data });
   const monitorObject = monitorObjects[0] || resolveMonitorObject(input, { ...payload, ...data });
   const aiSummary = resolveAiSummary(input, { ...payload, ...data });
   const eventTime = resolveEventTime(input, { ...payload, ...data }) || new Date().toISOString();
+  const nextData = { ...data } as Record<string, unknown>;
+  if (!aiSummary) {
+    delete nextData.aiSummary;
+    delete nextData.ai_summary;
+    delete nextData.summary;
+    delete nextData.aiBlocks;
+  }
   return {
     ...appCard,
     data: {
-      ...data,
+      ...nextData,
       ...(monitorObject ? { monitorObject, monitorObjectName: monitorObject } : {}),
       ...(monitorObjects.length
         ? { monitorObjects, monitorObjectNames: monitorObjects, metrics: monitorObjects }
@@ -488,6 +1100,10 @@ function enrichMonitorAppCard(
       generatedAt: data.generatedAt || eventTime,
       changeContent: data.changeContent || pushContent,
       pushContent: data.pushContent || pushContent,
+      items: standardMonitor.items,
+      times: standardMonitor.times,
+      monitorObjects: standardMonitor.monitorObjects,
+      summaries: standardMonitor.summaries,
       sourceMarkdown: data.sourceMarkdown || pushContent
     }
   };
@@ -515,7 +1131,7 @@ async function postLegacyHook(
       eventId,
       eventType: input.event_type?.trim() || 'ipolloos.push',
       title: input.title?.trim() || undefined,
-      summary: input.summary?.trim() || undefined,
+      summary: pickString(payload, ['ai_summary', 'aiSummary']) || undefined,
       text,
       deliveryMode: SUBSCRIPTION_ONLY_DELIVERY_MODE,
       delivery_mode: SUBSCRIPTION_ONLY_DELIVERY_MODE,
@@ -552,19 +1168,29 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
         '缺少推送内容：请填写“监控内容”或“推送内容”，或提供标题、摘要、payload_json.text、payload_json.summary、payload_json.content。'
       );
     }
+    const standardMonitor = buildStandardMonitorPayload(input, payload, pushContent);
     const appCard = enrichMonitorAppCard(
-      normalizeAppCard(input, payload) || buildMonitorAppCard(input, payload, pushContent),
+      normalizeAppCard(input, payload) ||
+        buildMonitorAppCard(input, payload, pushContent, standardMonitor),
       input,
       payload,
-      pushContent
+      pushContent,
+      standardMonitor
     );
     const text = resolveChatText(appCard, pushContent);
-    const monitorObject = resolveMonitorObject(input, payload);
-    const monitorObjects = resolveMonitorObjects(input, payload);
+    const monitorObjects =
+      standardMonitor.monitorObjects.length > 0
+        ? standardMonitor.monitorObjects.map((item) => item.name)
+        : resolveMonitorObjects(input, payload);
+    const monitorObject = monitorObjects[0] || resolveMonitorObject(input, payload);
     const aiSummary = resolveAiSummary(input, payload);
     const eventTime = resolveEventTime(input, payload);
     const outboundPayload = {
       ...(payload ?? {}),
+      items: standardMonitor.items,
+      times: standardMonitor.times,
+      monitorObjects: standardMonitor.monitorObjects,
+      summaries: standardMonitor.summaries,
       deliveryMode: SUBSCRIPTION_ONLY_DELIVERY_MODE,
       delivery_mode: SUBSCRIPTION_ONLY_DELIVERY_MODE,
       ...(monitorObject ? { monitor_object: monitorObject, monitorObject } : {}),
@@ -614,7 +1240,7 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
         eventId,
         eventType: input.event_type?.trim() || 'ipolloos.push',
         title: input.title?.trim() || undefined,
-        summary: aiSummary || input.summary?.trim() || undefined,
+        summary: aiSummary || undefined,
         text,
         deliveryMode: SUBSCRIPTION_ONLY_DELIVERY_MODE,
         delivery_mode: SUBSCRIPTION_ONLY_DELIVERY_MODE,

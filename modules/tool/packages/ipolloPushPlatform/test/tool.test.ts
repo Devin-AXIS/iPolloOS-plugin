@@ -350,6 +350,137 @@ describe('ipolloPushPlatform', () => {
     expect(body.payload.app_card).toEqual(body.appCard);
   });
 
+  it('standardizes structured monitor arrays into item, object, time and summary tables', async () => {
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
+    process.env.IPOLLO_APP_REGISTER_URL =
+      'https://studio.ipollo.net/api/app-publish-callback?applicationId=aino-app-from-register';
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            eventId: 'evt-structured',
+            matchedUserCount: 1,
+            deliveredCount: 1,
+            skippedCount: 0
+          }),
+          { status: 200 }
+        )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const structuredPayload = {
+      items: [
+        { id: 'c1', objectId: 'p1', timeId: 't1', content: '第一条内容' },
+        { id: 'c2', objectId: 'p2', timeId: 't2', content: '第二条内容' }
+      ],
+      times: [
+        { id: 't1', value: '2026-06-24 10:00:00 UTC' },
+        { id: 't2', value: '2026-06-24 10:05:00 UTC' }
+      ],
+      monitorObjects: [
+        { id: 'p1', name: 'OpenAI' },
+        { id: 'p2', name: 'Sam Altman' }
+      ],
+      summaries: [
+        { id: 's1', itemId: 'c1', objectId: 'p1', timeId: 't1', summary: '第一条内容的简短总结。' }
+      ]
+    };
+
+    const result = await sendIPolloPush(
+      {
+        agent_id: 'aino-bot-1',
+        payload_json: JSON.stringify(structuredPayload)
+      },
+      {
+        systemVar: {
+          app: { id: 'fastgpt-app-1', name: 'Market Agent' },
+          user: {
+            id: 'user-1',
+            username: 'user',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: 'team-1',
+            name: 'User'
+          },
+          tool: { id: 'ipolloPushPlatform/send_ipollo_push', version: '1.2.0' },
+          time: '2026-06-29T00:00:00.000Z'
+        }
+      } as any
+    );
+
+    expect(result.ok).toBe(true);
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(init?.body));
+    expect(body.appCard.data.items).toEqual(structuredPayload.items);
+    expect(body.appCard.data.times).toEqual(structuredPayload.times);
+    expect(body.appCard.data.monitorObjects).toEqual(structuredPayload.monitorObjects);
+    expect(body.appCard.data.monitorObjectNames).toEqual(['OpenAI', 'Sam Altman']);
+    expect(body.appCard.data.summaries).toEqual(structuredPayload.summaries);
+    expect(body.payload.items).toEqual(structuredPayload.items);
+    expect(body.payload.monitorObjects).toEqual(structuredPayload.monitorObjects);
+    expect(body.payload.summaries).toEqual(structuredPayload.summaries);
+  });
+
+  it('does not create an AI summary when ai_summary is empty', async () => {
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
+    process.env.IPOLLO_APP_REGISTER_URL =
+      'https://studio.ipollo.net/api/app-publish-callback?applicationId=aino-app-from-register';
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            eventId: 'evt-no-summary',
+            matchedUserCount: 1,
+            deliveredCount: 1,
+            skippedCount: 0
+          }),
+          { status: 200 }
+        )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await sendIPolloPush(
+      {
+        agent_id: 'aino-bot-1',
+        monitor_object: 'SpaceX',
+        push_content: 'SpaceX 发射节奏提升，可能影响商业航天产业链。'
+      },
+      {
+        systemVar: {
+          app: { id: 'fastgpt-app-1', name: 'Market Agent' },
+          user: {
+            id: 'user-1',
+            username: 'user',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: 'team-1',
+            name: 'User'
+          },
+          tool: { id: 'ipolloPushPlatform/send_ipollo_push', version: '1.2.0' },
+          time: '2026-06-29T00:00:00.000Z'
+        }
+      } as any
+    );
+
+    expect(result.ok).toBe(true);
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(init?.body));
+    expect(body.summary).toBeUndefined();
+    expect(body.appCard.data.summary).toBeUndefined();
+    expect(body.appCard.data.aiSummary).toBeUndefined();
+    expect(body.appCard.data.aiBlocks).toBeUndefined();
+    expect(body.payload.ai_summary).toBeUndefined();
+    expect(body.payload.summaries).toEqual([]);
+  });
+
   it('keeps only the short chat text while preserving many monitor objects in the card', async () => {
     process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
     process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
