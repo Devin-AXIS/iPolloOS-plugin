@@ -131,11 +131,55 @@ describe('ipolloPushPlatform', () => {
     const body = JSON.parse(String(init?.body));
     expect(body.agentId).toBe('aino-bot-1');
     expect(body.text).toBe('本次监控内容已更新，查看卡片获取摘要和变化。');
+    expect(body.deliveryMode).toBe('subscription_only');
+    expect(body.delivery_mode).toBe('subscription_only');
     expect(body.appCard.componentName).toBe('MarketMonitorEventCard');
     expect(body.appCard.data.monitorObject).toBe('Tesla');
     expect(body.appCard.data.monitorObjectName).toBe('Tesla');
     expect(body.appCard.data.changeContent).toBe('Tesla 盘前波动放大，需要跟踪成交量确认。');
+    expect(body.payload.deliveryMode).toBe('subscription_only');
+    expect(body.payload.delivery_mode).toBe('subscription_only');
     expect(body.payload.app_card).toEqual(body.appCard);
+  });
+
+  it('marks legacy hook pushes as subscription-only delivery', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ success: true, eventId: 'evt-legacy' }), { status: 200 })
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await sendIPolloPush(
+      {
+        hook_url: 'https://aino.example.com/api/app/agent-hooks/abh_test',
+        title: 'X 监控更新',
+        text: 'Legacy hook content'
+      },
+      {
+        systemVar: {
+          app: { id: 'fastgpt-app-1', name: 'Market Agent' },
+          user: {
+            id: 'user-1',
+            username: 'user',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: 'team-1',
+            name: 'User'
+          },
+          tool: { id: 'ipolloPushPlatform/send_ipollo_push', version: '1.2.0' },
+          time: '2026-06-29T00:00:00.000Z'
+        }
+      } as any
+    );
+
+    expect(result.ok).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://aino.example.com/api/app/agent-hooks/abh_test');
+    const body = JSON.parse(String(init?.body));
+    expect(body.text).toBe('Legacy hook content');
+    expect(body.deliveryMode).toBe('subscription_only');
+    expect(body.delivery_mode).toBe('subscription_only');
   });
 
   it('falls back to applicationId from the App register URL for scheduled system runs', async () => {
@@ -194,6 +238,7 @@ describe('ipolloPushPlatform', () => {
     const body = JSON.parse(String(init?.body));
     expect(body.applicationId).toBe('aino-app-from-register');
     expect(body.text).toBe('本次监控内容已更新，查看卡片获取摘要和变化。');
+    expect(body.deliveryMode).toBe('subscription_only');
     expect(body.appCard.data.changeContent).toBe('SpaceX 发射节奏出现新变化。');
   });
 
@@ -254,12 +299,14 @@ describe('ipolloPushPlatform', () => {
     expect(body.appCard.data.metrics).toEqual(['SpaceX']);
     expect(body.appCard.data.changeContent).toBe('SpaceX 发射节奏提升，可能影响商业航天产业链。');
     expect(body.text).toBe('本次监控内容已更新，查看卡片获取摘要和变化。');
+    expect(body.deliveryMode).toBe('subscription_only');
     expect(body.payload.monitor_object).toBe('SpaceX');
     expect(body.payload.monitor_object_name).toBe('SpaceX');
     expect(body.payload.monitorObjectName).toBe('SpaceX');
     expect(body.payload.ai_summary).toBe('发射节奏提升，商业航天供给侧变化需要关注。');
     expect(body.payload.event_time).toBe('2026-06-29T10:30:00.000Z');
     expect(body.payload.push_content).toBe('SpaceX 发射节奏提升，可能影响商业航天产业链。');
+    expect(body.payload.deliveryMode).toBe('subscription_only');
     expect(body.payload.app_card).toEqual(body.appCard);
   });
 

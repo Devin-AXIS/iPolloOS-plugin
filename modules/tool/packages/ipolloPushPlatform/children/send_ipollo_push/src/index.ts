@@ -43,6 +43,7 @@ type In = z.infer<typeof InputType>;
 type Out = z.infer<typeof OutputType>;
 
 const DEFAULT_MONITOR_PUSH_TEXT = '本次监控内容已更新，查看卡片获取摘要和变化。';
+const SUBSCRIPTION_ONLY_DELIVERY_MODE = 'subscription_only';
 const INTERNAL_LABELS = new Set(['ipolloos.push', 'agent.monitor', 'monitor.updated', 'ipolloos']);
 
 function getErrorText(error: unknown): string {
@@ -488,6 +489,8 @@ async function postLegacyHook(
       title: input.title?.trim() || undefined,
       summary: input.summary?.trim() || undefined,
       text,
+      deliveryMode: SUBSCRIPTION_ONLY_DELIVERY_MODE,
+      delivery_mode: SUBSCRIPTION_ONLY_DELIVERY_MODE,
       payload: hasPayload(payload) ? payload : undefined,
       source: 'ipolloos_plugin'
     })
@@ -534,6 +537,8 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
     const eventTime = resolveEventTime(input, payload);
     const outboundPayload = {
       ...(payload ?? {}),
+      deliveryMode: SUBSCRIPTION_ONLY_DELIVERY_MODE,
+      delivery_mode: SUBSCRIPTION_ONLY_DELIVERY_MODE,
       ...(monitorObject ? { monitor_object: monitorObject, monitorObject } : {}),
       ...(monitorObject
         ? { monitor_object_name: monitorObject, monitorObjectName: monitorObject }
@@ -583,6 +588,8 @@ export async function tool(props: In, runtime?: RunToolSecondParamsType): Promis
         title: input.title?.trim() || undefined,
         summary: aiSummary || input.summary?.trim() || undefined,
         text,
+        deliveryMode: SUBSCRIPTION_ONLY_DELIVERY_MODE,
+        delivery_mode: SUBSCRIPTION_ONLY_DELIVERY_MODE,
         payload: outboundPayload,
         ...(appCard ? { appCard } : {}),
         targetUserIds: input.target_user_ids,

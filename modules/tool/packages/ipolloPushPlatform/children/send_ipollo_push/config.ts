@@ -129,7 +129,7 @@ export default defineTool({
           label: '原始事件 JSON',
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.hidden, FlowNodeInputTypeEnum.reference],
-          toolDescription: '可选；监控事件原始 JSON，会进入用户会话消息 payload。'
+          toolDescription: '可选；监控事件原始 JSON，会进入 APP 订阅记录 payload。'
         },
         {
           key: 'per_user_payload_json',
@@ -229,7 +229,7 @@ export default defineTool({
           label: '原始事件 JSON',
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.hidden, FlowNodeInputTypeEnum.reference],
-          toolDescription: '可选；监控事件原始 JSON，会进入用户会话消息 payload。'
+          toolDescription: '可选；监控事件原始 JSON，会进入 APP 订阅记录 payload。'
         },
         {
           key: 'per_user_payload_json',

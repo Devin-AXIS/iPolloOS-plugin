@@ -44,6 +44,13 @@ export const OutputType = z.object({
   summary_markdown: z.string(),
   count: z.number(),
   newest_post_id: z.string(),
+  latest_content_text: z.string(),
+  latest_account_username: z.string(),
+  latest_author_username: z.string(),
+  latest_post_created_at: z.string(),
+  latest_post_id: z.string(),
+  latest_post_type: z.string(),
+  latest_event_json: z.string(),
   system_error: z.string().optional()
 });
 
@@ -100,6 +107,36 @@ function latestEventId(events: Array<{ id?: string }>): string {
     if (!latest) return id;
     return comparePostIds(id, latest) > 0 ? id : latest;
   }, '');
+}
+
+function latestEvent<T extends { id?: string }>(events: T[]): T | undefined {
+  return events.reduce<T | undefined>((latest, event) => {
+    const id = event.id ?? '';
+    if (!id) return latest;
+    if (!latest?.id) return event;
+    return comparePostIds(id, latest.id) > 0 ? event : latest;
+  }, undefined);
+}
+
+function postTypeFromEvent(event: ReturnType<typeof normalizePostEvents>[number]) {
+  const refType = event.referencedTweets?.[0]?.type;
+  if (refType === 'retweeted') return 'retweet';
+  if (refType === 'quoted') return 'quote';
+  if (refType === 'replied_to') return 'reply';
+  return 'post';
+}
+
+function latestOutputFromEvents(events: ReturnType<typeof normalizePostEvents>) {
+  const latest = latestEvent(events);
+  return {
+    latest_content_text: latest?.text ?? '',
+    latest_account_username: latest?.authorUsername ?? '',
+    latest_author_username: latest?.authorUsername ?? '',
+    latest_post_created_at: latest?.postedAt ?? '',
+    latest_post_id: latest?.id ?? '',
+    latest_post_type: latest ? postTypeFromEvent(latest) : '',
+    latest_event_json: latest ? stringifyJson(latest) : ''
+  };
 }
 
 function buildAccountState(input: {
@@ -186,6 +223,7 @@ function emptyOutput(summary: string, state: unknown, systemError?: string): Out
     summary_markdown: summary,
     count: 0,
     newest_post_id: '',
+    ...latestOutputFromEvents([]),
     system_error: systemError
   };
 }
@@ -278,23 +316,7 @@ export async function tool(props: In): Promise<Out> {
     const nextState = buildNextState(nextAccounts);
     const summary = formatSummary(results);
     const systemError = errors.length ? errors.join('\n') : undefined;
-    const eventsForOutput =
-      allEvents.length > 0
-        ? allEvents
-        : [
-            {
-              dedupeKey: `x:monitor-check:${startedAt}:${usernames.join(',')}`,
-              eventType: 'x.monitor.checked',
-              checkedAt: startedAt,
-              summary_markdown: summary,
-              count: 0,
-              accounts: results.map(({ username, count, newestPostId }) => ({
-                username,
-                count,
-                newestPostId
-              }))
-            }
-          ];
+    const eventsForOutput = allEvents;
 
     return {
       events_json: stringifyJson(eventsForOutput),
@@ -302,6 +324,7 @@ export async function tool(props: In): Promise<Out> {
       summary_markdown: systemError ? `${summary}\n\n部分账号检查失败：\n${systemError}` : summary,
       count: allEvents.length,
       newest_post_id: latestEventId(allEvents),
+      ...latestOutputFromEvents(allEvents),
       system_error: systemError
     };
   } catch (e: unknown) {

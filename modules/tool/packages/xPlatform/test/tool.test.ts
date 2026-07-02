@@ -152,6 +152,17 @@ describe('X platform tools', () => {
     expect(events[0].dedupeKey).toBe('x:post:101');
     expect(state.lastPostId).toBe('101');
     expect(result.count).toBe(1);
+    expect(result.latest_content_text).toBe('New post');
+    expect(result.latest_account_username).toBe('xdevelopers');
+    expect(result.latest_author_username).toBe('xdevelopers');
+    expect(result.latest_post_created_at).toBe('2026-06-09T00:01:00Z');
+    expect(result.latest_post_id).toBe('101');
+    expect(result.latest_post_type).toBe('post');
+    expect(JSON.parse(result.latest_event_json)).toMatchObject({
+      id: '101',
+      text: 'New post',
+      authorUsername: 'xdevelopers'
+    });
   });
 
   test('emits a monitor check event and readable summary when watched accounts have no new posts', async () => {
@@ -191,9 +202,9 @@ describe('X platform tools', () => {
 
     expect(result.count).toBe(0);
     expect(result.summary_markdown).toBe('@xdevelopers：暂无新内容');
-    expect(events).toHaveLength(1);
-    expect(events[0].eventType).toBe('x.monitor.checked');
-    expect(events[0].summary_markdown).toBe('@xdevelopers：暂无新内容');
+    expect(events).toEqual([]);
+    expect(result.latest_content_text).toBe('');
+    expect(result.latest_event_json).toBe('');
   });
 
   test('checks multiple accounts with separate cursors in one monitor run', async () => {

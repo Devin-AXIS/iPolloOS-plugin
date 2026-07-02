@@ -119,6 +119,41 @@ export default defineTool({
           label: '最新 Post ID'
         },
         {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_content_text',
+          label: 'Latest content text'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_account_username',
+          label: 'Latest account username'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_author_username',
+          label: 'Latest author username'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_post_created_at',
+          label: 'Latest post created at'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_post_id',
+          label: 'Latest post id'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_post_type',
+          label: 'Latest post type'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_event_json',
+          label: 'Latest event JSON'
+        },
+        {
           type: FlowNodeOutputTypeEnum.error,
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'system_error',
