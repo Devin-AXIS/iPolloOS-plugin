@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FlowNodeInputTypeEnum } from '@tool/type/ipolloos';
+import parentConfig from '../config';
 import config from '../children/send_ipollo_push/config';
 import { tool as sendIPolloPush } from '../children/send_ipollo_push/src';
 
@@ -11,6 +12,12 @@ describe('ipolloPushPlatform', () => {
     process.env = { ...originalEnv };
     globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
+  });
+
+  it('describes push delivery as subscription-layer delivery instead of chat delivery', () => {
+    expect(parentConfig.description['zh-CN']).toContain('订阅层');
+    expect(parentConfig.toolDescription).toContain('订阅/监控层');
+    expect(parentConfig.toolDescription).not.toContain('聊天');
   });
 
   it('keeps hook_url hidden and exposes app_card_json as a hidden reference input', () => {
