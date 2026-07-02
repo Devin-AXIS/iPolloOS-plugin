@@ -15,7 +15,7 @@ export default defineTool({
     en: 'Send a monitor push with an optional native card to the current iPollo App Agent.'
   },
   toolDescription:
-    '用于把监控更新、报告摘要或事件提醒推送到当前 iPollo App 智能体聊天。默认使用运行时 App/Agent 身份，不需要用户填写 Hook 地址；如上游原生卡片插件返回 app_card，可把 app_card 传入 app_card_json。有原生卡片时聊天正文会自动简化，完整监控内容进入卡片。',
+    '用于把监控更新、报告摘要或事件提醒推送到当前 iPollo App 智能体订阅/监控层。默认使用运行时 App/Agent 身份，不需要用户填写 Hook 地址；如上游原生卡片插件返回 app_card，可把 app_card 传入 app_card_json。完整监控内容进入卡片与订阅载荷。',
   versionList: [
     {
       value: '1.2.0',
@@ -43,20 +43,12 @@ export default defineTool({
           toolDescription: '默认从当前 iPollo App 运行时或系统环境读取；通常不需要填写。'
         },
         {
-          key: 'text',
-          label: '聊天短提示',
-          valueType: WorkflowIOValueTypeEnum.string,
-          renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
-          toolDescription:
-            '可选；聊天里显示的短提示。有原生卡片时插件会默认使用“本次监控内容已更新，查看卡片获取摘要和变化。”，旧工作流把完整正文接到这里也会自动进入卡片内容。'
-        },
-        {
           key: 'push_content',
           label: '监控内容',
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
           toolDescription:
-            '本次监控变化的完整内容，会进入 APP 卡片的“监控变化”区域；有卡片时不会在聊天文字里重复展示。若未单独传监控对象名称，插件会尝试从每行开头的对象名和时间中提取标签。'
+            '本次监控变化的完整内容，会进入 APP 卡片的“监控变化”区域和订阅载荷。若未单独传监控对象名称，插件会尝试从每行开头的对象名和时间中提取标签。'
         },
         {
           key: 'monitor_object',
@@ -194,7 +186,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
           toolDescription:
-            '要推送到智能体聊天里的正文内容。为空时会依次使用摘要、标题、payload_json.text / summary / content。'
+            '兼容旧版 Hook 的推送正文。为空时会依次使用摘要、标题、payload_json.text / summary / content。'
         },
         {
           key: 'title',
@@ -286,7 +278,7 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.reference, FlowNodeInputTypeEnum.textarea],
           toolDescription:
-            '要推送到智能体聊天里的正文内容。为空时会依次使用摘要、标题、payload_json.text / summary / content。'
+            '兼容旧版 Hook 的推送正文。为空时会依次使用摘要、标题、payload_json.text / summary / content。'
         },
         {
           key: 'title',

@@ -17,6 +17,7 @@ describe('ipolloPushPlatform', () => {
     const inputs = config.versionList[0].inputs;
     const hookUrl = inputs.find((item) => item.key === 'hook_url');
     const applicationId = inputs.find((item) => item.key === 'application_id');
+    const text = inputs.find((item) => item.key === 'text');
     const pushContent = inputs.find((item) => item.key === 'push_content');
     const monitorObject = inputs.find((item) => item.key === 'monitor_object');
     const monitorObjectName = inputs.find((item) => item.key === 'monitor_object_name');
@@ -27,6 +28,7 @@ describe('ipolloPushPlatform', () => {
     expect(hookUrl?.required).toBeUndefined();
     expect(hookUrl?.renderTypeList[0]).toBe(FlowNodeInputTypeEnum.hidden);
     expect(applicationId?.renderTypeList).toEqual([FlowNodeInputTypeEnum.hidden]);
+    expect(text).toBeUndefined();
     expect(pushContent?.label).toBe('监控内容');
     expect(pushContent?.renderTypeList).toEqual([
       FlowNodeInputTypeEnum.reference,
