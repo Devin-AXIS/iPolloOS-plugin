@@ -22,22 +22,10 @@ describe('X platform schemas', () => {
   });
 
   test('parses usernames separated by commas, spaces, real newlines, and escaped newlines', () => {
-    expect(parseXUsernames('@saijin0525,@web3ammmyyy')).toEqual([
-      'saijin0525',
-      'web3ammmyyy'
-    ]);
-    expect(parseXUsernames('@saijin0525 @web3ammmyyy')).toEqual([
-      'saijin0525',
-      'web3ammmyyy'
-    ]);
-    expect(parseXUsernames('@saijin0525\n@web3ammmyyy')).toEqual([
-      'saijin0525',
-      'web3ammmyyy'
-    ]);
-    expect(parseXUsernames('@saijin0525/n@web3ammmyyy')).toEqual([
-      'saijin0525',
-      'web3ammmyyy'
-    ]);
+    expect(parseXUsernames('@saijin0525,@web3ammmyyy')).toEqual(['saijin0525', 'web3ammmyyy']);
+    expect(parseXUsernames('@saijin0525 @web3ammmyyy')).toEqual(['saijin0525', 'web3ammmyyy']);
+    expect(parseXUsernames('@saijin0525\n@web3ammmyyy')).toEqual(['saijin0525', 'web3ammmyyy']);
+    expect(parseXUsernames('@saijin0525/n@web3ammmyyy')).toEqual(['saijin0525', 'web3ammmyyy']);
     expect(parseXUsernames('@saijin0525\\n@web3ammmyyy，@SAIJIN0525')).toEqual([
       'saijin0525',
       'web3ammmyyy'

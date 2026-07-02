@@ -28,6 +28,26 @@ const logger = {
   error: vi.fn()
 };
 
+const envKeys = ['X_BEARER_TOKEN', 'X_POLLING_INTERVAL_MS'] as const;
+const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]])) as Record<
+  (typeof envKeys)[number],
+  string | undefined
+>;
+
+function setEnv(name: (typeof envKeys)[number], value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
+}
+
+function restoreEnv() {
+  for (const key of envKeys) {
+    setEnv(key, originalEnv[key]);
+  }
+}
+
 function config(overrides: Partial<XPollingConfig> = {}): XPollingConfig {
   const readConfig = {
     bearerToken: '1234567890',
@@ -76,15 +96,15 @@ describe('xPlatform_xapito polling service', () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.unstubAllEnvs();
+    restoreEnv();
   });
 
   it('uses the default 60 second polling interval and rejects unsafe intervals', () => {
-    vi.stubEnv('X_BEARER_TOKEN', '1234567890');
-    vi.stubEnv('X_POLLING_INTERVAL_MS', '');
+    setEnv('X_BEARER_TOKEN', '1234567890');
+    setEnv('X_POLLING_INTERVAL_MS', '');
     expect(loadXPollingConfig().intervalMs).toBe(60_000);
 
-    vi.stubEnv('X_POLLING_INTERVAL_MS', '1000');
+    setEnv('X_POLLING_INTERVAL_MS', '1000');
     expect(loadXPollingConfig().intervalMs).toBe(60_000);
   });
 

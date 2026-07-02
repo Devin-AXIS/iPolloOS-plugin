@@ -115,6 +115,14 @@ function mockMultiAccountXapi() {
   return urls;
 }
 
+function readEvents(result: Awaited<ReturnType<typeof checkAccountUpdates>>) {
+  return JSON.parse(result.events_json);
+}
+
+function readState(result: Awaited<ReturnType<typeof checkAccountUpdates>>) {
+  return JSON.parse(result.next_state_json);
+}
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
   vi.useRealTimers();
@@ -140,12 +148,16 @@ describe('checkAccountUpdates standard polling trigger', () => {
       state_json: {}
     });
 
-    expect(result.events_json).toEqual([]);
+    const events = readEvents(result);
+    const state = readState(result);
+
+    expect(events).toEqual([]);
     expect(result.count).toBe(0);
     expect(result.summary_markdown).toBe('');
-    expect(result.next_state_json.userId).toBe('44196397');
-    expect(result.next_state_json.lastPostId).toBe('2067623442514386944');
-    expect(result.next_state_json.seenPostIds).toEqual(['2067623442514386944']);
+    expect(result.latest_content_text).toBe('');
+    expect(state.userId).toBe('44196397');
+    expect(state.lastPostId).toBe('2067623442514386944');
+    expect(state.seenPostIds).toEqual(['2067623442514386944']);
     expect(result.system_error).toBeNull();
   });
 
@@ -158,10 +170,13 @@ describe('checkAccountUpdates standard polling trigger', () => {
       state_json: {}
     });
 
-    expect(result.events_json).toEqual([]);
+    const events = readEvents(result);
+    const state = readState(result);
+
+    expect(events).toEqual([]);
     expect(result.system_error).toBeNull();
-    expect(result.next_state_json.accounts.saijin0525.lastPostId).toBe('301');
-    expect(result.next_state_json.accounts.web3ammmyyy.lastPostId).toBe('402');
+    expect(state.accounts.saijin0525.lastPostId).toBe('301');
+    expect(state.accounts.web3ammmyyy.lastPostId).toBe('402');
     expect(urls.some((url) => url.includes('saijin0525%2Fn'))).toBe(false);
     expect(urls.some((url) => url.includes('screenName=saijin0525'))).toBe(true);
     expect(urls.some((url) => url.includes('screenName=web3ammmyyy'))).toBe(true);
@@ -182,21 +197,26 @@ describe('checkAccountUpdates standard polling trigger', () => {
       }
     });
 
-    expect(result.events_json.map((event) => event.data)).toHaveLength(2);
+    const events = readEvents(result);
+    const state = readState(result);
+
+    expect(events.map((event: any) => event.data)).toHaveLength(2);
     expect(result.count).toBe(2);
-    expect(result.events_json.map((event) => event.eventId)).toEqual([
+    expect(events.map((event: any) => event.eventId)).toEqual([
       'x:44196397:2067623442514386945',
       'x:44196397:2067623442514386946'
     ]);
-    expect(result.events_json[0].dedupeKey).toBe('x:44196397:2067623442514386945');
-    expect(result.events_json[0].data).toMatchObject({
+    expect(events[0].dedupeKey).toBe('x:44196397:2067623442514386945');
+    expect(events[0].data).toMatchObject({
       content_text: 'post 2067623442514386945',
       post: {
         text: 'post 2067623442514386945'
       }
     });
-    expect((result.events_json[0].data as { post: { url?: string } }).post.url).toBeUndefined();
-    expect(result.next_state_json.lastPostId).toBe('2067623442514386946');
+    expect((events[0].data as { post: { url?: string } }).post.url).toBeUndefined();
+    expect(result.latest_content_text).toBe('post 2067623442514386946');
+    expect(result.latest_post_id).toBe('2067623442514386946');
+    expect(state.lastPostId).toBe('2067623442514386946');
   });
 
   it('does not repeat seen posts', async () => {
@@ -214,9 +234,9 @@ describe('checkAccountUpdates standard polling trigger', () => {
       }
     });
 
-    expect(result.events_json.map((event) => event.eventId)).toEqual([
-      'x:44196397:2067623442514386946'
-    ]);
+    const events = readEvents(result);
+
+    expect(events.map((event: any) => event.eventId)).toEqual(['x:44196397:2067623442514386946']);
   });
 
   it('normalizes NoteTweet base64 IDs without losing precision', () => {
@@ -238,9 +258,12 @@ describe('checkAccountUpdates standard polling trigger', () => {
       }
     });
 
-    expect(result.events_json).toEqual([]);
-    expect(result.next_state_json.lastPostId).toBe('2067623442514386944');
-    expect(result.next_state_json.lastError).toMatchObject({ code: 'X_API_RETRYABLE_ERROR' });
+    const events = readEvents(result);
+    const state = readState(result);
+
+    expect(events).toEqual([]);
+    expect(state.lastPostId).toBe('2067623442514386944');
+    expect(state.lastError).toMatchObject({ code: 'X_API_RETRYABLE_ERROR' });
     expect(result.system_error).toMatchObject({ retryable: true });
   });
 
@@ -260,8 +283,10 @@ describe('checkAccountUpdates standard polling trigger', () => {
       }
     });
 
-    expect(result.next_state_json.seenPostIds).toHaveLength(200);
-    expect(result.next_state_json.seenPostIds).toContain('300');
+    const state = readState(result);
+
+    expect(state.seenPostIds).toHaveLength(200);
+    expect(state.seenPostIds).toContain('300');
   });
 
   it('does not create timers or post hooks in the standard trigger path', async () => {

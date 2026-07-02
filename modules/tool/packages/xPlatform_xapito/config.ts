@@ -47,8 +47,7 @@ export default defineToolSet({
     {
       key: 'userAccessToken',
       label: 'X 用户操作令牌',
-      description:
-        '保留兼容旧配置。xapi.to 低频读取和监控检查通常不需要填写用户操作令牌。',
+      description: '保留兼容旧配置。xapi.to 低频读取和监控检查通常不需要填写用户操作令牌。',
       required: false,
       inputType: 'secret'
     },

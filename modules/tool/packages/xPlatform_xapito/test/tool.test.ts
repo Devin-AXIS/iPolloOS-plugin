@@ -20,6 +20,67 @@ const base = {
   defaultMaxResults: 10
 };
 
+const xapiUser = (id: string, username: string, extra: Record<string, unknown> = {}) => ({
+  data: {
+    user: {
+      result: {
+        rest_id: id,
+        legacy: {
+          screen_name: username,
+          name: username,
+          ...extra
+        }
+      }
+    }
+  }
+});
+
+const xapiPost = ({
+  id,
+  text,
+  userId,
+  username,
+  createdAt
+}: {
+  id: string;
+  text: string;
+  userId: string;
+  username: string;
+  createdAt?: string;
+}) => ({
+  rest_id: id,
+  legacy: {
+    full_text: text,
+    created_at: createdAt,
+    user_id_str: userId
+  },
+  core: {
+    user_results: {
+      result: {
+        rest_id: userId,
+        legacy: {
+          screen_name: username,
+          name: username
+        }
+      }
+    }
+  }
+});
+
+const xapiPosts = (posts: ReturnType<typeof xapiPost>[]) => ({
+  data: {
+    timeline: {
+      instructions: posts.map((post) => ({
+        itemContent: {
+          tweet_results: {
+            result: post
+          }
+        }
+      }))
+    }
+  }
+});
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
 });
@@ -28,43 +89,24 @@ describe('X platform tools', () => {
   test('checks account updates and returns events plus next state', async () => {
     globalThis.fetch = (async (url: FetchInput) => {
       const textUrl = String(url);
-      if (textUrl.includes('/2/users/by/username/xdevelopers')) {
-        return new Response(
-          JSON.stringify({
-            data: {
-              id: '2244994945',
-              username: 'xdevelopers',
-              name: 'X Developers'
-            }
-          }),
-          { status: 200 }
-        );
+      if (textUrl.includes('/base/apitools/userByScreenNameV2')) {
+        return new Response(JSON.stringify(xapiUser('2244994945', 'xdevelopers')), {
+          status: 200
+        });
       }
 
       return new Response(
-        JSON.stringify({
-          data: [
-            {
+        JSON.stringify(
+          xapiPosts([
+            xapiPost({
               id: '101',
               text: 'New post',
-              author_id: '2244994945',
-              created_at: '2026-06-09T00:01:00Z'
-            }
-          ],
-          includes: {
-            users: [
-              {
-                id: '2244994945',
-                username: 'xdevelopers',
-                name: 'X Developers'
-              }
-            ]
-          },
-          meta: {
-            result_count: 1,
-            newest_id: '101'
-          }
-        }),
+              userId: '2244994945',
+              username: 'xdevelopers',
+              createdAt: '2026-06-09T00:01:00Z'
+            })
+          ])
+        ),
         { status: 200 }
       );
     }) as unknown as typeof fetch;
@@ -82,7 +124,10 @@ describe('X platform tools', () => {
     const state = JSON.parse(result.next_state_json);
 
     expect(events).toHaveLength(1);
-    expect(events[0].dedupeKey).toBe('x:post:101');
+    expect(events[0].dedupeKey).toBe('x:2244994945:101');
+    expect(result.latest_content_text).toBe('New post');
+    expect(result.latest_account_username).toBe('xdevelopers');
+    expect(result.latest_post_id).toBe('101');
     expect(state.lastPostId).toBe('101');
     expect(result.count).toBe(1);
   });
@@ -91,36 +136,20 @@ describe('X platform tools', () => {
     const timelineRequests: string[] = [];
     globalThis.fetch = (async (url: FetchInput) => {
       const textUrl = String(url);
-      if (textUrl.includes('/2/users/by/username/xdevelopers')) {
-        return new Response(
-          JSON.stringify({ data: { id: '1', username: 'xdevelopers', name: 'X Developers' } }),
-          { status: 200 }
-        );
-      }
-      if (textUrl.includes('/2/users/by/username/openai')) {
-        return new Response(JSON.stringify({ data: { id: '2', username: 'openai' } }), {
-          status: 200
-        });
-      }
-
       timelineRequests.push(textUrl);
-      if (textUrl.includes('/2/users/1/tweets')) {
+      if (textUrl.includes('userId=1')) {
         return new Response(
-          JSON.stringify({
-            data: [{ id: '101', text: 'X dev post', author_id: '1' }],
-            includes: { users: [{ id: '1', username: 'xdevelopers' }] },
-            meta: { result_count: 1 }
-          }),
+          JSON.stringify([
+            xapiPost({ id: '101', text: 'X dev post', userId: '1', username: 'xdevelopers' })
+          ]),
           { status: 200 }
         );
       }
 
       return new Response(
-        JSON.stringify({
-          data: [{ id: '202', text: 'OpenAI post', author_id: '2' }],
-          includes: { users: [{ id: '2', username: 'openai' }] },
-          meta: { result_count: 1 }
-        }),
+        JSON.stringify([
+          xapiPost({ id: '202', text: 'OpenAI post', userId: '2', username: 'openai' })
+        ]),
         { status: 200 }
       );
     }) as unknown as typeof fetch;
@@ -145,8 +174,10 @@ describe('X platform tools', () => {
     expect(events).toHaveLength(2);
     expect(state.accounts.xdevelopers.lastPostId).toBe('101');
     expect(state.accounts.openai.lastPostId).toBe('202');
-    expect(timelineRequests[0]).toContain('since_id=100');
-    expect(timelineRequests[1]).toContain('since_id=200');
+    expect(timelineRequests[0]).toContain('userId=1');
+    expect(timelineRequests[1]).toContain('userId=2');
+    expect(result.latest_content_text).toBe('OpenAI post');
+    expect(result.latest_account_username).toBe('openai');
     expect(result.summary_markdown).toContain('@xdevelopers');
     expect(result.summary_markdown).toContain('@openai');
   });
@@ -184,33 +215,31 @@ describe('X platform tools', () => {
   test('returns account overview by username list', async () => {
     globalThis.fetch = (async (url: FetchInput) => {
       const textUrl = String(url);
-      if (textUrl.includes('/2/users/by/username/xdevelopers')) {
+      if (textUrl.includes('/base/apitools/userByScreenNameV2')) {
         return new Response(
-          JSON.stringify({
-            data: {
-              id: '2244994945',
-              username: 'xdevelopers',
-              name: 'X Developers',
-              public_metrics: { followers_count: 10, following_count: 2, tweet_count: 3 }
-            }
-          }),
+          JSON.stringify(
+            xapiUser('2244994945', 'xdevelopers', {
+              followers_count: 10,
+              friends_count: 2,
+              statuses_count: 3
+            })
+          ),
           { status: 200 }
         );
       }
 
       return new Response(
-        JSON.stringify({
-          data: [
-            {
+        JSON.stringify(
+          xapiPosts([
+            xapiPost({
               id: '101',
               text: 'Latest post',
-              author_id: '2244994945',
-              created_at: '2026-06-09T00:01:00Z'
-            }
-          ],
-          includes: { users: [{ id: '2244994945', username: 'xdevelopers' }] },
-          meta: { result_count: 1 }
-        }),
+              userId: '2244994945',
+              username: 'xdevelopers',
+              createdAt: '2026-06-09T00:01:00Z'
+            })
+          ])
+        ),
         { status: 200 }
       );
     }) as unknown as typeof fetch;
@@ -371,11 +400,10 @@ describe('X platform tools', () => {
           status: 200
         });
       }
-      if (textUrl.includes('/2/users/by/username/xdevelopers')) {
-        return new Response(
-          JSON.stringify({ data: { id: '2244994945', username: 'xdevelopers' } }),
-          { status: 200 }
-        );
+      if (textUrl.includes('/base/apitools/userByScreenNameV2')) {
+        return new Response(JSON.stringify(xapiUser('2244994945', 'xdevelopers')), {
+          status: 200
+        });
       }
       return new Response(JSON.stringify({ data: { following: true } }), {
         status: 200
@@ -391,7 +419,7 @@ describe('X platform tools', () => {
     expect(result.success).toBe(true);
     expect(result.target_user_id).toBe('2244994945');
     expect(requests[0]).toContain('/2/users/me');
-    expect(requests[1]).toContain('/2/users/by/username/xdevelopers');
+    expect(requests[1]).toContain('/base/apitools/userByScreenNameV2');
     expect(requests[2]).toContain('/2/users/42/following');
   });
 });

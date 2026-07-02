@@ -54,15 +54,23 @@ const SystemErrorSchema = z
   .nullable();
 
 export const OutputType = z.object({
-  events_json: z.array(TriggerEventSchema),
+  events_json: z.string(),
   count: z.number().int().nonnegative(),
-  next_state_json: z.record(z.string(), z.any()),
+  next_state_json: z.string(),
   summary_markdown: z.string().optional(),
+  latest_content_text: z.string(),
+  latest_account_username: z.string(),
+  latest_author_username: z.string(),
+  latest_post_created_at: z.string(),
+  latest_post_id: z.string(),
+  latest_post_type: z.string(),
+  latest_event_json: z.string(),
   system_error: SystemErrorSchema.optional()
 });
 
 type In = z.infer<typeof InputType>;
 type Out = z.infer<typeof OutputType>;
+type TriggerEvent = z.infer<typeof TriggerEventSchema>;
 type PostEvent = ReturnType<typeof normalizePostEvents>[number];
 
 type PollingState = {
@@ -83,7 +91,7 @@ type ParsedState = PollingState & {
 
 type AccountCheckResult = {
   username: string;
-  events: ReturnType<typeof toTriggerEvent>[];
+  events: TriggerEvent[];
   state: Record<string, unknown>;
   summary: string;
   systemError: z.infer<typeof SystemErrorSchema>;
@@ -194,7 +202,7 @@ function toTriggerEvent(input: {
   username: string;
   event: PostEvent;
   detectedAt: string;
-}) {
+}): TriggerEvent {
   const postId = normalizePostId(input.event.id);
   const stableKey = `x:${input.userId}:${postId}`;
   return {
@@ -218,6 +226,31 @@ function toTriggerEvent(input: {
       },
       detectedAt: input.detectedAt
     }
+  };
+}
+
+function latestOutputFromEvents(events: TriggerEvent[]) {
+  const latest = events.reduce<TriggerEvent | undefined>((current, event) => {
+    const currentId = normalizePostId((current?.data as any)?.post?.id);
+    const eventId = normalizePostId((event.data as any)?.post?.id);
+    if (!eventId) return current;
+    if (!currentId) return event;
+    return comparePostIds(eventId, currentId) > 0 ? event : current;
+  }, undefined);
+  const data = (latest?.data && typeof latest.data === 'object' ? latest.data : {}) as Record<
+    string,
+    any
+  >;
+  const post = data.post && typeof data.post === 'object' ? data.post : {};
+  const account = data.account && typeof data.account === 'object' ? data.account : {};
+  return {
+    latest_content_text: String(data.content_text || post.text || ''),
+    latest_account_username: String(account.username || ''),
+    latest_author_username: String(post.authorUsername || account.username || ''),
+    latest_post_created_at: String(post.createdAt || latest?.occurredAt || ''),
+    latest_post_id: String(post.id || ''),
+    latest_post_type: String(post.postType || ''),
+    latest_event_json: latest ? JSON.stringify(latest, null, 2) : ''
   };
 }
 
@@ -372,16 +405,21 @@ export async function tool(props: In): Promise<Out> {
   if (!usernames.length) {
     const error = { code: 'INVALID_INPUT', message: 'username is required', retryable: false };
     return {
-      events_json: [],
+      events_json: JSON.stringify([]),
       count: 0,
-      next_state_json: buildState({
-        previous: previousState,
-        username: previousState.username ?? '',
-        checkedAt,
-        success: false,
-        error
-      }),
+      next_state_json: JSON.stringify(
+        buildState({
+          previous: previousState,
+          username: previousState.username ?? '',
+          checkedAt,
+          success: false,
+          error
+        }),
+        null,
+        2
+      ),
       summary_markdown: 'Failed to check X account: username is required.',
+      ...latestOutputFromEvents([]),
       system_error: error
     };
   }
@@ -393,15 +431,20 @@ export async function tool(props: In): Promise<Out> {
       retryable: false
     };
     return {
-      events_json: [],
+      events_json: JSON.stringify([]),
       count: 0,
-      next_state_json: {
-        version: STATE_VERSION,
-        accounts: previousState.accounts ?? {},
-        checkedAt,
-        lastError: { code: error.code, message: error.message }
-      },
+      next_state_json: JSON.stringify(
+        {
+          version: STATE_VERSION,
+          accounts: previousState.accounts ?? {},
+          checkedAt,
+          lastError: { code: error.code, message: error.message }
+        },
+        null,
+        2
+      ),
       summary_markdown: `Failed to check X accounts: maximum ${MAX_USERNAMES} usernames are allowed.`,
+      ...latestOutputFromEvents([]),
       system_error: error
     };
   }
@@ -420,10 +463,11 @@ export async function tool(props: In): Promise<Out> {
     const result = results[0];
     const count = result.events.length;
     return {
-      events_json: result.events,
+      events_json: JSON.stringify(result.events, null, 2),
       count,
-      next_state_json: result.state,
+      next_state_json: JSON.stringify(result.state, null, 2),
       summary_markdown: count > 0 || result.systemError ? result.summary : '',
+      ...latestOutputFromEvents(result.events),
       system_error: result.systemError
     };
   }
@@ -433,25 +477,32 @@ export async function tool(props: In): Promise<Out> {
   const failed = results.filter((result) => result.systemError);
 
   return {
-    events_json: events,
+    events_json: JSON.stringify(events, null, 2),
     count: events.length,
-    next_state_json: {
-      version: STATE_VERSION,
-      accounts,
-      checkedAt,
-      lastSuccessAt: failed.length === results.length ? previousState.lastSuccessAt : checkedAt,
-      lastError:
-        failed.length > 0
-          ? {
-              code: failed.length === results.length ? 'X_API_ERROR' : 'X_PARTIAL_ACCOUNT_ERROR',
-              message: failed
-                .map((result) => `@${result.username}: ${result.systemError?.message}`)
-                .join('; ')
-            }
-          : null
-    },
+    next_state_json: JSON.stringify(
+      {
+        version: STATE_VERSION,
+        accounts,
+        checkedAt,
+        lastSuccessAt: failed.length === results.length ? previousState.lastSuccessAt : checkedAt,
+        lastError:
+          failed.length > 0
+            ? {
+                code: failed.length === results.length ? 'X_API_ERROR' : 'X_PARTIAL_ACCOUNT_ERROR',
+                message: failed
+                  .map((result) => `@${result.username}: ${result.systemError?.message}`)
+                  .join('; ')
+              }
+            : null
+      },
+      null,
+      2
+    ),
     summary_markdown:
-      events.length > 0 || failed.length > 0 ? results.map((result) => result.summary).join('\n') : '',
+      events.length > 0 || failed.length > 0
+        ? results.map((result) => result.summary).join('\n')
+        : '',
+    ...latestOutputFromEvents(events),
     system_error: failed.length === results.length ? failed[0].systemError : null
   };
 }

@@ -55,7 +55,9 @@ describe('X platform client', () => {
     const user = await lookupUserByUsername(config, '@xdevelopers');
 
     expect(user.id).toBe('2244994945');
-    expect(capturedUrl).toContain('/2/users/by/username/xdevelopers?');
+    expect(capturedUrl).toContain('/base/apitools/userByScreenNameV2?');
+    expect(capturedUrl).toContain('screenName=xdevelopers');
+    expect(capturedUrl).toContain('resFormat=json');
     expect(capturedAuth).toBe('Bearer test_bearer_token_123');
   });
 
@@ -111,9 +113,10 @@ describe('X platform client', () => {
       includeRetweets: false
     });
 
-    expect(capturedUrl).toContain('/2/users/2244994945/tweets?');
-    expect(capturedUrl).toContain('since_id=100');
-    expect(capturedUrl).toContain('exclude=retweets%2Creplies');
+    expect(capturedUrl).toContain('/base/apitools/userTweetsV2?');
+    expect(capturedUrl).toContain('userId=2244994945');
+    expect(capturedUrl).toContain('cursor=-1');
+    expect(capturedUrl).toContain('resFormat=json');
   });
 
   test('requests recent search with query', async () => {

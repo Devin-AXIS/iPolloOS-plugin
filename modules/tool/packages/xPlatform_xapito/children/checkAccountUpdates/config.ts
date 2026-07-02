@@ -58,8 +58,8 @@ export default defineTool({
   },
   versionList: [
     {
-      value: '1.0.5',
-      description: '状态化检查账号新增内容',
+      value: '1.0.6',
+      description: '状态化检查账号新增内容，并输出最新事件字段',
       inputs: [
         {
           key: 'username',
@@ -119,7 +119,7 @@ export default defineTool({
       ],
       outputs: [
         {
-          valueType: WorkflowIOValueTypeEnum.arrayAny,
+          valueType: WorkflowIOValueTypeEnum.string,
           key: 'events_json',
           label: '新增事件 JSON'
         },
@@ -129,7 +129,7 @@ export default defineTool({
           label: '新增数量'
         },
         {
-          valueType: WorkflowIOValueTypeEnum.object,
+          valueType: WorkflowIOValueTypeEnum.string,
           key: 'next_state_json',
           label: '下一次状态 JSON'
         },
@@ -137,6 +137,41 @@ export default defineTool({
           valueType: WorkflowIOValueTypeEnum.string,
           key: 'summary_markdown',
           label: '检查摘要'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_content_text',
+          label: 'Latest content text'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_account_username',
+          label: 'Latest account username'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_author_username',
+          label: 'Latest author username'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_post_created_at',
+          label: 'Latest post created at'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_post_id',
+          label: 'Latest post id'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_post_type',
+          label: 'Latest post type'
+        },
+        {
+          valueType: WorkflowIOValueTypeEnum.string,
+          key: 'latest_event_json',
+          label: 'Latest event JSON'
         },
         {
           type: FlowNodeOutputTypeEnum.error,
