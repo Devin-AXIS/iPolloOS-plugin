@@ -396,7 +396,7 @@ const MONITOR_EXPLICIT_AI_SUMMARY_KEYS = ['aiSummary', 'ai_summary'];
 const MONITOR_SUMMARY_TEXT_KEYS = ['summary', 'aiSummary', 'ai_summary'];
 
 const MONITOR_DATE_PATTERN =
-  '(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\s+\\w+\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}\\s+(?:\\+?\\d{4}\\s+)?\\d{4}|\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}(?:[ T]\\d{1,2}:\\d{2}(?::\\d{2})?(?:\\s*(?:UTC|Z))?)?|\\d{8}\\s+\\d{1,2}:\\d{2}:\\d{2}\\s*(?:UTC)?)';
+  '(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\s+\\w+\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}\\s+(?:\\+?\\d{4}\\s+)?\\d{4}|\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}(?:[ T]\\d{1,2}:\\d{2}(?::\\d{2})?(?:\\s*(?:UTC|Z))?)?|\\d{8}\\s+\\d{1,2}:\\d{2}(?::\\d{2})?\\s*(?:UTC)?)';
 
 function readRecordArrayFromSources(sources: unknown[], keys: string[]): Record<string, unknown>[] {
   for (const source of sources) {
@@ -545,7 +545,7 @@ function extractLineMonitorItems(value: string): MonitorSourceItem[] {
   );
   return value
     .split(/\n+/)
-    .map((line, index) => {
+    .map<MonitorSourceItem | undefined>((line, index) => {
       const text = line.trim();
       const match = text.match(linePattern);
       if (!match) return undefined;
@@ -644,7 +644,7 @@ function buildStructuredMonitorItems(
   });
 
   return itemRecords
-    .map((record, index) => {
+    .map<MonitorSourceItem | undefined>((record, index) => {
       const content = readCleanString(record, MONITOR_CONTENT_KEYS);
       if (!content) return undefined;
       const id = readString(record, MONITOR_ITEM_ID_KEYS) || `c${index + 1}`;

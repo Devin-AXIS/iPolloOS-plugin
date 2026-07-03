@@ -31,7 +31,7 @@ describe('ipolloPushPlatform', () => {
     const aiSummary = inputs.find((item) => item.key === 'ai_summary');
     const appCard = inputs.find((item) => item.key === 'app_card_json');
 
-    expect(config.versionList[0].value).toBe('1.2.0');
+    expect(config.versionList[0].value).toBe('1.2.1');
     expect(hookUrl?.required).toBeUndefined();
     expect(hookUrl?.renderTypeList[0]).toBe(FlowNodeInputTypeEnum.hidden);
     expect(applicationId?.renderTypeList).toEqual([FlowNodeInputTypeEnum.hidden]);

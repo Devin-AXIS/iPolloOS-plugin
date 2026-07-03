@@ -18,7 +18,7 @@ export default defineTool({
     '用于把监控更新、报告摘要或事件提醒推送到当前 iPollo App 智能体订阅/监控层。默认使用运行时 App/Agent 身份，不需要用户填写 Hook 地址；如上游原生卡片插件返回 app_card，可把 app_card 传入 app_card_json。完整监控内容进入卡片与订阅载荷。',
   versionList: [
     {
-      value: '1.2.0',
+      value: '1.2.1',
       description: '向当前 iPollo App 智能体发送文本或原生卡片推送',
       inputs: [
         {
