@@ -413,6 +413,22 @@ const MONITOR_SUMMARY_TEXT_KEYS = ['summary', 'aiSummary', 'ai_summary'];
 const MONITOR_DATE_PATTERN =
   '(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\s+\\w+\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}\\s+(?:\\+?\\d{4}\\s+)?\\d{4}|\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}[ T]\\d{1,2}:\\d{2}(?::\\d{2})?(?:\\s*(?:UTC|Z))?|\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}|\\d{8}\\s+\\d{1,2}:\\d{2}(?::\\d{2})?\\s*(?:UTC)?)';
 
+function isDateTimeOnlyText(value: string): boolean {
+  const text = value.replace(/\s+/g, ' ').trim();
+  if (!text) return false;
+  const dateOnlyPattern = new RegExp(
+    `^${MONITOR_DATE_PATTERN}(?:\\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun))?$`,
+    'i'
+  );
+  return dateOnlyPattern.test(text);
+}
+
+function normalizeAiSummaryText(value: string | undefined): string {
+  const text = normalizeContentText(value);
+  if (!text || isDateTimeOnlyText(text)) return '';
+  return text;
+}
+
 function readRecordArrayFromSources(sources: unknown[], keys: string[]): Record<string, unknown>[] {
   for (const source of sources) {
     const direct = parseRecordArray(source);
@@ -608,7 +624,7 @@ function buildStandardMonitorPayloadFromItems(items: MonitorSourceItem[]): Stand
       }
     }
 
-    const aiSummary = normalizeContentText(item.aiSummary);
+    const aiSummary = normalizeAiSummaryText(item.aiSummary);
     if (aiSummary) {
       summaries.push({
         id: `s${summaries.length + 1}`,
@@ -686,7 +702,7 @@ function buildStructuredMonitorItems(
         (itemRecords.length === 1 ? resolveEventTime(input, payload) : '');
       const aiSummary =
         readCleanString(record, MONITOR_EXPLICIT_AI_SUMMARY_KEYS) ||
-        normalizeContentText(readString(summaryRecord, MONITOR_SUMMARY_TEXT_KEYS)) ||
+        normalizeAiSummaryText(readString(summaryRecord, MONITOR_SUMMARY_TEXT_KEYS)) ||
         (itemRecords.length === 1 ? resolveAiSummary(input, payload) : '');
       return {
         id,
@@ -985,8 +1001,8 @@ function resolveMonitorObject(input: In, payload: Record<string, unknown> | unde
 
 function resolveAiSummary(input: In, payload: Record<string, unknown> | undefined): string {
   return (
-    normalizeContentText(input.ai_summary) ||
-    normalizeContentText(pickString(payload, ['ai_summary', 'aiSummary'])) ||
+    normalizeAiSummaryText(input.ai_summary) ||
+    normalizeAiSummaryText(pickString(payload, ['ai_summary', 'aiSummary'])) ||
     ''
   );
 }

@@ -481,6 +481,63 @@ describe('ipolloPushPlatform', () => {
     expect(body.payload.summaries).toEqual([]);
   });
 
+  it('does not treat a date-only ai_summary value as an AI summary', async () => {
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
+    process.env.IPOLLO_APP_REGISTER_URL =
+      'https://studio.ipollo.net/api/app-publish-callback?applicationId=aino-app-from-register';
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            eventId: 'evt-date-summary',
+            matchedUserCount: 1,
+            deliveredCount: 1,
+            skippedCount: 0
+          }),
+          { status: 200 }
+        )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await sendIPolloPush(
+      {
+        agent_id: 'aino-bot-1',
+        monitor_object: '监控对象',
+        ai_summary: '2026-07-03 11:13:47 Friday',
+        push_content: '**lunnnnnnette** 2026-07-03 03:13\n（1）159'
+      },
+      {
+        systemVar: {
+          app: { id: 'fastgpt-app-1', name: 'Market Agent' },
+          user: {
+            id: 'user-1',
+            username: 'user',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: 'team-1',
+            name: 'User'
+          },
+          tool: { id: 'ipolloPushPlatform/send_ipollo_push', version: '1.2.0' },
+          time: '2026-06-29T00:00:00.000Z'
+        }
+      } as any
+    );
+
+    expect(result.ok).toBe(true);
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(init?.body));
+    expect(body.appCard.data.monitorObjectName).toBe('lunnnnnnette');
+    expect(body.appCard.data.summary).toBeUndefined();
+    expect(body.appCard.data.aiSummary).toBeUndefined();
+    expect(body.payload.ai_summary).toBeUndefined();
+    expect(body.payload.monitor_object_name).toBe('lunnnnnnette');
+    expect(body.payload.summaries).toEqual([]);
+  });
+
   it('keeps only the short chat text while preserving many monitor objects in the card', async () => {
     process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
     process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
