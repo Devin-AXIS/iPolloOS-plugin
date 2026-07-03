@@ -67,7 +67,22 @@ type StandardMonitorPayload = {
 
 const DEFAULT_MONITOR_PUSH_TEXT = '本次监控内容已更新，查看卡片获取摘要和变化。';
 const SUBSCRIPTION_ONLY_DELIVERY_MODE = 'subscription_only';
-const INTERNAL_LABELS = new Set(['ipolloos.push', 'agent.monitor', 'monitor.updated', 'ipolloos']);
+const INTERNAL_LABELS = new Set([
+  'ipolloos.push',
+  'agent.monitor',
+  'monitor.updated',
+  'ipolloos',
+  'monitor object',
+  'monitor objects',
+  'monitor_object',
+  'monitor_objects',
+  'monitor object name',
+  'monitor_object_name',
+  '监控对象',
+  '监控对象名称',
+  '对象',
+  '对象名称'
+]);
 
 function getErrorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -396,7 +411,7 @@ const MONITOR_EXPLICIT_AI_SUMMARY_KEYS = ['aiSummary', 'ai_summary'];
 const MONITOR_SUMMARY_TEXT_KEYS = ['summary', 'aiSummary', 'ai_summary'];
 
 const MONITOR_DATE_PATTERN =
-  '(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\s+\\w+\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}\\s+(?:\\+?\\d{4}\\s+)?\\d{4}|\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}(?:[ T]\\d{1,2}:\\d{2}(?::\\d{2})?(?:\\s*(?:UTC|Z))?)?|\\d{8}\\s+\\d{1,2}:\\d{2}(?::\\d{2})?\\s*(?:UTC)?)';
+  '(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\s+\\w+\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}\\s+(?:\\+?\\d{4}\\s+)?\\d{4}|\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}[ T]\\d{1,2}:\\d{2}(?::\\d{2})?(?:\\s*(?:UTC|Z))?|\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}|\\d{8}\\s+\\d{1,2}:\\d{2}(?::\\d{2})?\\s*(?:UTC)?)';
 
 function readRecordArrayFromSources(sources: unknown[], keys: string[]): Record<string, unknown>[] {
   for (const source of sources) {
@@ -514,7 +529,7 @@ function extractMonitorMetadataFromText(value: string): {
   objectName?: string;
   timeValue?: string;
 } {
-  const text = value.replace(/\s+/g, ' ').trim();
+  const text = stripMonitorTextMarkup(value).replace(/\s+/g, ' ').trim();
   if (!text) return {};
   const dotPattern = new RegExp(`([^。.!！？?\\n·]{1,80}?)\\s*·\\s*(${MONITOR_DATE_PATTERN})`, 'u');
   const dotMatch = text.match(dotPattern);
@@ -546,12 +561,13 @@ function extractLineMonitorItems(value: string): MonitorSourceItem[] {
   return value
     .split(/\n+/)
     .map<MonitorSourceItem | undefined>((line, index) => {
-      const text = line.trim();
+      const text = stripMonitorTextMarkup(line);
       const match = text.match(linePattern);
       if (!match) return undefined;
       const objectName = cleanMonitorLabel(match[1]);
       const timeValue = normalizeContentText(match[2]);
       const content = normalizeContentText(match[3]) || normalizeContentText(text);
+      if (/^\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:UTC|Z))?$/i.test(content)) return undefined;
       if (!content) return undefined;
       return {
         id: `c${index + 1}`,
@@ -773,6 +789,15 @@ function cleanMonitorLabel(value: string): string {
   return text;
 }
 
+function stripMonitorTextMarkup(value: string): string {
+  return value
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^\s*[>#*-]+\s*/, '')
+    .trim();
+}
+
 function splitMonitorLabelText(value: string): string[] {
   const text = value.trim();
   if (!text) return [];
@@ -837,7 +862,7 @@ function monitorLabelsFromValue(value: unknown): string[] {
 function monitorLabelsFromContent(value: string): string[] {
   const labels: string[] = [];
   for (const line of value.split(/\n+/)) {
-    const text = line.trim();
+    const text = stripMonitorTextMarkup(line);
     const match = text.match(
       /^(@?[A-Za-z][A-Za-z0-9_.-]{1,40})\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun|\d{4}-\d{2}-\d{2})\b/
     );

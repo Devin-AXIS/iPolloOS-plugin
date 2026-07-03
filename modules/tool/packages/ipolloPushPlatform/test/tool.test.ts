@@ -615,4 +615,64 @@ describe('ipolloPushPlatform', () => {
       'billackman'
     ]);
   });
+
+  it('ignores placeholder monitor labels and infers the object from formatted content', async () => {
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
+    process.env.IPOLLO_APP_REGISTER_URL =
+      'https://studio.ipollo.net/api/app-publish-callback?applicationId=aino-app-from-register';
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            eventId: 'evt-6',
+            matchedUserCount: 1,
+            deliveredCount: 1,
+            skippedCount: 0
+          }),
+          { status: 200 }
+        )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await sendIPolloPush(
+      {
+        agent_id: 'aino-bot-1',
+        monitor_object: '监控对象',
+        push_content: '**Lunnnnnnette** 2026-07-03 02:32\n（1）转发 @FoxNews：突发事件更新。'
+      },
+      {
+        systemVar: {
+          app: { id: 'fastgpt-app-1', name: 'Market Agent' },
+          user: {
+            id: 'user-1',
+            username: 'user',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: 'team-1',
+            name: 'User'
+          },
+          tool: { id: 'ipolloPushPlatform/send_ipollo_push', version: '1.2.0' },
+          time: '2026-06-29T00:00:00.000Z'
+        }
+      } as any
+    );
+
+    expect(result.ok).toBe(true);
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(init?.body));
+    expect(body.appCard.data.monitorObjectName).toBe('Lunnnnnnette');
+    expect(body.payload.monitor_object_name).toBe('Lunnnnnnette');
+    expect(body.payload.monitor_objects).toEqual(['Lunnnnnnette']);
+    expect(body.appCard.data.items[0]).toEqual(
+      expect.objectContaining({
+        objectId: 'o1',
+        timeId: 't1'
+      })
+    );
+    expect(body.appCard.data.times[0].value).toBe('2026-07-03 02:32');
+  });
 });
