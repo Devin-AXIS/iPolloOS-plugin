@@ -5,13 +5,27 @@ const emptyToUndefined = (value: unknown) =>
   value === '' || value === null || value === undefined ? undefined : value;
 
 const optionalText = z.preprocess(emptyToUndefined, z.string().max(100_000).optional());
+const optionalBoolean = z.preprocess((value) => {
+  const normalized = emptyToUndefined(value);
+  if (normalized === undefined || typeof normalized === 'boolean') return normalized;
+  if (typeof normalized !== 'string') return normalized;
+  const text = normalized.trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(text)) return true;
+  if (['false', '0', 'no', 'off'].includes(text)) return false;
+  return normalized;
+}, z.boolean().optional());
 
 export const InputType = z.object({
   agent_id: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
   application_id: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
   hook_url: z.preprocess(emptyToUndefined, z.string().max(4000).optional()),
+  use_custom_hook: optionalBoolean.default(false),
+  custom_hook_url: z.preprocess(emptyToUndefined, z.string().max(4000).optional()),
   text: z.preprocess(emptyToUndefined, z.string().max(500_000).optional()),
   push_content: z.preprocess(emptyToUndefined, z.string().max(500_000).optional()),
+  events_json: optionalText,
+  times_json: optionalText,
+  monitor_objects_json: optionalText,
   monitor_object: z.preprocess(emptyToUndefined, z.string().max(4000).optional()),
   monitor_object_name: z.preprocess(emptyToUndefined, z.string().max(4000).optional()),
   ai_summary: optionalText,
@@ -353,6 +367,8 @@ const MONITOR_OBJECT_ID_KEYS = [
 const MONITOR_OBJECT_NAME_KEYS = [
   'objectName',
   'object_name',
+  'monitorObject',
+  'monitor_object',
   'monitorObjectName',
   'monitor_object_name',
   'authorName',
@@ -443,6 +459,62 @@ function readRecordArrayFromSources(sources: unknown[], keys: string[]): Record<
   return [];
 }
 
+function buildStructuredInputSource(input: In): Record<string, unknown> | undefined {
+  const source: Record<string, unknown> = {};
+  const events = parseJsonLikeValue(input.events_json);
+  const times = parseJsonLikeValue(input.times_json);
+  const monitorObjects = parseJsonLikeValue(input.monitor_objects_json);
+  if (events !== undefined) {
+    source.events = events;
+    source.items = events;
+  }
+  if (times !== undefined) source.times = times;
+  if (monitorObjects !== undefined) source.monitorObjects = monitorObjects;
+  return Object.keys(source).length > 0 ? source : undefined;
+}
+
+function readEventRecords(input: In): Record<string, unknown>[] {
+  return parseRecordArray(input.events_json);
+}
+
+function resolveEventsJsonPushContent(input: In): string {
+  const lines = readEventRecords(input)
+    .map((record) => {
+      const objectName = readCleanString(record, MONITOR_OBJECT_NAME_KEYS);
+      const timeValue = readCleanString(record, MONITOR_TIME_VALUE_KEYS);
+      const content = readCleanString(record, MONITOR_CONTENT_KEYS);
+      const summary =
+        normalizeAiSummaryText(readString(record, MONITOR_EXPLICIT_AI_SUMMARY_KEYS)) ||
+        normalizeAiSummaryText(readString(record, MONITOR_SUMMARY_TEXT_KEYS));
+      return [objectName, timeValue, content || summary].filter(Boolean).join(' · ');
+    })
+    .map(normalizeContentText)
+    .filter(Boolean);
+  if (lines.length > 0) return lines.join('\n');
+  const parsed = parseJsonLikeValue(input.events_json);
+  return Array.isArray(parsed) && parsed.length > 0
+    ? normalizeContentText(JSON.stringify(parsed))
+    : '';
+}
+
+function resolveEventsJsonAiSummary(input: In): string {
+  for (const record of readEventRecords(input)) {
+    const summary =
+      normalizeAiSummaryText(readString(record, MONITOR_EXPLICIT_AI_SUMMARY_KEYS)) ||
+      normalizeAiSummaryText(readString(record, MONITOR_SUMMARY_TEXT_KEYS));
+    if (summary) return summary;
+  }
+  return '';
+}
+
+function resolveEventsJsonEventTime(input: In): string {
+  for (const record of readEventRecords(input)) {
+    const timeValue = readCleanString(record, MONITOR_TIME_VALUE_KEYS);
+    if (timeValue) return timeValue;
+  }
+  return parseLooseStringArray(input.times_json)[0] || '';
+}
+
 function readMonitorObjectRecordsFromSources(
   sources: unknown[]
 ): Array<{ id: string; name: string }> {
@@ -506,6 +578,10 @@ function readMonitorTimeRecordsFromSources(
 function collectMonitorSources(input: In, payload: Record<string, unknown> | undefined): unknown[] {
   const roots = [
     payload,
+    buildStructuredInputSource(input),
+    parseJsonLikeValue(input.events_json),
+    parseJsonLikeValue(input.times_json),
+    parseJsonLikeValue(input.monitor_objects_json),
     parseJsonLikeValue(input.push_content),
     parseJsonLikeValue(input.text),
     parseJsonLikeValue(input.payload_json),
@@ -784,15 +860,19 @@ function isAgentHookUrl(value: string | undefined): boolean {
 function normalizeHookUrlInput(input: In): In {
   const pushContent = input.push_content?.trim();
   const text = input.text?.trim();
+  const customHookUrl =
+    input.use_custom_hook && isAgentHookUrl(input.custom_hook_url)
+      ? input.custom_hook_url?.trim()
+      : undefined;
   const hookUrlFromContent = isAgentHookUrl(pushContent)
     ? pushContent
     : isAgentHookUrl(text)
       ? text
       : undefined;
-  if (!hookUrlFromContent) return input;
+  if (!hookUrlFromContent && !customHookUrl) return input;
   return {
     ...input,
-    hook_url: input.hook_url?.trim() || hookUrlFromContent,
+    hook_url: customHookUrl || input.hook_url?.trim() || hookUrlFromContent,
     push_content: isAgentHookUrl(pushContent) ? undefined : input.push_content,
     text: isAgentHookUrl(text) ? undefined : input.text
   };
@@ -852,6 +932,8 @@ function monitorLabelsFromValue(value: unknown): string[] {
         record.display_name ??
         record.objectName ??
         record.object_name ??
+        record.monitorObject ??
+        record.monitor_object ??
         record.monitorObjectName ??
         record.monitor_object_name ??
         record.authorName ??
@@ -892,6 +974,7 @@ function resolveMonitorObjects(input: In, payload: Record<string, unknown> | und
   const values = [
     input.monitor_object_name,
     input.monitor_object,
+    input.monitor_objects_json,
     payload?.monitor_object_names,
     payload?.monitorObjectNames,
     payload?.monitor_objects,
@@ -910,6 +993,7 @@ function resolveMonitorObjects(input: In, payload: Record<string, unknown> | und
   ];
   const explicit = values.flatMap(monitorLabelsFromValue);
   const content = [
+    input.events_json,
     input.push_content,
     input.text,
     payload?.push_content,
@@ -1002,6 +1086,7 @@ function resolveMonitorObject(input: In, payload: Record<string, unknown> | unde
 function resolveAiSummary(input: In, payload: Record<string, unknown> | undefined): string {
   return (
     normalizeAiSummaryText(input.ai_summary) ||
+    resolveEventsJsonAiSummary(input) ||
     normalizeAiSummaryText(pickString(payload, ['ai_summary', 'aiSummary'])) ||
     ''
   );
@@ -1010,6 +1095,7 @@ function resolveAiSummary(input: In, payload: Record<string, unknown> | undefine
 function resolveEventTime(input: In, payload: Record<string, unknown> | undefined): string {
   return (
     input.event_time?.trim() ||
+    resolveEventsJsonEventTime(input) ||
     pickString(payload, [
       'event_time',
       'eventTime',
@@ -1028,6 +1114,7 @@ function resolvePushContent(input: In, payload: Record<string, unknown> | undefi
   return (
     normalizeContentText(input.push_content) ||
     normalizeContentText(input.text) ||
+    resolveEventsJsonPushContent(input) ||
     normalizeContentText(
       pickString(payload, [
         'push_content',

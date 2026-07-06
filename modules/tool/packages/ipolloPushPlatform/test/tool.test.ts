@@ -427,6 +427,82 @@ describe('ipolloPushPlatform', () => {
     expect(body.payload.summaries).toEqual(structuredPayload.summaries);
   });
 
+  it('accepts OS workflow events_json fields without legacy push_content', async () => {
+    process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
+    process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
+    process.env.IPOLLO_APP_REGISTER_URL =
+      'https://studio.ipollo.net/api/app-publish-callback?applicationId=aino-app-from-register';
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            eventId: 'evt-events-json',
+            matchedUserCount: 1,
+            deliveredCount: 1,
+            skippedCount: 0
+          }),
+          { status: 200 }
+        )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const events = [
+      {
+        id: 'x-post-1',
+        monitorObject: 'Lunnnnnnette',
+        eventTime: '2026-07-06T05:00:00.000Z',
+        content: '市场开始重新定价 AI 应用的实际收入能力。',
+        aiSummary: '关注 AI 应用商业化的真实收入验证。'
+      }
+    ];
+
+    const result = await sendIPolloPush(
+      {
+        agent_id: 'aino-bot-1',
+        events_json: JSON.stringify(events),
+        times_json: JSON.stringify(['2026-07-06T05:00:00.000Z'])
+      },
+      {
+        systemVar: {
+          app: { id: 'fastgpt-app-1', name: 'Market Agent' },
+          user: {
+            id: 'user-1',
+            username: 'user',
+            contact: '',
+            membername: '',
+            teamName: '',
+            teamId: 'team-1',
+            name: 'User'
+          },
+          tool: { id: 'ipolloPushPlatform/send_ipollo_push', version: '1.2.0' },
+          time: '2026-07-06T05:00:00.000Z'
+        }
+      } as any
+    );
+
+    expect(result.ok).toBe(true);
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(init?.body));
+    expect(body.text).toBe('本次监控内容已更新，查看卡片获取摘要和变化。');
+    expect(body.appCard.data.monitorObjectName).toBe('Lunnnnnnette');
+    expect(body.appCard.data.changeContent).toContain('市场开始重新定价 AI 应用的实际收入能力。');
+    expect(body.appCard.data.summary).toBe('关注 AI 应用商业化的真实收入验证。');
+    expect(body.appCard.data.eventTime).toBe('2026-07-06T05:00:00.000Z');
+    expect(body.payload.items[0]).toEqual(
+      expect.objectContaining({
+        id: 'x-post-1',
+        objectId: 'o1',
+        timeId: 't1',
+        content: '市场开始重新定价 AI 应用的实际收入能力。'
+      })
+    );
+    expect(body.payload.monitorObjects).toEqual([{ id: 'o1', name: 'Lunnnnnnette' }]);
+    expect(body.payload.times).toEqual([{ id: 't1', value: '2026-07-06T05:00:00.000Z' }]);
+    expect(body.payload.summaries[0].summary).toBe('关注 AI 应用商业化的真实收入验证。');
+  });
+
   it('does not create an AI summary when ai_summary is empty', async () => {
     process.env.IPOLLO_APP_TASK_API_BASE_URL = 'https://aino.example.com/api';
     process.env.IPOLLO_APP_TASK_API_SECRET = 'secret-1';
