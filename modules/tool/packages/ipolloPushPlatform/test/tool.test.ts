@@ -128,6 +128,7 @@ describe('ipolloPushPlatform', () => {
     expect(String(url)).toBe(
       'https://aino.example.com/api/ai/agent/push-events?applicationId=aino-app-1'
     );
+    expect((init?.headers as Record<string, string>)['x-current-user-id']).toBe('app-user-1');
     const body = JSON.parse(String(init?.body));
     expect(body.agentId).toBe('aino-bot-1');
     expect(body.text).toBe('本次监控内容已更新，查看卡片获取摘要和变化。');
@@ -275,6 +276,7 @@ describe('ipolloPushPlatform', () => {
     expect(String(url)).toBe(
       'https://aino.example.com/api/ai/agent/push-events?applicationId=aino-app-from-register'
     );
+    expect((init?.headers as Record<string, string>)['x-current-user-id']).toBeUndefined();
     const body = JSON.parse(String(init?.body));
     expect(body.applicationId).toBe('aino-app-from-register');
     expect(body.text).toBe('本次监控内容已更新，查看卡片获取摘要和变化。');

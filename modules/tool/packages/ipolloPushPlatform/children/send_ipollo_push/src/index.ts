@@ -158,7 +158,7 @@ function getCurrentIPolloUserId(systemVar?: RunToolSecondParamsType['systemVar']
   const user = systemVar?.user as RunToolSecondParamsType['systemVar']['user'] & {
     appUserId?: string;
   };
-  return String(user?.appUserId || user?.id || '').trim();
+  return String(user?.appUserId || '').trim();
 }
 
 function getCurrentIPolloAgentId(systemVar?: RunToolSecondParamsType['systemVar']): string {
