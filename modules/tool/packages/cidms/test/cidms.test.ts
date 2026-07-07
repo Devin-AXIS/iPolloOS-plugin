@@ -8,6 +8,8 @@ import {
   firstOpenAiImageBase64
 } from '../lib/image';
 import { assetModelForType, buildVideoGenerationPayload } from '../lib/video';
+import { runReferenceAssetUpload, usageHintForPurpose } from '../lib/referenceAsset';
+import { queryVideoTaskOnce } from '../lib/videoTaskQuery';
 import {
   buildContinuityPrompt,
   buildTalkshowFirstPayload,
@@ -64,7 +66,9 @@ describe('cidms toolset config', () => {
     expect(cidmsConfig.toolId).toBe('cidms');
     expect(cidmsConfig.children?.map((child) => child.toolId)).toEqual([
       'cidms/cidmsImageGenerate',
-      'cidms/cidmsTalkshowVideoCreate'
+      'cidms/cidmsReferenceAssetUpload',
+      'cidms/cidmsTalkshowVideoCreate',
+      'cidms/cidmsVideoTaskQuery'
     ]);
   });
 
@@ -95,6 +99,110 @@ describe('cidms toolset config', () => {
     );
 
     expect(talkshow?.versionList?.[0]?.value).toBe('1.1.0');
+  });
+});
+
+describe('cidms reference asset upload helpers', () => {
+  it('uploads character reference as Image asset and returns usage hint', async () => {
+    const requests: Array<{ path: string; body?: unknown }> = [];
+    const out = await runReferenceAssetUpload(
+      {
+        seedance_api_key: 'key',
+        cidms_base_url: 'https://example.com',
+        asset_purpose: 'character_reference',
+        asset_url: 'https://example.com/host.png',
+        asset_name: ''
+      },
+      async (req) => {
+        requests.push({ path: req.path, body: req.body });
+        if (req.path === '/volc/asset/CreateAssetGroup') return { Id: 'group-1' };
+        if (req.path === '/volc/asset/CreateAsset') return { Id: 'asset-1' };
+        return {};
+      }
+    );
+
+    expect(requests[1]?.body).toMatchObject({
+      model: 'volc-asset',
+      GroupId: 'group-1',
+      AssetType: 'Image',
+      URL: 'https://example.com/host.png'
+    });
+    expect(out.asset_ref).toBe('asset://asset-1');
+    expect(out.usage_hint).toBe(usageHintForPurpose('character_reference'));
+  });
+
+  it('uploads continuation reference as Video asset', async () => {
+    const requests: Array<{ path: string; body?: unknown }> = [];
+    const out = await runReferenceAssetUpload(
+      {
+        seedance_api_key: 'key',
+        cidms_base_url: 'https://example.com',
+        asset_purpose: 'continuation_video',
+        asset_url: 'https://example.com/first.mp4',
+        asset_name: 'first segment'
+      },
+      async (req) => {
+        requests.push({ path: req.path, body: req.body });
+        if (req.path === '/volc/asset/CreateAssetGroup') return { Id: 'group-1' };
+        if (req.path === '/volc/asset/CreateAsset') return { Id: 'asset-video-1' };
+        return {};
+      }
+    );
+
+    expect(requests[1]?.body).toMatchObject({
+      model: 'volc-asset-video',
+      AssetType: 'Video',
+      Name: 'first segment'
+    });
+    expect(out.asset_type).toBe('Video');
+    expect(out.asset_ref).toBe('asset://asset-video-1');
+  });
+});
+
+describe('cidms video task query helpers', () => {
+  it('asks the host to continue polling when a task has no result url yet', async () => {
+    const out = await queryVideoTaskOnce(
+      {
+        seedance_api_key: 'key',
+        cidms_base_url: 'https://example.com',
+        task_id: 'agt-1'
+      },
+      async () => ({ task_id: 'agt-1', status: 'running', progress: 40 })
+    );
+
+    expect(out).toMatchObject({
+      task_id: 'agt-1',
+      status: 'running',
+      progress: 40,
+      result_url: '',
+      completed: false,
+      should_continue: true
+    });
+  });
+
+  it('stops polling when result url is available in nested response', async () => {
+    const out = await queryVideoTaskOnce(
+      {
+        seedance_api_key: 'key',
+        cidms_base_url: 'https://example.com',
+        task_id: 'agt-2'
+      },
+      async () => ({
+        id: 'agt-2',
+        status: 'succeeded',
+        progress: 100,
+        output: { video_url: 'https://example.com/video.mp4' }
+      })
+    );
+
+    expect(out).toMatchObject({
+      task_id: 'agt-2',
+      status: 'succeeded',
+      progress: 100,
+      result_url: 'https://example.com/video.mp4',
+      completed: true,
+      should_continue: false
+    });
   });
 });
 

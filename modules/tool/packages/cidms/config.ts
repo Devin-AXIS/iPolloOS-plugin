@@ -1,7 +1,9 @@
 import { defineToolSet } from '@tool/type';
 import { ToolTagEnum } from '@tool/type/tags';
 import cidmsImageGenerate from './children/cidmsImageGenerate';
+import cidmsReferenceAssetUpload from './children/cidmsReferenceAssetUpload';
 import cidmsTalkshowVideoCreate from './children/cidmsTalkshowVideoCreate';
+import cidmsVideoTaskQuery from './children/cidmsVideoTaskQuery';
 
 export default defineToolSet({
   toolId: 'cidms',
@@ -39,6 +41,8 @@ export default defineToolSet({
   ],
   children: [
     { ...cidmsImageGenerate, toolId: 'cidms/cidmsImageGenerate' },
-    { ...cidmsTalkshowVideoCreate, toolId: 'cidms/cidmsTalkshowVideoCreate' }
+    { ...cidmsReferenceAssetUpload, toolId: 'cidms/cidmsReferenceAssetUpload' },
+    { ...cidmsTalkshowVideoCreate, toolId: 'cidms/cidmsTalkshowVideoCreate' },
+    { ...cidmsVideoTaskQuery, toolId: 'cidms/cidmsVideoTaskQuery' }
   ] as any
 });
