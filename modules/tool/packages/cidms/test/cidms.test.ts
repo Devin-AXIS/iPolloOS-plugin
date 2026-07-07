@@ -100,6 +100,27 @@ describe('cidms toolset config', () => {
 
     expect(talkshow?.versionList?.[0]?.value).toBe('1.1.0');
   });
+
+  it('publishes video task query as a stateful polling trigger in version 1.1.2', () => {
+    const query = cidmsConfig.children?.find(
+      (child) => child.toolId === 'cidms/cidmsVideoTaskQuery'
+    );
+    const version = query?.versionList?.[0];
+
+    expect(version?.value).toBe('1.1.2');
+    expect(version?.inputs.map((input) => input.key)).toContain('state_json');
+    expect(version?.outputs.map((output) => output.key)).toEqual(
+      expect.arrayContaining(['next_state_json', 'events_json', 'count'])
+    );
+    expect(query?.runtime?.trigger?.state).toMatchObject({
+      inputKey: 'state_json',
+      outputKey: 'next_state_json'
+    });
+    expect(query?.runtime?.trigger?.event).toMatchObject({
+      outputKey: 'events_json',
+      dedupeKey: 'dedupeKey'
+    });
+  });
 });
 
 describe('cidms reference asset upload helpers', () => {
@@ -200,6 +221,69 @@ describe('cidms video task query helpers', () => {
       status: 'succeeded',
       progress: 100,
       result_url: 'https://example.com/video.mp4',
+      completed: true,
+      should_continue: false
+    });
+  });
+
+  it('uses task_id from state_json when polling trigger omits normal input', async () => {
+    const out = await queryVideoTaskOnce(
+      {
+        seedance_api_key: 'key',
+        cidms_base_url: 'https://example.com',
+        state_json: '{"task_id":"agt-state"}'
+      },
+      async (req) => {
+        expect(req.path).toBe('/v1/video/generations/agt-state');
+        return { id: 'agt-state', status: 'running', progress: 30 };
+      }
+    );
+
+    expect(out).toMatchObject({
+      task_id: 'agt-state',
+      status: 'running',
+      completed: false,
+      should_continue: true,
+      events_json: '[]',
+      count: 0
+    });
+    expect(JSON.parse(out.next_state_json)).toMatchObject({
+      task_id: 'agt-state',
+      status: 'running',
+      completed: false
+    });
+  });
+
+  it('emits one completion event and persisted state when result url is available', async () => {
+    const out = await queryVideoTaskOnce(
+      {
+        seedance_api_key: 'key',
+        cidms_base_url: 'https://example.com',
+        task_id: 'agt-3'
+      },
+      async () => ({
+        id: 'agt-3',
+        status: 'succeeded',
+        progress: 100,
+        output: { video_url: 'https://example.com/final.mp4' }
+      })
+    );
+
+    const events = JSON.parse(out.events_json);
+
+    expect(out.count).toBe(1);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      dedupeKey: 'cidms-video:agt-3',
+      eventType: 'cidms.video.completed',
+      data: {
+        task_id: 'agt-3',
+        result_url: 'https://example.com/final.mp4'
+      }
+    });
+    expect(JSON.parse(out.next_state_json)).toMatchObject({
+      task_id: 'agt-3',
+      result_url: 'https://example.com/final.mp4',
       completed: true,
       should_continue: false
     });
