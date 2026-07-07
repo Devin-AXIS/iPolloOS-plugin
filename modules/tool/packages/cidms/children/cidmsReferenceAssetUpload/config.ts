@@ -19,7 +19,7 @@ export default defineTool({
     'Upload a public image/video URL as a CIDMS reference asset. Use the returned asset_ref in video generation reference fields.',
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.1.4',
       description: '参考素材上传',
       inputs: [
         {

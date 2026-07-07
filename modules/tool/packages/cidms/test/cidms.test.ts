@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import cidmsConfig from '../config';
+import cidmsAssetConfig from '../children/cidmsAsset/config';
+import cidmsImageGenerateConfig from '../children/cidmsImageGenerate/config';
+import cidmsReferenceAssetUploadConfig from '../children/cidmsReferenceAssetUpload/config';
+import cidmsTalkshowVideoCreateConfig from '../children/cidmsTalkshowVideoCreate/config';
+import cidmsVideoCreateConfig from '../children/cidmsVideoCreate/config';
+import cidmsVideoQueryConfig from '../children/cidmsVideoQuery/config';
+import cidmsVideoTaskQueryConfig from '../children/cidmsVideoTaskQuery/config';
 import { normalizeCidmsBaseUrl, formatCidmsError, cidmsApiKey } from '../lib/client';
 import {
   buildGeminiImagePayload,
@@ -9,7 +16,7 @@ import {
 } from '../lib/image';
 import { assetModelForType, buildVideoGenerationPayload } from '../lib/video';
 import { runReferenceAssetUpload, usageHintForPurpose } from '../lib/referenceAsset';
-import { queryVideoTaskOnce } from '../lib/videoTaskQuery';
+import { queryVideoTaskUntilDone } from '../lib/videoTaskQuery';
 import {
   buildContinuityPrompt,
   buildTalkshowFirstPayload,
@@ -93,33 +100,40 @@ describe('cidms toolset config', () => {
     expect(inputKeys).not.toContain('client_reference_id');
   });
 
-  it('publishes talkshow video tool as version 1.1.0', () => {
-    const talkshow = cidmsConfig.children?.find(
-      (child) => child.toolId === 'cidms/cidmsTalkshowVideoCreate'
-    );
+  it('publishes all CIDMS child tool versions as 1.1.4', () => {
+    const configs = [
+      cidmsAssetConfig,
+      cidmsImageGenerateConfig,
+      cidmsReferenceAssetUploadConfig,
+      cidmsTalkshowVideoCreateConfig,
+      cidmsVideoCreateConfig,
+      cidmsVideoQueryConfig,
+      cidmsVideoTaskQueryConfig
+    ];
 
-    expect(talkshow?.versionList?.[0]?.value).toBe('1.1.0');
+    expect(
+      configs.flatMap((config) =>
+        (config.versionList ?? []).map((version) => ({
+          toolId: config.toolId,
+          version: version.value
+        }))
+      )
+    ).toEqual(configs.map((config) => ({ toolId: config.toolId, version: '1.1.4' })));
   });
 
-  it('publishes video task query as a stateful polling trigger in version 1.1.2', () => {
+  it('publishes video task query as an internal wait tool in version 1.1.4', () => {
     const query = cidmsConfig.children?.find(
       (child) => child.toolId === 'cidms/cidmsVideoTaskQuery'
     );
     const version = query?.versionList?.[0];
 
-    expect(version?.value).toBe('1.1.2');
-    expect(version?.inputs.map((input) => input.key)).toContain('state_json');
+    expect(version?.value).toBe('1.1.4');
+    expect(query?.runtime).toBeUndefined();
+    expect(version?.inputs.find((input) => input.key === 'task_id')?.required).toBe(true);
+    expect(version?.inputs.map((input) => input.key)).toContain('max_wait_seconds');
     expect(version?.outputs.map((output) => output.key)).toEqual(
-      expect.arrayContaining(['next_state_json', 'events_json', 'count'])
+      expect.arrayContaining(['poll_count', 'elapsed_seconds', 'timed_out'])
     );
-    expect(query?.runtime?.trigger?.state).toMatchObject({
-      inputKey: 'state_json',
-      outputKey: 'next_state_json'
-    });
-    expect(query?.runtime?.trigger?.event).toMatchObject({
-      outputKey: 'events_json',
-      dedupeKey: 'dedupeKey'
-    });
   });
 });
 
@@ -181,28 +195,76 @@ describe('cidms reference asset upload helpers', () => {
 });
 
 describe('cidms video task query helpers', () => {
-  it('asks the host to continue polling when a task has no result url yet', async () => {
-    const out = await queryVideoTaskOnce(
+  it('waits 10 seconds between task queries until result url is available', async () => {
+    const requests: string[] = [];
+    const sleeps: number[] = [];
+    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const out = await queryVideoTaskUntilDone(
       {
         seedance_api_key: 'key',
         cidms_base_url: 'https://example.com',
-        task_id: 'agt-1'
+        task_id: 'agt-1',
+        max_wait_seconds: 600
       },
-      async () => ({ task_id: 'agt-1', status: 'running', progress: 40 })
+      async (req) => {
+        requests.push(req.path);
+        return requests.length === 1
+          ? { task_id: 'agt-1', status: 'running', progress: 40 }
+          : {
+              task_id: 'agt-1',
+              status: 'succeeded',
+              progress: 100,
+              output: { video_url: 'https://example.com/video.mp4' }
+            };
+      },
+      async (ms) => {
+        sleeps.push(ms);
+      }
     );
+
+    const logs = info.mock.calls
+      .map((call) => (typeof call[0] === 'string' ? call[0] : ''))
+      .filter((line) => line.includes('cidms_video_poll'))
+      .map((line) => JSON.parse(line));
+    info.mockRestore();
 
     expect(out).toMatchObject({
       task_id: 'agt-1',
-      status: 'running',
-      progress: 40,
-      result_url: '',
-      completed: false,
-      should_continue: true
+      status: 'succeeded',
+      progress: 100,
+      result_url: 'https://example.com/video.mp4',
+      completed: true,
+      should_continue: false,
+      poll_count: 2,
+      timed_out: false
     });
+    expect(requests).toEqual(['/v1/video/generations/agt-1', '/v1/video/generations/agt-1']);
+    expect(sleeps).toEqual([10_000]);
+    expect(logs).toEqual([
+      expect.objectContaining({
+        event: 'cidms_video_poll',
+        task_id: 'agt-1',
+        poll_count: 1,
+        status: 'running',
+        progress: 40,
+        progress_available: true,
+        has_result_url: false
+      }),
+      expect.objectContaining({
+        event: 'cidms_video_poll',
+        task_id: 'agt-1',
+        poll_count: 2,
+        status: 'succeeded',
+        progress: 100,
+        progress_available: true,
+        has_result_url: true
+      })
+    ]);
   });
 
-  it('stops polling when result url is available in nested response', async () => {
-    const out = await queryVideoTaskOnce(
+  it('returns immediately when result url is available in nested response', async () => {
+    const sleeps: number[] = [];
+    const out = await queryVideoTaskUntilDone(
       {
         seedance_api_key: 'key',
         cidms_base_url: 'https://example.com',
@@ -213,7 +275,10 @@ describe('cidms video task query helpers', () => {
         status: 'succeeded',
         progress: 100,
         output: { video_url: 'https://example.com/video.mp4' }
-      })
+      }),
+      async (ms) => {
+        sleeps.push(ms);
+      }
     );
 
     expect(out).toMatchObject({
@@ -222,71 +287,84 @@ describe('cidms video task query helpers', () => {
       progress: 100,
       result_url: 'https://example.com/video.mp4',
       completed: true,
-      should_continue: false
+      should_continue: false,
+      poll_count: 1,
+      timed_out: false
     });
+    expect(sleeps).toEqual([]);
   });
 
-  it('uses task_id from state_json when polling trigger omits normal input', async () => {
-    const out = await queryVideoTaskOnce(
+  it('recognizes TokenStar video url returned under content.video_url', async () => {
+    const out = await queryVideoTaskUntilDone(
       {
         seedance_api_key: 'key',
         cidms_base_url: 'https://example.com',
-        state_json: '{"task_id":"agt-state"}'
-      },
-      async (req) => {
-        expect(req.path).toBe('/v1/video/generations/agt-state');
-        return { id: 'agt-state', status: 'running', progress: 30 };
-      }
-    );
-
-    expect(out).toMatchObject({
-      task_id: 'agt-state',
-      status: 'running',
-      completed: false,
-      should_continue: true,
-      events_json: '[]',
-      count: 0
-    });
-    expect(JSON.parse(out.next_state_json)).toMatchObject({
-      task_id: 'agt-state',
-      status: 'running',
-      completed: false
-    });
-  });
-
-  it('emits one completion event and persisted state when result url is available', async () => {
-    const out = await queryVideoTaskOnce(
-      {
-        seedance_api_key: 'key',
-        cidms_base_url: 'https://example.com',
-        task_id: 'agt-3'
+        task_id: 'agt-content',
+        max_wait_seconds: 0
       },
       async () => ({
-        id: 'agt-3',
+        id: 'agt-content',
         status: 'succeeded',
         progress: 100,
-        output: { video_url: 'https://example.com/final.mp4' }
+        content: { video_url: 'https://example.com/content-video.mp4' }
       })
     );
 
-    const events = JSON.parse(out.events_json);
-
-    expect(out.count).toBe(1);
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({
-      dedupeKey: 'cidms-video:agt-3',
-      eventType: 'cidms.video.completed',
-      data: {
-        task_id: 'agt-3',
-        result_url: 'https://example.com/final.mp4'
-      }
-    });
-    expect(JSON.parse(out.next_state_json)).toMatchObject({
-      task_id: 'agt-3',
-      result_url: 'https://example.com/final.mp4',
+    expect(out).toMatchObject({
+      task_id: 'agt-content',
+      status: 'succeeded',
+      result_url: 'https://example.com/content-video.mp4',
       completed: true,
-      should_continue: false
+      timed_out: false
     });
+  });
+
+  it('times out after first query when max wait is zero', async () => {
+    const out = await queryVideoTaskUntilDone(
+      {
+        seedance_api_key: 'key',
+        cidms_base_url: 'https://example.com',
+        task_id: 'agt-timeout',
+        max_wait_seconds: 0
+      },
+      async () => ({ id: 'agt-timeout', status: 'running', progress: 30 })
+    );
+
+    expect(out).toMatchObject({
+      task_id: 'agt-timeout',
+      status: 'running',
+      completed: false,
+      should_continue: true,
+      poll_count: 1,
+      timed_out: true
+    });
+    expect(out.system_error).toContain('timed out');
+  });
+
+  it('stops waiting when the task fails', async () => {
+    const out = await queryVideoTaskUntilDone(
+      {
+        seedance_api_key: 'key',
+        cidms_base_url: 'https://example.com',
+        task_id: 'agt-failed'
+      },
+      async () => ({
+        id: 'agt-failed',
+        status: 'failed',
+        progress: 90
+      })
+    );
+
+    expect(out).toMatchObject({
+      task_id: 'agt-failed',
+      status: 'failed',
+      result_url: '',
+      completed: true,
+      should_continue: false,
+      poll_count: 1,
+      timed_out: false
+    });
+    expect(out.system_error).toContain('failed');
   });
 });
 

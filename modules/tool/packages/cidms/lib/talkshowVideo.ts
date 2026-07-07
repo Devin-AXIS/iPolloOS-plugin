@@ -399,7 +399,7 @@ export function extractVideoResultUrl(data: unknown): string {
 
   if (!data || typeof data !== 'object') return '';
   const record = data as Record<string, unknown>;
-  for (const key of ['output', 'result', 'data', 'video', 'videos', 'items', 'results']) {
+  for (const key of ['output', 'result', 'data', 'content', 'video', 'videos', 'items', 'results']) {
     const nested = extractVideoResultUrl(record[key]);
     if (nested) return nested;
   }

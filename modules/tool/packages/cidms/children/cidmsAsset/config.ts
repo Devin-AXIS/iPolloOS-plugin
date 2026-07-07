@@ -18,7 +18,7 @@ export default defineTool({
     'Use create_group first, then upload_asset with GroupId and a public URL. The returned asset_ref can be passed to cidmsVideoCreate.reference_url.',
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.1.4',
       description: '素材组创建与素材上传',
       inputs: [
         {

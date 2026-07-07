@@ -18,7 +18,7 @@ export default defineTool({
     'Use CIDMS image generation. For gpt-image models, size/quality/output format apply. For Gemini image models, aspect ratio and image size apply.',
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.1.4',
       description: '支持 gpt-image 与 Gemini 图片生成',
       inputs: [
         {

@@ -18,7 +18,7 @@ export default defineTool({
     'Create a CIDMS video generation task. Use cidmsAsset first to upload face/character references, then pass asset://... as reference_url.',
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.1.4',
       description: 'Seedance 视频任务创建',
       inputs: [
         {

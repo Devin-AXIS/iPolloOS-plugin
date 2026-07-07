@@ -8,66 +8,38 @@ import {
 export default defineTool({
   toolId: 'cidms/cidmsVideoTaskQuery',
   name: {
-    'zh-CN': 'CIDMS 视频任务查询',
-    en: 'CIDMS Video Task Query'
+    'zh-CN': 'CIDMS 视频任务等待查询',
+    en: 'CIDMS Video Task Wait Query'
   },
   description: {
-    'zh-CN': '按任务 ID 查询视频生成结果。适合由主系统每 10s 触发一次，查到 URL 后停止。',
-    en: 'Query a video generation task by task ID. Designed for host-triggered polling every 10s until a URL is available.'
+    'zh-CN': '按任务 ID 查询视频生成结果。插件内部固定每 10 秒查询一次，查到视频 URL 或超时后返回。',
+    en: 'Query a video generation task by task ID. The tool waits internally and checks every 10 seconds until a video URL is available or the wait times out.'
   },
   toolDescription:
-    'Query a CIDMS video task once. The host system may store next_state_json and pass it back as state_json on the next polling run.',
-  runtime: {
-    kind: 'trigger',
-    trigger: {
-      type: 'polling',
-      configurableInterval: true,
-      schedule: {
-        minIntervalSeconds: 10,
-        defaultIntervalSeconds: 10,
-        maxIntervalSeconds: 300,
-        timeoutSeconds: 30,
-        jitterSeconds: 1
-      },
-      state: {
-        inputKey: 'state_json',
-        outputKey: 'next_state_json',
-        schemaVersion: 'cidms-video-task-state.v1',
-        resettable: true
-      },
-      event: {
-        outputKey: 'events_json',
-        schemaVersion: 'cidms-video-task-event.v1',
-        dedupeKey: 'dedupeKey',
-        occurredAtKey: 'occurredAt',
-        maxBatchEvents: 1
-      },
-      permissions: {
-        allowManualRun: true,
-        allowAutoRun: true
-      }
-    }
-  },
+    'Wait for a CIDMS video task result. This is a normal tool call, not a host polling trigger. It checks the task every 10 seconds internally.',
   versionList: [
     {
-      value: '1.1.2',
-      description: '视频任务轮询查询',
+      value: '1.1.4',
+      description: '视频任务等待查询',
       inputs: [
         {
           key: 'task_id',
           label: '任务 ID',
           valueType: WorkflowIOValueTypeEnum.string,
           renderTypeList: [FlowNodeInputTypeEnum.input, FlowNodeInputTypeEnum.reference],
-          required: false,
-          toolDescription: '视频生成任务返回的 task_id。首次运行需要填写，后续轮询可从 state_json 读取。'
+          required: true,
+          toolDescription: '视频生成任务返回的 task_id。'
         },
         {
-          key: 'state_json',
-          label: '轮询状态 JSON',
-          valueType: WorkflowIOValueTypeEnum.string,
-          renderTypeList: [FlowNodeInputTypeEnum.hidden, FlowNodeInputTypeEnum.reference],
+          key: 'max_wait_seconds',
+          label: '最大等待秒数',
+          valueType: WorkflowIOValueTypeEnum.number,
+          renderTypeList: [FlowNodeInputTypeEnum.numberInput, FlowNodeInputTypeEnum.reference],
+          defaultValue: 600,
+          min: 0,
+          max: 1800,
           required: false,
-          toolDescription: '主系统保存的上一次 next_state_json，用于轮询时保持 task_id。'
+          toolDescription: '最多等待多久。插件内部固定每 10 秒查询一次，默认最多等待 10 分钟。'
         }
       ],
       outputs: [
@@ -77,9 +49,9 @@ export default defineTool({
         { valueType: WorkflowIOValueTypeEnum.string, key: 'result_url', label: '视频地址' },
         { valueType: WorkflowIOValueTypeEnum.boolean, key: 'completed', label: '是否完成' },
         { valueType: WorkflowIOValueTypeEnum.boolean, key: 'should_continue', label: '是否继续查询' },
-        { valueType: WorkflowIOValueTypeEnum.string, key: 'next_state_json', label: '下次轮询状态 JSON' },
-        { valueType: WorkflowIOValueTypeEnum.string, key: 'events_json', label: '事件 JSON' },
-        { valueType: WorkflowIOValueTypeEnum.number, key: 'count', label: '事件数量' },
+        { valueType: WorkflowIOValueTypeEnum.number, key: 'poll_count', label: '查询次数' },
+        { valueType: WorkflowIOValueTypeEnum.number, key: 'elapsed_seconds', label: '耗时秒数' },
+        { valueType: WorkflowIOValueTypeEnum.boolean, key: 'timed_out', label: '是否超时' },
         { valueType: WorkflowIOValueTypeEnum.string, key: 'response_json', label: '接口返回 JSON' },
         {
           type: FlowNodeOutputTypeEnum.error,

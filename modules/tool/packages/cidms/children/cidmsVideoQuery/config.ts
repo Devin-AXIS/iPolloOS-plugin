@@ -17,7 +17,7 @@ export default defineTool({
   toolDescription: 'Query /v1/video/generations/{task_id}. Stop polling after terminal status.',
   versionList: [
     {
-      value: '1.0.0',
+      value: '1.1.4',
       description: '视频任务查询',
       inputs: [
         {

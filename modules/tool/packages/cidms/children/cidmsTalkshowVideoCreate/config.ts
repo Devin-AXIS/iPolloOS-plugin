@@ -19,7 +19,7 @@ export default defineTool({
     'Generate a 15s or 30s talkshow/oral video. For 30s, the first 15s segment is generated first, then used as a video reference to continue the second 15s segment.',
   versionList: [
     {
-      value: '1.1.0',
+      value: '1.1.4',
       description: '15s/30s talkshow video workflow',
       inputs: [
         {
