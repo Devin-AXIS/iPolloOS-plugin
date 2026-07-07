@@ -1,7 +1,10 @@
 import { defineToolSet } from '@tool/type';
 import { ToolTagEnum } from '@tool/type/tags';
+import cidmsImageGenerate from './children/cidmsImageGenerate';
+import cidmsTalkshowVideoCreate from './children/cidmsTalkshowVideoCreate';
 
 export default defineToolSet({
+  toolId: 'cidms',
   tags: [ToolTagEnum.enum.multimodal],
   name: {
     'zh-CN': 'CIDMS 图像与视频',
@@ -33,5 +36,9 @@ export default defineToolSet({
       inputType: 'input',
       defaultValue: 'https://token-gateway.clawos.metacarbon-inc.com'
     }
-  ]
+  ],
+  children: [
+    { ...cidmsImageGenerate, toolId: 'cidms/cidmsImageGenerate' },
+    { ...cidmsTalkshowVideoCreate, toolId: 'cidms/cidmsTalkshowVideoCreate' }
+  ] as any
 });
